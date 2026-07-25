@@ -1,0 +1,19 @@
+[tools.uv]
+version = "0.11.26"
+policy = "minimum"
+
+[tools.tofu]
+version = "1.10.0"
+policy = "minimum"
+
+[tools.ansible-playbook]
+version = "2.16.0"
+policy = "minimum"
+
+[tools.checkov]
+version = "3.2.529"
+policy = "exact"
+
+[tools.gitleaks]
+version = "8.30.1"
+policy = "exact"

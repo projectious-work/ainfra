@@ -7,6 +7,7 @@ from ipaddress import ip_network
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from ainfra.contracts import repository_root
 from ainfra.errors import SafetyError
 
 SECRET_KEY = re.compile(
@@ -15,7 +16,8 @@ SECRET_KEY = re.compile(
 )
 SECRET_VALUE = re.compile(
     r"(?:-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"
-    r"|hcloud_[A-Za-z0-9]{16,}|gh[opsu]_[A-Za-z0-9]{20,})"
+    r"|hcloud_[A-Za-z0-9]{16,}|gh[opsu]_[A-Za-z0-9]{20,}"
+    r"|AINFRA_TEST_SECRET_DO_NOT_USE)"
 )
 
 
@@ -158,6 +160,17 @@ def _validate_reference(
             f"{pointer}/name",
             "local-file reference must be relative and contain no '..'",
         )
+    allowed_root = (repository_root() / ".ainfra").resolve()
+    resolved = (repository_root() / path).resolve()
+    try:
+        resolved.relative_to(allowed_root)
+    except ValueError as exc:
+        raise _error(
+            "P112",
+            source,
+            f"{pointer}/name",
+            "local-file reference must stay beneath .ainfra/",
+        ) from exc
 
 
 def _reject_secret_content(

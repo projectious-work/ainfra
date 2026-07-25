@@ -7,11 +7,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import Version
+
+from ainfra import __version__
 from ainfra.contracts import repository_root, validate_path
 from ainfra.errors import ContractError, SafetyError
 
 TEMPLATE_NAME = re.compile(r"^[a-z][a-z0-9-]{2,62}$")
-SUPPORTED_WRAPPER_RANGE = ">=0.1.0 <0.2.0"
 SUPPORTED_CAPABILITIES = {
     "provider.hetzner-cloud",
     "target.kubernetes-ready",
@@ -62,19 +65,31 @@ def discover_template(name: str) -> Template:
         raise SafetyError(
             f"[P003] manifest name {actual_name!r} does not match {name!r}"
         )
+    validate_manifest_compatibility(manifest)
+    _validate_manifest_paths(manifest, root)
+    return Template(name, root, manifest_path, manifest)
+
+
+def validate_manifest_compatibility(manifest: dict[str, Any]) -> None:
+    """Require the running wrapper and every declared capability."""
+
     wrapper_range = manifest["spec"]["requiresWrapper"]
-    if wrapper_range != SUPPORTED_WRAPPER_RANGE:
+    try:
+        specifier = SpecifierSet(",".join(wrapper_range.split()))
+    except InvalidSpecifier as exc:
         raise SafetyError(
-            "[P008] unsupported wrapper version range "
-            f"{wrapper_range!r}; expected {SUPPORTED_WRAPPER_RANGE!r}"
+            f"[P008] invalid wrapper version range {wrapper_range!r}"
+        ) from exc
+    running = Version(Version(__version__).base_version)
+    if running not in specifier:
+        raise SafetyError(
+            f"[P008] wrapper {running} does not satisfy {wrapper_range!r}"
         )
     unknown = set(manifest["spec"]["capabilities"]) - SUPPORTED_CAPABILITIES
     if unknown:
         raise SafetyError(
             f"[P009] unsupported capabilities: {', '.join(sorted(unknown))}"
         )
-    _validate_manifest_paths(manifest, root)
-    return Template(name, root, manifest_path, manifest)
 
 
 def _validate_manifest_paths(

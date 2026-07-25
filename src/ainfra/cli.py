@@ -44,6 +44,11 @@ def _parser() -> argparse.ArgumentParser:
         help="report local dependency readiness without mutation",
     )
     doctor.add_argument("--format", choices=("text", "json"), default="text")
+    doctor.add_argument(
+        "--input",
+        type=Path,
+        help="validate backend readiness for this actual environment input",
+    )
     for command in ("plan", "apply", "destroy", "outputs"):
         lifecycle = subparsers.add_parser(
             command,
@@ -90,9 +95,9 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "doctor":
-        checks = run_doctor()
+        checks = run_doctor(args.input)
         if args.format == "json":
-            print(json.dumps(serialized_checks(), sort_keys=True))
+            print(json.dumps(serialized_checks(checks), sort_keys=True))
         else:
             for check in checks:
                 found = f" ({check.found})" if check.found else ""

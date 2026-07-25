@@ -32,3 +32,29 @@ def test_serialized_doctor_has_stable_fields() -> None:
         "required",
         "remediation",
     }
+
+
+def test_exact_version_policy() -> None:
+    assert doctor._version_matches("8.30.1", "8.30.1", "exact")
+    assert not doctor._version_matches("8.30.2", "8.30.1", "exact")
+
+
+def test_minimum_version_policy() -> None:
+    assert doctor._version_matches("1.11.0", "1.10.0", "minimum")
+    assert not doctor._version_matches("1.9.9", "1.10.0", "minimum")
+
+
+def test_doctor_checks_selected_backend_input() -> None:
+    path = (
+        doctor.repository_root()
+        / "tests"
+        / "fixtures"
+        / "policy"
+        / "v1alpha1"
+        / "valid"
+        / "remote-input.json"
+    )
+    checks = doctor.run_doctor(path)
+    backend = next(check for check in checks if check.id == "backend-policy")
+    assert backend.status == "pass"
+    assert backend.found == str(path)
