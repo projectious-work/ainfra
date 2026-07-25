@@ -6,13 +6,16 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from dataclasses import asdict
 from pathlib import Path
 
 from ainfra import __version__
 from ainfra.contracts import validate_path
 from ainfra.doctor import run_doctor, serialized_checks
 from ainfra.errors import AinfraError, DependencyError, GuardError
+from ainfra.lifecycle import Lifecycle
 from ainfra.policy import validate_policy
+from ainfra.runner import SubprocessRunner
 from ainfra.template import discover_template
 
 
@@ -49,12 +52,39 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="validate backend readiness for this actual environment input",
     )
-    for command in ("plan", "apply", "destroy", "outputs"):
-        lifecycle = subparsers.add_parser(
-            command,
-            help=f"{command} support is introduced in Milestone 2",
-        )
-        lifecycle.add_argument("template")
+    plan = subparsers.add_parser("plan", help="create a reviewable plan")
+    plan.add_argument("template")
+    plan.add_argument("--input", type=Path, required=True)
+    plan.add_argument(
+        "--destroy",
+        action="store_true",
+        help="create a reviewed destroy plan without applying it",
+    )
+    plan.add_argument("--format", choices=("text", "json"), default="text")
+
+    apply = subparsers.add_parser("apply", help="apply an exact reviewed plan")
+    apply.add_argument("template")
+    apply.add_argument("--input", type=Path, required=True)
+    apply.add_argument("--approve", required=True, metavar="PLAN_ID")
+
+    destroy = subparsers.add_parser(
+        "destroy",
+        help="destroy an exact ownership scope",
+    )
+    destroy.add_argument("template")
+    destroy.add_argument("--input", type=Path, required=True)
+    destroy.add_argument(
+        "--approve-destroy",
+        required=True,
+        metavar="SCOPE_TOKEN",
+    )
+
+    outputs = subparsers.add_parser(
+        "outputs",
+        help="read the sanitized standardized output",
+    )
+    outputs.add_argument("template")
+    outputs.add_argument("--format", choices=("json", "yaml"), default="json")
     return parser
 
 
@@ -108,9 +138,45 @@ def _run(args: argparse.Namespace) -> int:
             raise DependencyError(f"doctor checks failed: {names}")
         return 0
 
-    raise GuardError(
-        f"{args.command} is not available until the guarded lifecycle milestone"
-    )
+    lifecycle = Lifecycle(SubprocessRunner())
+    if args.command == "plan":
+        record = lifecycle.plan(
+            args.template,
+            args.input,
+            destroy=args.destroy,
+        )
+        if args.format == "json":
+            print(json.dumps(asdict(record), sort_keys=True))
+        else:
+            print(f"plan {record.id}")
+            print(f"{record.operation} approval: {record.id}")
+        return 0
+    if args.command == "apply":
+        command_result = lifecycle.apply(
+            args.template,
+            args.input,
+            args.approve,
+        )
+        print(command_result.stdout, end="")
+        return 0
+    if args.command == "destroy":
+        command_result = lifecycle.destroy(
+            args.template,
+            args.input,
+            args.approve_destroy,
+        )
+        print(command_result.stdout, end="")
+        return 0
+    if args.command == "outputs":
+        document = lifecycle.outputs(args.template)
+        if args.format == "yaml":
+            import yaml  # type: ignore[import-untyped]
+
+            print(yaml.safe_dump(document, sort_keys=False), end="")
+        else:
+            print(json.dumps(document, indent=2, sort_keys=True))
+        return 0
+    raise GuardError(f"unsupported lifecycle command: {args.command}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

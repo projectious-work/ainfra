@@ -35,7 +35,20 @@ def test_invalid_contract_has_stable_exit(capsys: object) -> None:
 
 
 def test_unimplemented_lifecycle_is_guarded(capsys: object) -> None:
-    assert main(["apply", "hetzner-kubernetes-baseline"]) == 6
+    path = FIXTURES / "valid" / "template-input.json"
+    assert (
+        main(
+            [
+                "apply",
+                "hetzner-kubernetes-baseline",
+                "--input",
+                str(path),
+                "--approve",
+                "missing-plan",
+            ]
+        )
+        == 6
+    )
     captured = capsys.readouterr()  # type: ignore[attr-defined]
     assert "AINFRA-E600" in captured.err
 
