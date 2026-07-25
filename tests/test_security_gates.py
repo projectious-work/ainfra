@@ -53,5 +53,7 @@ def test_bootstrap_is_exact_and_checksum_verified() -> None:
     )
     assert "checkov==3.2.529" in bootstrap
     assert "gitleaks_8.30.1_checksums.txt" in bootstrap
-    assert "sha256sum -c -" in bootstrap
+    assert "sha256sum -c expected-checksum" in bootstrap
+    assert 'grep -F "  $archive"' in bootstrap
+    assert "wc -l <expected-checksum" in bootstrap
     assert "latest" not in bootstrap
