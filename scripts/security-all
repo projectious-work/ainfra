@@ -1,0 +1,36 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+PATH="$repo_root/.ainfra/tools/bin:$PATH"
+export PATH
+
+if ! command -v checkov >/dev/null 2>&1; then
+  echo "checkov 3.2.529 is required on PATH" >&2
+  exit 1
+fi
+checkov_version=$(checkov --version)
+if [ "$checkov_version" != "3.2.529" ]; then
+  echo "checkov 3.2.529 required; found $checkov_version" >&2
+  exit 1
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks 8.30.1 is required on PATH" >&2
+  exit 1
+fi
+gitleaks_version=$(gitleaks version)
+if [ "$gitleaks_version" != "8.30.1" ]; then
+  echo "gitleaks 8.30.1 required; found $gitleaks_version" >&2
+  exit 1
+fi
+
+checkov \
+  --directory templates \
+  --framework terraform \
+  --skip-download \
+  --download-external-modules false \
+  --quiet
+gitleaks dir --redact --no-banner --exit-code 1 .
+scripts/security-smoke

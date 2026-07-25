@@ -1,0 +1,44 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+tool_root="$repo_root/.ainfra/tools"
+tool_bin="$tool_root/bin"
+temporary=$(mktemp -d "${TMPDIR:-/tmp}/ainfra-tools.XXXXXX")
+trap 'rm -rf "$temporary"' EXIT HUP INT TERM
+
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) archive_platform=linux_x64 ;;
+  Linux-aarch64 | Linux-arm64) archive_platform=linux_arm64 ;;
+  Darwin-x86_64) archive_platform=darwin_x64 ;;
+  Darwin-arm64) archive_platform=darwin_arm64 ;;
+  *)
+    echo "unsupported platform: $(uname -s)-$(uname -m)" >&2
+    exit 2
+    ;;
+esac
+
+mkdir -p "$tool_bin" "$tool_root/uv"
+UV_TOOL_BIN_DIR="$tool_bin" UV_TOOL_DIR="$tool_root/uv" \
+  uv tool install --force checkov==3.2.529
+
+archive="gitleaks_8.30.1_${archive_platform}.tar.gz"
+release="https://github.com/gitleaks/gitleaks/releases/download/v8.30.1"
+curl -fsSLo "$temporary/$archive" "$release/$archive"
+curl -fsSLo "$temporary/checksums.txt" \
+  "$release/gitleaks_8.30.1_checksums.txt"
+(
+  cd "$temporary"
+  if command -v sha256sum >/dev/null 2>&1; then
+    grep "  $archive\$" checksums.txt | sha256sum -c -
+  else
+    grep "  $archive\$" checksums.txt | shasum -a 256 -c -
+  fi
+  tar -xzf "$archive" gitleaks
+)
+install -m 0755 "$temporary/gitleaks" "$tool_bin/gitleaks"
+
+PATH="$tool_bin:$PATH"
+export PATH
+test "$(checkov --version)" = "3.2.529"
+test "$(gitleaks version)" = "8.30.1"
