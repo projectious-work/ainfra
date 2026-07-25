@@ -38,3 +38,20 @@ def test_unimplemented_lifecycle_is_guarded(capsys: object) -> None:
     assert main(["apply", "hetzner-kubernetes-baseline"]) == 6
     captured = capsys.readouterr()  # type: ignore[attr-defined]
     assert "AINFRA-E600" in captured.err
+
+
+def test_validate_template_with_input(capsys: object) -> None:
+    path = FIXTURES / "valid" / "template-input.json"
+    assert (
+        main(
+            [
+                "validate",
+                "hetzner-kubernetes-baseline",
+                "--input",
+                str(path),
+            ]
+        )
+        == 0
+    )
+    captured = capsys.readouterr()  # type: ignore[attr-defined]
+    assert "valid InfrastructureTemplate" in captured.out
