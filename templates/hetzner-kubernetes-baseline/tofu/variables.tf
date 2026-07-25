@@ -63,10 +63,15 @@ variable "private_cidr" {
   default     = "10.42.0.0/16"
 
   validation {
-    condition = can(cidrnetmask(var.private_cidr)) && (
+    condition = can(cidrnetmask(var.private_cidr)) && can(
+      regex(
+        "^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)",
+        var.private_cidr,
+      )
+      ) && (
       tonumber(split("/", var.private_cidr)[1]) >= 16
     )
-    error_message = "private_cidr must be IPv4 /16 or narrower."
+    error_message = "private_cidr must be RFC1918 IPv4 /16 or narrower."
   }
 }
 
@@ -86,6 +91,18 @@ variable "management_ingress_cidrs" {
   description = "Explicit narrow CIDRs allowed to reach public SSH."
   type        = list(string)
   default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.management_ingress_cidrs :
+      can(cidrhost(cidr, 0)) &&
+      can(tonumber(split("/", cidr)[1])) &&
+      tonumber(split("/", cidr)[1]) >= (
+        strcontains(cidr, ":") ? 64 : 24
+      )
+    ])
+    error_message = "management CIDRs must be IPv4 /24 or IPv6 /64 or narrower."
+  }
 }
 
 variable "workload_ingress_cidrs" {

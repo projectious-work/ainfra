@@ -41,8 +41,3 @@ resource "hcloud_firewall" "nodes" {
     }
   }
 }
-
-resource "hcloud_firewall_attachment" "nodes" {
-  firewall_id = hcloud_firewall.nodes.id
-  server_ids  = local.all_server_ids
-}

@@ -43,3 +43,15 @@ def test_no_public_ssh_rule_without_explicit_cidrs() -> None:
     firewall = _read("firewall.tf")
     assert "var.management_ingress_cidrs" in firewall
     assert "var.public_ipv4 || var.public_ipv6" in firewall
+
+
+def test_firewall_is_attached_during_server_creation() -> None:
+    servers = _read("servers.tf")
+    assert servers.count("firewall_ids = [hcloud_firewall.nodes.id]") == 2
+    assert 'resource "hcloud_firewall_attachment"' not in _read("firewall.tf")
+
+
+def test_direct_tool_management_cidrs_are_narrow() -> None:
+    variables = _read("variables.tf")
+    assert "management CIDRs must be IPv4 /24 or IPv6 /64" in variables
+    assert "strcontains(cidr" in variables
