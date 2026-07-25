@@ -4,10 +4,10 @@ kind: WorkItem
 metadata:
   id: BACK-20260724_2005-CuriousCoral-implement-validation-core-doctor
   created: '2026-07-24T20:05:10+00:00'
-  updated: '2026-07-25T09:17:26+00:00'
+  updated: '2026-07-25T09:20:01+00:00'
 spec:
   title: Implement contract validation core and validate/doctor commands
-  state: review
+  state: done
   type: story
   priority: high
   description: Milestone 1 / PR 2. Implement template discovery confinement, strict
@@ -16,6 +16,7 @@ spec:
     and actionable validate/doctor diagnostics with negative tests.
   parent: BACK-20260724_2005-FastWren-deliver-secure-ainfra-templates
   started_at: '2026-07-25T09:05:52+00:00'
+  completed_at: '2026-07-25T09:20:01+00:00'
 ---
 
 ## Transition note (2026-07-25T09:05:52+00:00)
@@ -26,3 +27,8 @@ Starting semantic policy validation, template discovery, and doctor implementati
 ## Transition note (2026-07-25T09:17:26+00:00)
 
 Validation core and doctor completed at a8eb3ff+b6b8c7a; 42 local tests pass and review blockers were resolved.
+
+
+## Transition note (2026-07-25T09:20:01+00:00)
+
+Merged into v0.1-dev with 42 passing local tests.
