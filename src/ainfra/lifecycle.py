@@ -222,6 +222,7 @@ class Lifecycle:
                     "tofu",
                     "init",
                     "-input=false",
+                    "-lockfile=readonly",
                     "-reconfigure",
                     *_backend_args(document),
                 ],

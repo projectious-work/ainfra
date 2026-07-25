@@ -55,6 +55,7 @@ def test_plan_uses_explicit_argv_and_records_binding(
     record = Lifecycle(runner).plan("hetzner-kubernetes-baseline", INPUT)
     assert len(runner.calls) == 2
     assert runner.calls[0][0][:2] == ("tofu", "init")
+    assert "-lockfile=readonly" in runner.calls[0][0]
     assert runner.calls[1][0][:2] == ("tofu", "plan")
     assert Path(record.plan_path).is_file()
     assert "fixture-secret" not in " ".join(runner.calls[1][0])
