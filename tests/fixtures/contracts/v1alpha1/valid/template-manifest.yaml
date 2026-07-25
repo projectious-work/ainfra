@@ -1,0 +1,35 @@
+apiVersion: ainfra.projectious.work/v1alpha1
+kind: InfrastructureTemplate
+metadata:
+  name: hetzner-kubernetes-baseline
+  version: 0.1.0
+  description: Secure Kubernetes-ready Hetzner baseline
+spec:
+  requiresWrapper: ">=0.1.0 <0.2.0"
+  engines:
+    tofu:
+      workingDirectory: tofu
+      minimumVersion: ">=1.10.0"
+    ansible:
+      workingDirectory: ansible
+      minimumVersion: ">=2.16.0"
+  inputs:
+    schema: ../../schemas/template-input.v1alpha1.json
+    examples:
+      - inputs/example.auto.tfvars.json
+  output:
+    schema: ../../schemas/template-output.v1alpha1.json
+    file: .ainfra/output.json
+  capabilities:
+    - provider.hetzner-cloud
+    - target.kubernetes-ready
+    - access.ssh
+    - network.private
+    - security.hardening
+  security:
+    requireRemoteEncryptedState: true
+    prohibitGeneratedPrivateKeys: true
+    prohibitRootPasswordAuthentication: true
+    requirePinnedProviderVersions: true
+    requirePinnedAnsibleCollections: true
+    requireNoPublicManagementIngressByDefault: true

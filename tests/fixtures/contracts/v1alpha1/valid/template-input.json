@@ -1,0 +1,39 @@
+{
+  "apiVersion": "ainfra.projectious.work/v1alpha1",
+  "kind": "TemplateInput",
+  "metadata": {
+    "template": "hetzner-kubernetes-baseline",
+    "environment": "development",
+    "disposable": true
+  },
+  "spec": {
+    "provider": {
+      "location": "fsn1",
+      "projectTokenRef": {
+        "type": "environment",
+        "name": "HCLOUD_TOKEN"
+      }
+    },
+    "topology": {
+      "controlPlaneCount": 1,
+      "workerCount": 0,
+      "image": "debian-13",
+      "serverType": "cx23"
+    },
+    "network": {
+      "privateCidr": "10.42.0.0/16",
+      "publicIPv4": false,
+      "publicIPv6": false,
+      "managementIngressCidrs": [],
+      "workloadIngressCidrs": []
+    },
+    "access": {
+      "adminSshPublicKeys": [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFAKEFIXTURE operator@example.invalid"
+      ]
+    },
+    "state": {
+      "mode": "local-disposable"
+    }
+  }
+}
