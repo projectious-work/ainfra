@@ -1,0 +1,14 @@
+---
+- name: Enable persistent systemd journal storage
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: ^#?Storage=
+    line: Storage=persistent
+    mode: "0644"
+  notify: Restart journald
+
+- name: Ensure audit service is enabled
+  ansible.builtin.service:
+    name: auditd
+    enabled: true
+    state: started

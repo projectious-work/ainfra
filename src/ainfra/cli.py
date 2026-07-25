@@ -13,6 +13,7 @@ from ainfra import __version__
 from ainfra.contracts import validate_path
 from ainfra.doctor import run_doctor, serialized_checks
 from ainfra.errors import AinfraError, DependencyError, GuardError
+from ainfra.inventory import write_inventory
 from ainfra.lifecycle import Lifecycle
 from ainfra.policy import validate_policy
 from ainfra.runner import SubprocessRunner
@@ -85,6 +86,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     outputs.add_argument("template")
     outputs.add_argument("--format", choices=("json", "yaml"), default="json")
+
+    inventory = subparsers.add_parser(
+        "inventory",
+        help="generate Ansible inventory from standardized output",
+    )
+    inventory.add_argument("--output", type=Path, required=True)
+    inventory.add_argument("--destination", type=Path, required=True)
     return parser
 
 
@@ -175,6 +183,10 @@ def _run(args: argparse.Namespace) -> int:
             print(yaml.safe_dump(document, sort_keys=False), end="")
         else:
             print(json.dumps(document, indent=2, sort_keys=True))
+        return 0
+    if args.command == "inventory":
+        write_inventory(args.output, args.destination)
+        print(f"inventory written: {args.destination}")
         return 0
     raise GuardError(f"unsupported lifecycle command: {args.command}")
 

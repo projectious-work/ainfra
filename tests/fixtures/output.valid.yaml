@@ -1,0 +1,29 @@
+apiVersion: ainfra.projectious.work/v1alpha1
+kind: InfrastructureOutput
+metadata:
+  template: hetzner-kubernetes-baseline
+  templateVersion: 0.1.0
+  environment: fixture
+spec:
+  target:
+    type: kubernetes-ready
+    name: fixture
+    provider: hetzner-cloud
+  access:
+    ssh:
+      hostAliases:
+        - fixture-worker-01
+        - fixture-control-01
+      transport: private-network
+  network:
+    privateCidrs:
+      - 10.42.0.0/16
+  nodes:
+    - name: fixture-worker-01
+      role: worker
+      privateIPv4: 10.42.0.11
+      image: debian-13
+    - name: fixture-control-01
+      role: control-plane-capable
+      privateIPv4: 10.42.0.10
+      image: debian-13

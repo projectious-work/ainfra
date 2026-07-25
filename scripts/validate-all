@@ -13,3 +13,4 @@ uv run --frozen ruff format --check src tests
 uv run --frozen ruff check src tests
 uv run --frozen mypy src
 uv run --frozen pytest
+scripts/test-ansible

@@ -1,0 +1,6 @@
+---
+ainfra_admin_user: ainfra
+ainfra_ssh_port: 22
+ainfra_management_ingress_cidrs: []
+ainfra_unattended_reboot: false
+ainfra_unattended_reboot_time: "03:30"

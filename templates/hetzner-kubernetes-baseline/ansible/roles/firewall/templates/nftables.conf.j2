@@ -1,0 +1,25 @@
+#!/usr/sbin/nft -f
+flush ruleset
+
+table inet filter {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    ct state established,related accept
+    iifname "lo" accept
+    ip protocol icmp accept
+    ip6 nexthdr ipv6-icmp accept
+    ip saddr {{ ainfra_private_cidr }} tcp dport {{ ainfra_ssh_port }} accept
+{% for cidr in ainfra_management_ingress_cidrs %}
+{% set family = "ip6" if ":" in cidr else "ip" %}
+    {{ family }} saddr {{ cidr }} tcp dport {{ ainfra_ssh_port }} accept
+{% endfor %}
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+  }
+
+  chain output {
+    type filter hook output priority 0; policy accept;
+  }
+}
