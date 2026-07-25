@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+if [ -d .github/workflows ]; then
+  echo "GitHub Actions and workflow files are prohibited." >&2
+  exit 1
+fi
+
+uv run --frozen ruff format --check src tests
+uv run --frozen ruff check src tests
+uv run --frozen mypy src
+uv run --frozen pytest

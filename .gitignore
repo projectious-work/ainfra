@@ -1,5 +1,15 @@
 # ── Project-specific ─────────────────────────────────────────────────────────
 # Add your project-specific ignore patterns here.
+.ainfra/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.auto.tfvars
+!*.auto.tfvars.example
+.terraform/
+crash.log
+crash.*.log
+tests/.tmp/
 
 
 # ── aibox generated ────────────────────────────────────────────────────────

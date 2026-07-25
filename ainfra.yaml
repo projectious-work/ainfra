@@ -1,0 +1,8 @@
+apiVersion: ainfra.projectious.work/v1alpha1
+kind: TemplateCatalog
+metadata:
+  name: ainfra-templates
+spec:
+  discoveryRoot: templates
+  supportedTemplateApiVersions:
+    - ainfra.projectious.work/v1alpha1
