@@ -1,0 +1,31 @@
+#cloud-config
+users:
+  - name: ainfra
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys: ${jsonencode(admin_ssh_public_keys)}
+
+disable_root: true
+ssh_pwauth: false
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - python3
+  - sudo
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-ainfra-hardening.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+
+runcmd:
+  - [sshd, -t]
+  - [systemctl, reload, ssh]

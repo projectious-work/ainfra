@@ -1,0 +1,12 @@
+terraform {
+  backend "s3" {
+    # Non-secret settings only. Supply credentials through environment or a
+    # conventional credential file. Enable encryption, versioning, locking,
+    # TLS, and access control in the selected capability-tested backend.
+    bucket       = "replace-with-state-bucket"
+    key          = "ainfra/replace-with-environment.tfstate"
+    region       = "replace-with-region"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
