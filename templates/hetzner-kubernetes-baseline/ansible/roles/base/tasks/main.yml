@@ -1,0 +1,36 @@
+---
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - ca-certificates
+      - chrony
+      - curl
+      - unattended-upgrades
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Enable unattended security upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: Configure unattended-upgrade reboot policy
+  ansible.builtin.template:
+    src: 52ainfra-unattended-upgrades.j2
+    dest: /etc/apt/apt.conf.d/52ainfra-unattended-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure time synchronization is enabled
+  ansible.builtin.service:
+    name: chrony
+    enabled: true
+    state: started

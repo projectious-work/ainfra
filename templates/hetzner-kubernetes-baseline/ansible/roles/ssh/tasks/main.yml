@@ -1,0 +1,10 @@
+---
+- name: Install ainfra SSH hardening drop-in
+  ansible.builtin.template:
+    src: 60-ainfra-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/60-ainfra-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reload ssh

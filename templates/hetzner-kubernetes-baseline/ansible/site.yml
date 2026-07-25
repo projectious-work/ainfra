@@ -1,0 +1,10 @@
+---
+- name: Harden Kubernetes-ready Debian hosts
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - role: base
+    - role: ssh
+    - role: firewall
+    - role: observability
