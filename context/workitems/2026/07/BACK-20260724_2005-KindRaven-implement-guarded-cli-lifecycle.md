@@ -4,10 +4,10 @@ kind: WorkItem
 metadata:
   id: BACK-20260724_2005-KindRaven-implement-guarded-cli-lifecycle
   created: '2026-07-24T20:05:10+00:00'
-  updated: '2026-07-25T09:20:01+00:00'
+  updated: '2026-07-25T10:10:28+00:00'
 spec:
   title: Implement thin execution adapters and guarded CLI lifecycle commands
-  state: in-progress
+  state: review
   type: story
   priority: high
   description: Milestone 2 / PR 3. Implement plan, apply, destroy, and outputs around
@@ -22,3 +22,8 @@ spec:
 ## Transition note (2026-07-25T09:20:01+00:00)
 
 Starting explicit plan/apply/destroy/output adapters and approval binding.
+
+
+## Transition note (2026-07-25T10:10:28+00:00)
+
+Guarded lifecycle complete at 405e44b+232e516; reviewed plan immutability, remote backend configuration, distinct destroy plans, redaction, and 52 tests pass.
