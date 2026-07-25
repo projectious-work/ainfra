@@ -55,6 +55,11 @@ def _parser() -> argparse.ArgumentParser:
     plan = subparsers.add_parser("plan", help="create a reviewable plan")
     plan.add_argument("template")
     plan.add_argument("--input", type=Path, required=True)
+    plan.add_argument(
+        "--destroy",
+        action="store_true",
+        help="create a reviewed destroy plan without applying it",
+    )
     plan.add_argument("--format", choices=("text", "json"), default="text")
 
     apply = subparsers.add_parser("apply", help="apply an exact reviewed plan")
@@ -135,13 +140,16 @@ def _run(args: argparse.Namespace) -> int:
 
     lifecycle = Lifecycle(SubprocessRunner())
     if args.command == "plan":
-        record = lifecycle.plan(args.template, args.input)
+        record = lifecycle.plan(
+            args.template,
+            args.input,
+            destroy=args.destroy,
+        )
         if args.format == "json":
             print(json.dumps(asdict(record), sort_keys=True))
         else:
             print(f"plan {record.id}")
-            print(f"apply approval: {record.id}")
-            print(f"destroy approval: {record.destroy_scope}")
+            print(f"{record.operation} approval: {record.id}")
         return 0
     if args.command == "apply":
         command_result = lifecycle.apply(
