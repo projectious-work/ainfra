@@ -1,0 +1,15 @@
+title = "ainfra local source scan"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated, private, cached, and upstream-mirror paths"
+paths = [
+  '''(^|/)\.git(/|$)''',
+  '''(^|/)\.(ainfra|venv|mypy_cache|pytest_cache|ruff_cache)(/|$)''',
+  '''(^|/)(\.aibox-home|\.root|node_modules)(/|$)''',
+  '''^context/templates/''',
+  '''^\.aibox-local\.(env|toml)$''',
+  '''^aibox\.lock$''',
+]

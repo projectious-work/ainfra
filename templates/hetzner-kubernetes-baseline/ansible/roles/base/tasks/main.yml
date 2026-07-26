@@ -34,3 +34,7 @@
     name: chrony
     enabled: true
     state: started
+  # A pristine host does not have the service until the preceding apt task
+  # is applied. Check mode simulates that install, so service management must
+  # wait for the real apply.
+  when: not ansible_check_mode
