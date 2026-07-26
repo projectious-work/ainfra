@@ -37,6 +37,15 @@ def test_reboot_policy_is_explicit_and_disabled_by_default() -> None:
     )
 
 
+def test_new_package_service_waits_for_apply_after_check_mode() -> None:
+    base_tasks = _read("roles/base/tasks/main.yml")
+    observability_tasks = _read("roles/observability/tasks/main.yml")
+    assert "name: chrony" in base_tasks
+    assert "when: not ansible_check_mode" in base_tasks
+    assert "name: auditd" in observability_tasks
+    assert "when: not ansible_check_mode" in observability_tasks
+
+
 def test_collections_are_explicitly_declared() -> None:
     requirements = _read("requirements.yml")
     assert "collections: []" in requirements

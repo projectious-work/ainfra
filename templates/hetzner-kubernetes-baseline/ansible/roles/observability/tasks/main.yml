@@ -12,3 +12,6 @@
     name: auditd
     enabled: true
     state: started
+  # auditd is installed by the base role. On a pristine host check mode
+  # predicts that install without creating the service unit.
+  when: not ansible_check_mode
