@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ainfra.cli import main
+from ainfra.cli import _parser, main
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "contracts" / "v1alpha1"
@@ -68,3 +68,13 @@ def test_validate_template_with_input(capsys: object) -> None:
     )
     captured = capsys.readouterr()  # type: ignore[attr-defined]
     assert "valid InfrastructureTemplate" in captured.out
+
+
+def test_destroy_help_names_exact_plan_id(capsys: object) -> None:
+    try:
+        _parser().parse_args(["destroy", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    captured = capsys.readouterr()  # type: ignore[attr-defined]
+    assert "--approve-destroy PLAN_ID" in captured.out
+    assert "SCOPE_TOKEN" not in captured.out
