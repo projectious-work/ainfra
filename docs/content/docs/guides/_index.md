@@ -1,6 +1,6 @@
 ---
 title: Guides
-weight: 30
+weight: 40
 description: Operate the lifecycle, tooling, and template-authoring workflow.
 ---
 

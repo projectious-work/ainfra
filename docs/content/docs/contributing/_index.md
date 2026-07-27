@@ -1,6 +1,6 @@
 ---
 title: Contributing
-weight: 50
+weight: 60
 description: Develop, test, and document changes locally.
 ---
 
