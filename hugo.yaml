@@ -31,6 +31,14 @@ params:
   offlineSearch: true
   offlineSearchSummaryLength: 200
   offlineSearchMaxResults: 25
+  version: "main"
+  version_menu: "Releases"
+  version_menu_pagelinks: false
+  versions:
+    - name: "**Versions**"
+    - version: "main"
+      kind: latest
+      url: "https://projectious-work.github.io/ainfra-templates/"
   ui:
     navbar_logo: true
     navbar_theme: dark
