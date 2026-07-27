@@ -12,6 +12,8 @@ test -f "${BUILD_DIR}/index.html"
 test -f "${BUILD_DIR}/docs/index.html"
 test -f "${BUILD_DIR}/docs/getting-started/quickstart/index.html"
 test -f "${BUILD_DIR}/docs/concepts/template-strategy/index.html"
+test -f \
+  "${BUILD_DIR}/docs/how-to/hetzner-baseline-environment/index.html"
 test -f "${BUILD_DIR}/docs/guides/authoring-templates/index.html"
 test -f "${BUILD_DIR}/docs/reference/templates/index.html"
 test -f "${BUILD_DIR}/favicon.svg"
