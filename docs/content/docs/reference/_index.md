@@ -1,6 +1,6 @@
 ---
 title: Reference
-weight: 40
+weight: 50
 description: Command, contract, template, and acceptance references.
 ---
 
