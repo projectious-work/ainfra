@@ -27,6 +27,7 @@ behavior.
 | If you want to… | Start here |
 |---|---|
 | Validate and provision a disposable target | [Quickstart]({{< relref "/docs/getting-started/quickstart" >}}) |
+| Follow the complete Hetzner lifecycle | [Hetzner environment how-to]({{< relref "/docs/how-to/hetzner-baseline-environment" >}}) |
 | Understand ownership and tool boundaries | [Architecture]({{< relref "/docs/concepts/architecture" >}}) |
 | Review threat assumptions and invariants | [Security model]({{< relref "/docs/concepts/security-model" >}}) |
 | Operate plan, apply, output, and destroy | [Lifecycle operations]({{< relref "/docs/guides/lifecycle" >}}) |
