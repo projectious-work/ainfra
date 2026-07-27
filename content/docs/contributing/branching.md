@@ -46,3 +46,28 @@ forward into `v0.x-dev`.
 - Treat published tags as immutable.
 - Keep deployment-only branches, such as `gh-pages`, outside the source
   promotion flow.
+
+## Versioned documentation
+
+The documentation root always represents `main`, the latest published stable
+state. The **Releases** menu links to immutable documentation snapshots for
+published versions.
+
+Publish the current stable documentation:
+
+```sh
+scripts/deploy-docs.sh
+```
+
+When publishing a release, first add its version and URL to `params.versions`
+in `hugo.yaml`. Build the accepted release commit or tag and publish its
+snapshot under the matching path:
+
+```sh
+DOCS_VERSION=v0.1 scripts/deploy-docs.sh
+```
+
+That command preserves the root site and replaces only `/v0.1/`. Versioned
+pages identify themselves as archived snapshots and link readers back to the
+latest documentation. Once published, a versioned snapshot should be treated
+as immutable except for an explicitly approved documentation correction.
