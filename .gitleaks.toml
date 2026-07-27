@@ -7,8 +7,9 @@ useDefault = true
 description = "Generated, private, cached, and upstream-mirror paths"
 paths = [
   '''(^|/)\.git(/|$)''',
-  '''(^|/)\.(ainfra|venv|mypy_cache|pytest_cache|ruff_cache)(/|$)''',
+  '''(^|/)\.(ainfra|cargo|rustup|venv|mypy_cache|pytest_cache|ruff_cache)(/|$)''',
   '''(^|/)(\.aibox-home|\.root|node_modules)(/|$)''',
+  '''(^|/)target(/|$)''',
   '''^context/templates/''',
   '''^docs/themes/docsy/''',
   '''^\.aibox-local\.(env|toml)$''',

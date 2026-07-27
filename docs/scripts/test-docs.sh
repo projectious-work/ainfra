@@ -21,17 +21,17 @@ rg -q '>Releases<' "${BUILD_DIR}/index.html"
 rg -q 'dropdown-item-latest' "${BUILD_DIR}/index.html"
 rg -q '>main</a>' "${BUILD_DIR}/index.html"
 
-if rg -n 'ainfra-templates/ainfra-templates/' "${BUILD_DIR}"; then
+if rg -n 'ainfra/ainfra/' "${BUILD_DIR}"; then
   echo "Documentation contains a duplicated base path." >&2
   exit 1
 fi
 
 DOCS_VERSION=v0.test \
-DOCS_BASE_URL="https://projectious-work.github.io/ainfra-templates/v0.test/" \
+DOCS_BASE_URL="https://projectious-work.github.io/ainfra/v0.test/" \
   "${ROOT_DIR}/scripts/build-docs.sh" --destination "${ARCHIVE_DIR}"
 
 rg -q 'Version v0.test' "${ARCHIVE_DIR}/docs/index.html"
 rg -q 'archived snapshot' "${ARCHIVE_DIR}/docs/index.html"
-rg -q 'ainfra-templates/v0.test/' "${ARCHIVE_DIR}/index.html"
+rg -q 'ainfra/v0.test/' "${ARCHIVE_DIR}/index.html"
 
 echo "Documentation build and smoke checks passed."
