@@ -84,6 +84,9 @@ site/
 
 # ── Node.js ──────────────────────────────────────────────────────────────────
 node_modules/
+public/
+resources/_gen/
+.hugo_build.lock
 .next/
 dist/
 .env.local

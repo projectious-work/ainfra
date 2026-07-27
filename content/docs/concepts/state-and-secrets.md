@@ -1,4 +1,8 @@
-# State and secrets
+---
+title: State and secrets
+weight: 30
+description: Backend requirements, secret references, and recovery.
+---
 
 ## State
 
@@ -7,16 +11,16 @@ providing encryption at rest, locking, version recovery, TLS, and access
 control. S3-compatible services qualify only after integration tests prove
 those capabilities.
 
-Local state is limited to inputs explicitly marked disposable and must produce
-a prominent warning. The wrapper does not provision, repair, or silently
-migrate a backend.
+Local state is limited to inputs explicitly marked disposable and produces a
+prominent warning. The wrapper does not provision, repair, or silently migrate
+a backend.
 
 Backend configuration stays outside version control. The repository ignores
 local state, plans, `.terraform/`, and `.ainfra/`.
 
 ## Secret references
 
-Contracts accept references such as:
+Contracts accept references:
 
 ```yaml
 projectTokenRef:
@@ -34,7 +38,12 @@ into documentation.
 
 ## Recovery
 
-Recovery procedures must identify the backend version to restore, the target
-state lineage, the operator authorizing the action, and the reviewed direct
-OpenTofu command. Automatic state repair and migration are out of scope for
-v0.1.
+Recovery procedures must identify:
+
+- the backend version to restore;
+- the target state lineage;
+- the operator authorizing the action;
+- the reviewed direct OpenTofu command;
+- the verification that follows recovery.
+
+Automatic state repair and migration are intentionally out of scope.

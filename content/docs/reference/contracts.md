@@ -1,0 +1,35 @@
+---
+title: Contracts
+weight: 20
+description: Versioned schemas at the boundary between templates and consumers.
+---
+
+All schemas use JSON Schema draft 2020-12 and reject unknown fields.
+
+| Contract | Source | Purpose |
+|---|---|---|
+| `InfrastructureTemplate/v1alpha1` | [`schemas/template-manifest.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/v0.1-dev/schemas/template-manifest.v1alpha1.json) | Template engines, paths, capabilities, and invariants |
+| `TemplateInput/v1alpha1` | [`schemas/template-input.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/v0.1-dev/schemas/template-input.v1alpha1.json) | Non-secret operator intent and credential references |
+| `InfrastructureOutput/v1alpha1` | [`schemas/template-output.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/v0.1-dev/schemas/template-output.v1alpha1.json) | Stable, non-secret handoff to downstream systems |
+
+## Compatibility
+
+The `apiVersion` is locked through the v1 series. An incompatible `v2` requires
+a full migration rather than silent coercion.
+
+## Validation behavior
+
+- Unsupported `apiVersion` and `kind` values fail.
+- Unknown properties fail.
+- Secret-shaped standard outputs fail.
+- Undeclared capabilities fail.
+- Template paths cannot escape the template directory.
+- Secret references describe a source but do not contain the secret.
+
+Run:
+
+```sh
+uv run ainfra validate DOCUMENT
+```
+
+Positive and negative fixtures live under `tests/fixtures/contracts/`.

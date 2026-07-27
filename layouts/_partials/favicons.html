@@ -1,0 +1,15 @@
+{{- with resources.Get "favicons/favicon.svg" -}}
+  {{- $stable := resources.Copy "/favicon.svg" . -}}
+  {{- $stable.Publish -}}
+  {{- $icon := . | fingerprint "md5" -}}
+  <link rel="icon" href="{{ $icon.RelPermalink }}" type="image/svg+xml">
+{{- end }}
+{{- range slice 16 32 48 180 192 512 }}
+  {{- $name := printf "favicons/favicon-%d.png" . -}}
+  {{- with resources.Get $name -}}
+    {{- $icon := . | fingerprint "md5" -}}
+    <link rel="{{ if eq .Width 180 }}apple-touch-icon{{ else }}icon{{ end }}"
+      href="{{ $icon.RelPermalink }}" type="image/png"
+      sizes="{{ .Width }}x{{ .Height }}">
+  {{- end }}
+{{- end }}

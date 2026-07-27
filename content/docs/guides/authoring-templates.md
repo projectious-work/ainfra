@@ -1,4 +1,8 @@
-# Authoring templates
+---
+title: Authoring templates
+weight: 30
+description: Add a contract-compliant infrastructure template.
+---
 
 Every template is a direct child of `templates/` and contains
 `ainfra-template.yaml`. Discovery does not traverse arbitrary paths or accept
@@ -10,15 +14,16 @@ Template authors must:
 - keep OpenTofu and Ansible working directories beneath the template;
 - use only declared capabilities;
 - provide non-secret example inputs;
-- pin every provider, collection, role, and image choice;
+- pin every provider, collection, role, image, and scanner choice;
 - document direct OpenTofu and Ansible equivalents;
 - produce an `InfrastructureOutput/v1alpha1`;
-- add positive and negative contract and policy fixtures.
+- add positive and negative contract and policy fixtures;
+- prove disposable teardown before claiming live support.
 
 ## Image choices
 
-Every place where a user selects an image must list and explain all supported
-values. The initial list contains one option:
+Every user-selectable image must list and explain all supported values. The
+initial template supports:
 
 ```yaml
 # Supported images:
@@ -27,6 +32,12 @@ values. The initial list contains one option:
 image: debian-13
 ```
 
-Adding an image is not only an enum change. It requires hardening,
+Adding an image is not merely an enum change. It requires hardening,
 architecture, networking, update, idempotence, and disposable-lifecycle
 verification.
+
+## Keep the contract narrow
+
+Template metadata is declarative and cannot add arbitrary shell hooks. If a
+new capability is needed, define and test its contract semantics before
+implementing provider behavior.

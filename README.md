@@ -1,6 +1,21 @@
-# ainfra-templates
+<div align="center">
 
-`ainfra-templates` is the security-first infrastructure provisioning layer for
+<img src="static/logo/ainfra-light.svg" alt="ainfra" width="96" height="96">
+
+# ainfra
+
+**Infrastructure you can inspect, approve, and remove.**
+
+[![Status: early development](https://img.shields.io/badge/status-early_development-E05232)](https://projectious-work.github.io/ainfra-templates/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-1d3352)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-projectious--work.github.io-1d3352)](https://projectious-work.github.io/ainfra-templates/)
+[![Python: 3.12](https://img.shields.io/badge/python-3.12-546a82)](pyproject.toml)
+
+</div>
+
+---
+
+`ainfra` is the security-first infrastructure provisioning layer for
 projectious.work. It defines versioned infrastructure-template contracts and a
 thin local wrapper around OpenTofu and Ansible.
 
@@ -11,15 +26,56 @@ ainfra apply -> provisioned target + non-secret output contract
 ```
 
 The project provisions targets. It does not build workload images, install
-processkit, deploy aibox fleets, or hide OpenTofu and Ansible behavior.
+Kubernetes or processkit, deploy aibox fleets, or hide OpenTofu and Ansible
+behavior.
 
 ## Current status
 
-Milestone 0 establishes the public `v1alpha1` schemas, fixture-driven
-validation, documentation, and Python/uv CLI foundation. Infrastructure
-lifecycle commands remain guarded until their implementation milestones.
+The `v0.1-dev` implementation includes strict `v1alpha1` contracts, local
+security gates, reviewed-plan lifecycle controls, sanitized outputs, Ansible
+inventory generation, and a disposable Hetzner Kubernetes-ready baseline.
 
-## Local development
+The full path has been exercised on disposable Hetzner infrastructure,
+including deterministic SSH trust, Ansible check mode, an idempotent second
+apply, and complete teardown. It remains early-development software: review
+plans, understand the costs, and keep teardown ready.
+
+## What it protects
+
+- **Reviewed plans.** Apply requires the exact plan identifier that was
+  reviewed.
+- **Explicit ownership.** Destroy requires the exact resource-scope token.
+- **Secret boundaries.** Inputs reference credentials; standardized outputs do
+  not contain them.
+- **Private defaults.** Public address allocation and management ingress are
+  deliberate choices.
+- **Visible automation.** OpenTofu owns infrastructure and Ansible owns host
+  configuration; direct-tool behavior remains inspectable.
+- **Local gates.** Contract, policy, formatting, type, security, and
+  infrastructure checks run without GitHub Actions.
+
+## Architecture at a glance
+
+```text
+Template + non-secret input
+            │
+            ▼
+  contract and policy checks
+            │
+            ▼
+   reviewed OpenTofu plan
+            │
+            ▼
+ infrastructure + hardened hosts
+            │
+            ▼
+ non-secret output contract
+            │
+            ▼
+ downstream workload deployment
+```
+
+## Quick start
 
 Python 3.12 and
 [uv](https://docs.astral.sh/uv/) are required.
@@ -31,35 +87,62 @@ scripts/test-all
 uv run ainfra --help
 uv run ainfra validate \
   tests/fixtures/contracts/v1alpha1/valid/template-input.json
+uv run ainfra doctor
 ```
 
-There are no GitHub Actions or workflow files. Every project gate is exposed
-through a local script or the CLI.
+For a disposable Hetzner plan, including cost and teardown guidance, follow the
+[Quickstart](https://projectious-work.github.io/ainfra-templates/docs/getting-started/quickstart/).
 
-## Contracts
+## Documentation
 
-- [`InfrastructureTemplate`](schemas/template-manifest.v1alpha1.json)
-- [`TemplateInput`](schemas/template-input.v1alpha1.json)
-- [`InfrastructureOutput`](schemas/template-output.v1alpha1.json)
-- [Contract semantics](docs/architecture.md)
-- [Security model](docs/security-model.md)
-- [State and secrets](docs/state-and-secrets.md)
-- [Template authoring](docs/authoring-templates.md)
-- [Operator guide](docs/operator-guide.md)
-- [Acceptance matrix](docs/acceptance-matrix.md)
+Full documentation lives at
+**[projectious-work.github.io/ainfra-templates](https://projectious-work.github.io/ainfra-templates/)**.
 
-All examples and fixtures are non-secret. Secret values must be referenced,
-never placed in committed manifests, command arguments, ordinary outputs, or
-logs.
+| Section | Contents |
+|---|---|
+| [Quickstart](https://projectious-work.github.io/ainfra-templates/docs/getting-started/quickstart/) | Install, validate, plan, apply, and tear down |
+| [Concepts](https://projectious-work.github.io/ainfra-templates/docs/concepts/) | Architecture, security, state, and secrets |
+| [Guides](https://projectious-work.github.io/ainfra-templates/docs/guides/) | Lifecycle operations, local gates, template authoring |
+| [Reference](https://projectious-work.github.io/ainfra-templates/docs/reference/) | CLI, schemas, Hetzner baseline, acceptance evidence |
+| [Contributing](https://projectious-work.github.io/ainfra-templates/docs/contributing/) | Development and documentation workflow |
 
-## Branches and releases
+Build and serve the Hugo + Docsy site locally:
 
-`main` contains releases. Work for a minor release integrates through a
-version-specific branch such as `v0.1-dev`; feature branches start from and
-merge back to that branch. A reviewed release merge promotes the development
-branch to `main`, after which the exact release commit receives an annotated
-semantic-version tag.
+```sh
+scripts/build-docs.sh
+scripts/serve-docs.sh
+```
+
+## Repository layout
+
+```text
+src/ainfra/                       Python CLI and lifecycle orchestration
+schemas/                          Versioned public JSON Schema contracts
+templates/hetzner-kubernetes-baseline/
+                                  OpenTofu, cloud-init, and Ansible template
+tests/                            Contract, policy, and lifecycle tests
+content/ assets/ layouts/ static/ Hugo + Docsy documentation site
+scripts/                          Local gates and documentation commands
+```
+
+## Contributing
+
+Issues and pull requests are welcome. Start with the
+[contributing guide](https://projectious-work.github.io/ainfra-templates/docs/contributing/)
+and run `scripts/validate-all` plus `scripts/test-all` before submitting a
+change.
+
+## Security
+
+Never place credentials, private keys, state, plans, or generated inventories
+in an issue or commit. Review the
+[security model](https://projectious-work.github.io/ainfra-templates/docs/concepts/security-model/)
+before operating live infrastructure.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+[MIT](LICENSE) © Bnaard
+
+Brand and design system ©
+[projectious.work](https://github.com/projectious-work/brand). The ainfra mark
+is derived from that system.
