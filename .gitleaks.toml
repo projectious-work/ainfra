@@ -10,7 +10,7 @@ paths = [
   '''(^|/)\.(ainfra|venv|mypy_cache|pytest_cache|ruff_cache)(/|$)''',
   '''(^|/)(\.aibox-home|\.root|node_modules)(/|$)''',
   '''^context/templates/''',
-  '''^themes/docsy/''',
+  '''^docs/themes/docsy/''',
   '''^\.aibox-local\.(env|toml)$''',
   '''^aibox\.lock$''',
 ]

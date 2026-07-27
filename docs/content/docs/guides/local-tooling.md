@@ -38,8 +38,8 @@ a failure, not a skipped check.
 ## Build the documentation
 
 ```sh
-scripts/build-docs.sh
-scripts/serve-docs.sh
+docs/scripts/build-docs.sh
+docs/scripts/serve-docs.sh
 ```
 
 The local server uses

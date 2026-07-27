@@ -56,15 +56,15 @@ published versions.
 Publish the current stable documentation:
 
 ```sh
-scripts/deploy-docs.sh
+docs/scripts/deploy-docs.sh
 ```
 
 When publishing a release, first add its version and URL to `params.versions`
-in `hugo.yaml`. Build the accepted release commit or tag and publish its
+in `docs/hugo.yaml`. Build the accepted release commit or tag and publish its
 snapshot under the matching path:
 
 ```sh
-DOCS_VERSION=v0.1 scripts/deploy-docs.sh
+DOCS_VERSION=v0.1 docs/scripts/deploy-docs.sh
 ```
 
 That command preserves the root site and replaces only `/v0.1/`. Versioned
