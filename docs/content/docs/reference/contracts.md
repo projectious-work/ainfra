@@ -8,9 +8,9 @@ All schemas use JSON Schema draft 2020-12 and reject unknown fields.
 
 | Contract | Source | Purpose |
 |---|---|---|
-| `InfrastructureTemplate/v1alpha1` | [`schemas/template-manifest.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/v0.1-dev/schemas/template-manifest.v1alpha1.json) | Template engines, paths, capabilities, and invariants |
-| `TemplateInput/v1alpha1` | [`schemas/template-input.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/v0.1-dev/schemas/template-input.v1alpha1.json) | Non-secret operator intent and credential references |
-| `InfrastructureOutput/v1alpha1` | [`schemas/template-output.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/v0.1-dev/schemas/template-output.v1alpha1.json) | Stable, non-secret handoff to downstream systems |
+| `InfrastructureTemplate/v1alpha1` | [`schemas/template-manifest.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/main/schemas/template-manifest.v1alpha1.json) | Template engines, paths, capabilities, and invariants |
+| `TemplateInput/v1alpha1` | [`schemas/template-input.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/main/schemas/template-input.v1alpha1.json) | Non-secret operator intent and credential references |
+| `InfrastructureOutput/v1alpha1` | [`schemas/template-output.v1alpha1.json`](https://github.com/projectious-work/ainfra-templates/blob/main/schemas/template-output.v1alpha1.json) | Stable, non-secret handoff to downstream systems |
 
 ## Compatibility
 
