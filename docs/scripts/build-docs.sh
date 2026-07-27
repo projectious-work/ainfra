@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DOCS_BASE_URL="${DOCS_BASE_URL:-https://projectious-work.github.io/ainfra-templates/}"
-DOCS_LATEST_URL="https://projectious-work.github.io/ainfra-templates/"
+DOCS_BASE_URL="${DOCS_BASE_URL:-https://projectious-work.github.io/ainfra/}"
+DOCS_LATEST_URL="https://projectious-work.github.io/ainfra/"
 DOCS_VERSION="${DOCS_VERSION:-main}"
 BUILD_DIR="${ROOT_DIR}/public"
 HUGO_CACHEDIR="${HUGO_CACHEDIR:-${ROOT_DIR}/.cache/hugo}"

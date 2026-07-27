@@ -70,14 +70,14 @@ def _parser() -> argparse.ArgumentParser:
 
     destroy = subparsers.add_parser(
         "destroy",
-        help="destroy an exact ownership scope",
+        help="destroy an exact reviewed plan",
     )
     destroy.add_argument("template")
     destroy.add_argument("--input", type=Path, required=True)
     destroy.add_argument(
         "--approve-destroy",
         required=True,
-        metavar="SCOPE_TOKEN",
+        metavar="PLAN_ID",
     )
 
     outputs = subparsers.add_parser(

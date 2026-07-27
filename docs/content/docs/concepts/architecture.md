@@ -55,7 +55,8 @@ arbitrary shell hooks.
 
 Planning creates an artifact that can be reviewed independently. Apply accepts
 the exact plan identifier, not a general confirmation. Destroy accepts the
-exact ownership scope, not a generic yes/no flag. These bindings prevent a
+exact reviewed destroy-plan ID, not a generic yes/no flag. These bindings
+prevent a
 later command from silently acting on a different resource set.
 
 Local state is permitted only for inputs explicitly marked disposable.
