@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="static/logo/ainfra-light.svg" alt="ainfra" width="96" height="96">
+<img src="docs/static/logo/ainfra-light.svg" alt="ainfra" width="96" height="96">
 
 # ainfra
 
@@ -109,8 +109,8 @@ Full documentation lives at
 Build and serve the Hugo + Docsy site locally:
 
 ```sh
-scripts/build-docs.sh
-scripts/serve-docs.sh
+docs/scripts/build-docs.sh
+docs/scripts/serve-docs.sh
 ```
 
 ## Repository layout
@@ -121,7 +121,7 @@ schemas/                          Versioned public JSON Schema contracts
 templates/hetzner-kubernetes-baseline/
                                   OpenTofu, cloud-init, and Ansible template
 tests/                            Contract, policy, and lifecycle tests
-content/ assets/ layouts/ static/ Hugo + Docsy documentation site
+docs/                            Self-contained Hugo + Docsy site and tooling
 scripts/                          Local gates and documentation commands
 ```
 
