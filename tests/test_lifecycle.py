@@ -71,7 +71,7 @@ def test_apply_requires_exact_plan_binding(monkeypatch: object) -> None:
         )
 
 
-def test_destroy_requires_exact_scope(monkeypatch: object) -> None:
+def test_destroy_requires_exact_plan_id(monkeypatch: object) -> None:
     monkeypatch.setenv("HCLOUD_TOKEN", "fixture-secret")  # type: ignore[attr-defined]
     lifecycle = Lifecycle(FakeRunner())
     with pytest.raises(GuardError):
@@ -82,7 +82,7 @@ def test_destroy_requires_exact_scope(monkeypatch: object) -> None:
         )
 
 
-def test_destroy_runs_only_with_scope_token(monkeypatch: object) -> None:
+def test_destroy_runs_only_with_exact_plan_id(monkeypatch: object) -> None:
     monkeypatch.setenv("HCLOUD_TOKEN", "fixture-secret")  # type: ignore[attr-defined]
     runner = FakeRunner()
     record = Lifecycle(runner).plan(
