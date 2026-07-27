@@ -33,7 +33,7 @@ prerelease, and stable-release promotion lanes.
 Build the site before opening a documentation change:
 
 ```sh
-scripts/build-docs.sh
+docs/scripts/build-docs.sh
 ```
 
 Write task-oriented procedures as guides, stable facts as reference, and
