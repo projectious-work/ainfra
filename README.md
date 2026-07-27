@@ -31,7 +31,7 @@ behavior.
 
 ## Current status
 
-The `v0.1-dev` implementation includes strict `v1alpha1` contracts, local
+The current v0 implementation includes strict `v1alpha1` contracts, local
 security gates, reviewed-plan lifecycle controls, sanitized outputs, Ansible
 inventory generation, and a disposable Hetzner Kubernetes-ready baseline.
 
@@ -131,6 +131,12 @@ Issues and pull requests are welcome. Start with the
 [contributing guide](https://projectious-work.github.io/ainfra-templates/docs/contributing/)
 and run `scripts/validate-all` plus `scripts/test-all` before submitting a
 change.
+
+Feature branches target `v0.x-dev`. Tested changes are promoted through
+`v0.x-pre-release` and `v0.x-release`; published stable releases are merged
+into `main`. See the
+[branching strategy](https://projectious-work.github.io/ainfra-templates/docs/contributing/branching/)
+for the complete lane responsibilities and release rules.
 
 ## Security
 
