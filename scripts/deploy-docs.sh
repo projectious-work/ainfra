@@ -8,8 +8,27 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PAGES_BRANCH="${PAGES_BRANCH:-gh-pages}"
 BUILD_DIR="${ROOT_DIR}/public"
 DOCS_BASE_URL="${DOCS_BASE_URL:-https://projectious-work.github.io/ainfra-templates/}"
+DOCS_LATEST_URL="https://projectious-work.github.io/ainfra-templates/"
+DOCS_VERSION="${DOCS_VERSION:-main}"
 
-DOCS_BASE_URL="${DOCS_BASE_URL}" "${ROOT_DIR}/scripts/build-docs.sh"
+if [[ ! "${DOCS_VERSION}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "DOCS_VERSION must contain only letters, numbers, dots, underscores, or hyphens." >&2
+  exit 1
+fi
+
+if [[ "${DOCS_VERSION}" != "main" &&
+  "${DOCS_BASE_URL}" == "${DOCS_LATEST_URL}" ]]; then
+  DOCS_BASE_URL="${DOCS_BASE_URL}${DOCS_VERSION}/"
+fi
+
+BUILD_ARGS=()
+if [[ "${DOCS_VERSION}" != "main" ]]; then
+  BUILD_DIR="${BUILD_DIR}/${DOCS_VERSION}"
+fi
+
+DOCS_BASE_URL="${DOCS_BASE_URL}" DOCS_VERSION="${DOCS_VERSION}" \
+  "${ROOT_DIR}/scripts/build-docs.sh" "${BUILD_ARGS[@]}" \
+  --destination "${BUILD_DIR}"
 
 WORKTREE_DIR="$(mktemp -d)"
 cleanup() {
@@ -31,9 +50,16 @@ else
   git -C "${WORKTREE_DIR}" checkout --orphan "${PAGES_BRANCH}"
 fi
 
-find "${WORKTREE_DIR}" -mindepth 1 -maxdepth 1 ! -name .git \
-  -exec rm -rf {} +
-cp -R "${BUILD_DIR}/." "${WORKTREE_DIR}/"
+if [[ "${DOCS_VERSION}" == "main" ]]; then
+  find "${WORKTREE_DIR}" -mindepth 1 -maxdepth 1 ! -name .git \
+    -exec rm -rf {} +
+  cp -R "${BUILD_DIR}/." "${WORKTREE_DIR}/"
+else
+  VERSION_DIR="${WORKTREE_DIR}/${DOCS_VERSION}"
+  mkdir -p "${VERSION_DIR}"
+  find "${VERSION_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -R "${BUILD_DIR}/." "${VERSION_DIR}/"
+fi
 : > "${WORKTREE_DIR}/.nojekyll"
 
 git -C "${WORKTREE_DIR}" add -A
