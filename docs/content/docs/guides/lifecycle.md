@@ -72,7 +72,7 @@ Then approve the returned ownership scope:
 ```sh
 uv run ainfra destroy TEMPLATE \
   --input INPUT \
-  --approve-destroy SCOPE_TOKEN
+  --approve-destroy PLAN_ID
 ```
 
 After a disposable test, confirm zero owned resources in both Hetzner and

@@ -6,9 +6,9 @@
 
 **Infrastructure you can inspect, approve, and remove.**
 
-[![Status: early development](https://img.shields.io/badge/status-early_development-E05232)](https://projectious-work.github.io/ainfra-templates/)
+[![Status: early development](https://img.shields.io/badge/status-early_development-E05232)](https://projectious-work.github.io/ainfra/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1d3352)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-projectious--work.github.io-1d3352)](https://projectious-work.github.io/ainfra-templates/)
+[![Docs](https://img.shields.io/badge/docs-projectious--work.github.io-1d3352)](https://projectious-work.github.io/ainfra/)
 [![Python: 3.12](https://img.shields.io/badge/python-3.12-546a82)](pyproject.toml)
 
 </div>
@@ -44,7 +44,7 @@ plans, understand the costs, and keep teardown ready.
 
 - **Reviewed plans.** Apply requires the exact plan identifier that was
   reviewed.
-- **Explicit ownership.** Destroy requires the exact resource-scope token.
+- **Explicit ownership.** Destroy requires the exact reviewed destroy-plan ID.
 - **Secret boundaries.** Inputs reference credentials; standardized outputs do
   not contain them.
 - **Private defaults.** Public address allocation and management ingress are
@@ -77,8 +77,8 @@ Template + non-secret input
 
 ## Quick start
 
-Python 3.12 and
-[uv](https://docs.astral.sh/uv/) are required.
+Python 3.12, [uv](https://docs.astral.sh/uv/), and the pinned Rust toolchain
+are required while the fixture-driven Rust rewrite is in progress.
 
 ```sh
 uv sync --all-groups
@@ -91,20 +91,20 @@ uv run ainfra doctor
 ```
 
 For a disposable Hetzner plan, including cost and teardown guidance, follow the
-[Quickstart](https://projectious-work.github.io/ainfra-templates/docs/getting-started/quickstart/).
+[Quickstart](https://projectious-work.github.io/ainfra/docs/getting-started/quickstart/).
 
 ## Documentation
 
 Full documentation lives at
-**[projectious-work.github.io/ainfra-templates](https://projectious-work.github.io/ainfra-templates/)**.
+**[projectious-work.github.io/ainfra](https://projectious-work.github.io/ainfra/)**.
 
 | Section | Contents |
 |---|---|
-| [Quickstart](https://projectious-work.github.io/ainfra-templates/docs/getting-started/quickstart/) | Install, validate, plan, apply, and tear down |
-| [Concepts](https://projectious-work.github.io/ainfra-templates/docs/concepts/) | Architecture, security, state, and secrets |
-| [Guides](https://projectious-work.github.io/ainfra-templates/docs/guides/) | Lifecycle operations, local gates, template authoring |
-| [Reference](https://projectious-work.github.io/ainfra-templates/docs/reference/) | CLI, schemas, Hetzner baseline, acceptance evidence |
-| [Contributing](https://projectious-work.github.io/ainfra-templates/docs/contributing/) | Development and documentation workflow |
+| [Quickstart](https://projectious-work.github.io/ainfra/docs/getting-started/quickstart/) | Install, validate, plan, apply, and tear down |
+| [Concepts](https://projectious-work.github.io/ainfra/docs/concepts/) | Architecture, security, state, and secrets |
+| [Guides](https://projectious-work.github.io/ainfra/docs/guides/) | Lifecycle operations, local gates, template authoring |
+| [Reference](https://projectious-work.github.io/ainfra/docs/reference/) | CLI, schemas, Hetzner baseline, acceptance evidence |
+| [Contributing](https://projectious-work.github.io/ainfra/docs/contributing/) | Development and documentation workflow |
 
 Build and serve the Hugo + Docsy site locally:
 
@@ -128,21 +128,21 @@ scripts/                          Local gates and documentation commands
 ## Contributing
 
 Issues and pull requests are welcome. Start with the
-[contributing guide](https://projectious-work.github.io/ainfra-templates/docs/contributing/)
+[contributing guide](https://projectious-work.github.io/ainfra/docs/contributing/)
 and run `scripts/validate-all` plus `scripts/test-all` before submitting a
 change.
 
 Feature branches target `v0.x-dev`. Tested changes are promoted through
 `v0.x-pre-release` and `v0.x-release`; published stable releases are merged
 into `main`. See the
-[branching strategy](https://projectious-work.github.io/ainfra-templates/docs/contributing/branching/)
+[branching strategy](https://projectious-work.github.io/ainfra/docs/contributing/branching/)
 for the complete lane responsibilities and release rules.
 
 ## Security
 
 Never place credentials, private keys, state, plans, or generated inventories
 in an issue or commit. Review the
-[security model](https://projectious-work.github.io/ainfra-templates/docs/concepts/security-model/)
+[security model](https://projectious-work.github.io/ainfra/docs/concepts/security-model/)
 before operating live infrastructure.
 
 ## License

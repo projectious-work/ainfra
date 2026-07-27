@@ -9,7 +9,7 @@ ainfra validate <path> [--format text|json]
 ainfra doctor [--format text|json] [--input INPUT]
 ainfra plan <template> --input INPUT [--destroy] [--format text|json]
 ainfra apply <template> --input INPUT --approve PLAN_ID
-ainfra destroy <template> --input INPUT --approve-destroy SCOPE_TOKEN
+ainfra destroy <template> --input INPUT --approve-destroy PLAN_ID
 ainfra outputs <template> [--format json|yaml]
 ainfra inventory --output OUTPUT --destination DESTINATION
 ```

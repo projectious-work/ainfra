@@ -39,7 +39,7 @@ behavior.
 
 - Inputs are validated before infrastructure mutation.
 - Apply identifies the exact reviewed plan.
-- Destruction identifies the exact ownership scope.
+- Destruction requires the exact reviewed destroy-plan ID.
 - Credentials enter through references and child-process environments.
 - Ordinary output contracts contain references, never secret values.
 - Provider, image, automation, and scanner versions are pinned.

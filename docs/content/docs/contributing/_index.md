@@ -9,6 +9,9 @@ security boundaries, and include evidence proportional to the risk.
 
 ## Development setup
 
+The aibox workspace installs the pinned Rust toolchain and `cargo-audit`.
+Python remains the behavioral oracle while commands are ported.
+
 ```sh
 uv sync --all-groups
 scripts/bootstrap-security-tools

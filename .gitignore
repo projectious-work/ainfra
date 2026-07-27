@@ -10,6 +10,9 @@
 crash.log
 crash.*.log
 tests/.tmp/
+target/
+.cargo/
+.rustup/
 
 
 # ── aibox generated ────────────────────────────────────────────────────────
