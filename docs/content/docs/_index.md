@@ -30,6 +30,8 @@ behavior.
 | Understand ownership and tool boundaries | [Architecture]({{< relref "/docs/concepts/architecture" >}}) |
 | Review threat assumptions and invariants | [Security model]({{< relref "/docs/concepts/security-model" >}}) |
 | Operate plan, apply, output, and destroy | [Lifecycle operations]({{< relref "/docs/guides/lifecycle" >}}) |
+| Find an included infrastructure template | [Template catalog]({{< relref "/docs/reference/templates" >}}) |
+| Understand how templates are structured | [Template strategy]({{< relref "/docs/concepts/template-strategy" >}}) |
 | Author another infrastructure template | [Template authoring]({{< relref "/docs/guides/authoring-templates" >}}) |
 | Look up commands or schemas | [Reference]({{< relref "/docs/reference" >}}) |
 
