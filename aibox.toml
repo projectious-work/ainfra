@@ -10,15 +10,15 @@ apiVersion = "aibox.projectious.work/v1"
 kind       = "Workspace"
 
 [aibox]
-project_name = "ainfra-templates"   # Human-readable project name; defaults to container.name
+project_name = "ainfra"   # Human-readable project name; defaults to container.name
 profile      = "human-dev"       # Usage profile. Options: human-dev, headless-runner
 
 # =============================================================================
 # [container] — runtime and build configuration
 # =============================================================================
 [container]
-name     = "ainfra-templates"   # Container name used by docker/podman
-hostname = "ainfra-templates"   # Hostname visible inside the container
+name     = "ainfra"   # Container name used by docker/podman
+hostname = "ainfra"   # Hostname visible inside the container
 user     = "aibox"              # User inside the container (controls mount paths)
 
 [container.image]
@@ -340,10 +340,10 @@ uv = { version = "0.11.26" } # Fast Python package manager and virtual environme
 
 # Languages/rust — Rust toolchain via rustup
 # [addons.rust.tools]
-# rustc = {} # Rust compiler toolchain installed via rustup; default on; options: {}, { enabled = true|false }, { version = "1.90" | "1.91" | "1.92" | "1.93" | "1.94" | "1.94.1" | "1.96.0" | "1.96.1" (default) or "latest" }
-# clippy = {} # Rust linter for catching common mistakes and style issues; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-# rustfmt = {} # Rust code formatter; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-# cargo-audit = {} # Rust dependency vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+rustc = { version = "1.96.1" } # Rust compiler toolchain installed via rustup; default on; options: {}, { enabled = true|false }, { version = "1.90" | "1.91" | "1.92" | "1.93" | "1.94" | "1.94.1" | "1.96.0" | "1.96.1" (default) or "latest" }
+clippy = {} # Rust linter for catching common mistakes and style issues; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+rustfmt = {} # Rust code formatter; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+cargo-audit = {} # Rust dependency vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 # x86_64-cross = {} # Cross-compilation target support for x86_64 Linux; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
 # Languages/typst — Typst – modern typesetting system
@@ -632,7 +632,7 @@ layout = "ai"
 # tmux runtime options. `layout` may override [customization].layout for tmux only.
 [customization.tmux]
 prefix = "C-g"
-session_name = "ainfra-templates"
+session_name = "ainfra"
 
 # tmux status presentation.
 # - extended: full aibox themed status (legacy alias: powerline)

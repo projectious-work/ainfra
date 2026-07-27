@@ -1,0 +1,24 @@
+[package]
+name = "ainfra"
+version = "0.1.0-dev"
+edition = "2024"
+rust-version = "1.96"
+description = "Secure, contract-driven infrastructure lifecycle tooling"
+license = "MIT"
+repository = "https://github.com/projectious-work/ainfra"
+
+[dependencies]
+clap = { version = "=4.5.41", features = ["derive"] }
+thiserror = "=2.0.12"
+
+[dev-dependencies]
+assert_cmd = "=2.0.17"
+predicates = "=3.1.3"
+
+[lints.clippy]
+pedantic = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+
+[lints.rust]
+unsafe_code = "forbid"

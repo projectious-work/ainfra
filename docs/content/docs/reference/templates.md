@@ -10,7 +10,7 @@ and a template-specific README.
 
 | Template | Source | Purpose | Status |
 |---|---|---|---|
-| `hetzner-kubernetes-baseline` | [`templates/hetzner-kubernetes-baseline`](https://github.com/projectious-work/ainfra-templates/tree/main/templates/hetzner-kubernetes-baseline) | Private-networked, hardened Debian 13 hosts prepared for a later Kubernetes installation | Initial validated template |
+| `hetzner-kubernetes-baseline` | [`templates/hetzner-kubernetes-baseline`](https://github.com/projectious-work/ainfra/tree/main/templates/hetzner-kubernetes-baseline) | Private-networked, hardened Debian 13 hosts prepared for a later Kubernetes installation | Initial validated template |
 
 The repository does not currently use an external registry and does not
 download templates at runtime. Clone the repository to inspect or adapt a

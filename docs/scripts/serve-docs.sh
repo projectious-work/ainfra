@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DOCS_BASE_URL="${DOCS_BASE_URL:-http://localhost:1313/ainfra-templates/}"
+DOCS_BASE_URL="${DOCS_BASE_URL:-http://localhost:1313/ainfra/}"
 HUGO_CACHEDIR="${HUGO_CACHEDIR:-${ROOT_DIR}/.cache/hugo}"
 export HUGO_CACHEDIR
 

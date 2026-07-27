@@ -7,8 +7,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PAGES_BRANCH="${PAGES_BRANCH:-gh-pages}"
 BUILD_DIR="${ROOT_DIR}/public"
-DOCS_BASE_URL="${DOCS_BASE_URL:-https://projectious-work.github.io/ainfra-templates/}"
-DOCS_LATEST_URL="https://projectious-work.github.io/ainfra-templates/"
+DOCS_BASE_URL="${DOCS_BASE_URL:-https://projectious-work.github.io/ainfra/}"
+DOCS_LATEST_URL="https://projectious-work.github.io/ainfra/"
 DOCS_VERSION="${DOCS_VERSION:-main}"
 
 if [[ ! "${DOCS_VERSION}" =~ ^[A-Za-z0-9._-]+$ ]]; then
