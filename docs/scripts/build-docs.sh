@@ -61,7 +61,8 @@ command -v npm >/dev/null 2>&1 || {
 }
 
 if [[ ! -f "${ROOT_DIR}/themes/docsy/theme.toml" ]]; then
-  git -C "${ROOT_DIR}" submodule update --init --recursive themes/docsy
+  git -C "${ROOT_DIR}/.." submodule update --init --recursive \
+    docs/themes/docsy
 fi
 if [[ ! -d "${ROOT_DIR}/node_modules" ]]; then
   npm --prefix "${ROOT_DIR}" ci
