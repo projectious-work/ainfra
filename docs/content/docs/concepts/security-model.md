@@ -27,7 +27,7 @@ untrusted workstation or compromised provider account into a trusted one.
   state with TLS and access control.
 - Providers, collections, roles, images, and scanners are pinned.
 - Standard outputs contain references to credentials, never their contents.
-- Destructive operations name their exact ownership scope and require
+- Destructive operations name their exact reviewed destroy-plan ID and require
   explicit approval.
 
 ## Layered verification

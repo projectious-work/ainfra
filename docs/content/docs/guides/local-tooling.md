@@ -32,8 +32,10 @@ scripts/test-all
 ```
 
 The validation suite covers formatting, typing, contracts, OpenTofu,
-Ansible, repository policy, Checkov, and Gitleaks. Missing required tooling is
-a failure, not a skipped check.
+Ansible, repository policy, Rust Clippy and RustSec checks, Checkov, and
+Gitleaks. Rust `1.96.1` is pinned in `rust-toolchain.toml`; the aibox workspace
+installs Rust, Clippy, Rustfmt, and `cargo-audit`. Missing required tooling is a
+failure, not a skipped check.
 
 ## Build the documentation
 
@@ -43,5 +45,5 @@ docs/scripts/serve-docs.sh
 ```
 
 The local server uses
-`http://localhost:1313/ainfra-templates/` so relative links behave like the
+`http://localhost:1313/ainfra/` so relative links behave like the
 GitHub Pages deployment.

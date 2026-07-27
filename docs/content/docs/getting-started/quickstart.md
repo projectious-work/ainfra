@@ -12,6 +12,7 @@ and destroy commands remain explicit.
 
 - Python 3.12
 - [uv](https://docs.astral.sh/uv/)
+- Rust `1.96.1` with Cargo, Clippy, Rustfmt, and `cargo-audit`
 - OpenTofu
 - Ansible
 - Node.js 18 or newer and Hugo Extended for the documentation
@@ -21,8 +22,8 @@ and destroy commands remain explicit.
 ## Install and validate
 
 ```sh
-git clone https://github.com/projectious-work/ainfra-templates.git
-cd ainfra-templates
+git clone https://github.com/projectious-work/ainfra.git
+cd ainfra
 uv sync --all-groups
 scripts/bootstrap-security-tools
 scripts/validate-all
@@ -99,12 +100,12 @@ uv run ainfra plan hetzner-kubernetes-baseline \
   --destroy
 ```
 
-Then use the exact scope token returned by the lifecycle:
+Then use the exact destroy-plan ID returned by the lifecycle:
 
 ```sh
 uv run ainfra destroy hetzner-kubernetes-baseline \
   --input .ainfra/hetzner.input.yaml \
-  --approve-destroy SCOPE_TOKEN
+  --approve-destroy PLAN_ID
 ```
 
 Confirm zero project-owned servers, networks, firewalls, and SSH keys in

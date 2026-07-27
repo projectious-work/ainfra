@@ -1,4 +1,4 @@
-baseURL: "https://projectious-work.github.io/ainfra-templates/"
+baseURL: "https://projectious-work.github.io/ainfra/"
 title: ainfra
 description: >-
   Security-first, contract-driven infrastructure templates built with
@@ -27,7 +27,7 @@ outputs:
 
 params:
   hugoMinVersion: "0.157.0"
-  productionURL: "https://projectious-work.github.io/ainfra-templates/"
+  productionURL: "https://projectious-work.github.io/ainfra/"
   offlineSearch: true
   offlineSearchSummaryLength: 200
   offlineSearchMaxResults: 25
@@ -38,7 +38,7 @@ params:
     - name: "**Versions**"
     - version: "main"
       kind: latest
-      url: "https://projectious-work.github.io/ainfra-templates/"
+      url: "https://projectious-work.github.io/ainfra/"
   ui:
     navbar_logo: true
     navbar_theme: dark
@@ -51,7 +51,7 @@ params:
   links:
     user:
       - name: GitHub
-        url: "https://github.com/projectious-work/ainfra-templates"
+        url: "https://github.com/projectious-work/ainfra"
         icon: "fa-brands fa-github"
         desc: Source code and issue tracker
   copyright:
@@ -65,7 +65,7 @@ menu:
       url: "/docs/"
     - name: GitHub
       weight: 20
-      url: "https://github.com/projectious-work/ainfra-templates"
+      url: "https://github.com/projectious-work/ainfra"
       pre: "<i class='fa-brands fa-github' aria-hidden='true'></i>"
 
 module:
