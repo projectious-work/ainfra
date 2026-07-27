@@ -21,10 +21,12 @@ Commits and never bypass hooks.
 
 ## Branches
 
-`main` contains releases. Minor-release work integrates through a
-version-specific branch such as `v0.1-dev`; feature branches start from and
-merge back to that branch. Release commits receive annotated semantic-version
-tags.
+`main` contains the latest published stable release. Normal implementation
+work integrates through `v0.x-dev`; feature branches start from and merge back
+to that branch.
+
+See the [branching strategy](branching/) for the maintenance, development,
+prerelease, and stable-release promotion lanes.
 
 ## Documentation
 
