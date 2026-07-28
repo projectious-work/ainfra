@@ -58,6 +58,25 @@ def test_package_is_deterministic_and_has_canonical_contract(
         assert binary_member.isfile()
         assert binary_member.mode == 0o755
         assert binary_member.uid == binary_member.gid == 0
+    audit = run(
+        str(ROOT / "scripts/maintain.sh"),
+        "audit-release",
+        "0.1.0",
+        target,
+    )
+    assert audit.returncode == 0, audit.stderr
+    assert "verified 1 release artifact(s)" in audit.stdout
+
+    checksum = archive.with_suffix(archive.suffix + ".sha256")
+    checksum.write_text(f"{'0' * 64}\n")
+    rejected = run(
+        str(ROOT / "scripts/maintain.sh"),
+        "audit-release",
+        "0.1.0",
+        target,
+    )
+    assert rejected.returncode != 0
+    assert "checksum verification failed" in rejected.stderr
 
 
 def test_package_rejects_invalid_version_target_and_binary(

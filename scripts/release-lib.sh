@@ -29,16 +29,7 @@ release_package() {
   esac
   [[ -x "${binary}" ]] || release_die "binary is not executable: ${binary}"
   [[ -f "${root}/LICENSE" ]] || release_die "LICENSE is required"
-  command -v file >/dev/null 2>&1 || release_die "file is required"
-  local binary_format
-  binary_format="$(file -b "${binary}")"
-  case "${target}:${binary_format}" in
-    x86_64-unknown-linux-gnu:*ELF*x86-64*|\
-      aarch64-unknown-linux-gnu:*ELF*ARM\ aarch64*|\
-      x86_64-apple-darwin:*Mach-O*x86_64*|\
-      aarch64-apple-darwin:*Mach-O*arm64*) ;;
-    *) release_die "binary architecture does not match ${target}" ;;
-  esac
+  release_verify_binary_target "${binary}" "${target}"
 
   local dist="${root}/dist"
   local name="ainfra-v${version}-${target}"
@@ -59,4 +50,57 @@ release_package() {
   rm -rf "${stage}"
   trap - RETURN
   printf '%s\n' "${archive}"
+}
+
+release_expected_targets() {
+  printf '%s\n' \
+    aarch64-unknown-linux-gnu \
+    x86_64-unknown-linux-gnu \
+    aarch64-apple-darwin \
+    x86_64-apple-darwin
+}
+
+release_verify_archive() {
+  local root="$1" version="$2" target="$3"
+  release_validate_version "${version}"
+  local archive="${root}/dist/ainfra-v${version}-${target}.tar.gz"
+  local checksum="${archive}.sha256" expected actual stage members types
+  [[ -f "${archive}" ]] || release_die "missing release archive: ${archive}"
+  [[ -f "${checksum}" ]] || release_die "missing checksum: ${checksum}"
+  expected="$(sed -n '1p' "${checksum}")"
+  [[ "$(wc -l < "${checksum}" | tr -d ' ')" == 1 ]] \
+    || release_die "checksum must contain exactly one line: ${checksum}"
+  [[ "${expected}" =~ ^[0-9a-f]{64}$ ]] \
+    || release_die "checksum must be one lowercase SHA-256 digest: ${checksum}"
+  actual="$(release_sha256 "${archive}")"
+  [[ "${actual}" == "${expected}" ]] \
+    || release_die "checksum verification failed for ${archive}"
+
+  members="$(tar -tzf "${archive}")"
+  [[ "${members}" == $'LICENSE\nainfra' ]] \
+    || release_die "archive has unexpected members: ${archive}"
+  types="$(tar -tvzf "${archive}" | awk '{print substr($1, 1, 1)}')"
+  [[ "${types}" == $'-\n-' ]] \
+    || release_die "archive members must be regular files: ${archive}"
+  stage="$(mktemp -d)"
+  trap 'rm -rf "${stage}"' RETURN
+  tar -xzf "${archive}" -C "${stage}"
+  [[ -x "${stage}/ainfra" ]] \
+    || release_die "archive binary is not executable: ${archive}"
+  release_verify_binary_target "${stage}/ainfra" "${target}"
+  rm -rf "${stage}"
+  trap - RETURN
+}
+
+release_verify_binary_target() {
+  local binary="$1" target="$2" binary_format
+  command -v file >/dev/null 2>&1 || release_die "file is required"
+  binary_format="$(file -b "${binary}")"
+  case "${target}:${binary_format}" in
+    x86_64-unknown-linux-gnu:*ELF*x86-64*|\
+      aarch64-unknown-linux-gnu:*ELF*ARM\ aarch64*|\
+      x86_64-apple-darwin:*Mach-O*x86_64*|\
+      aarch64-apple-darwin:*Mach-O*arm64*) ;;
+    *) release_die "binary architecture does not match ${target}" ;;
+  esac
 }

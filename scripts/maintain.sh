@@ -12,6 +12,7 @@ Usage: scripts/maintain.sh COMMAND [ARGUMENTS]
 
   test                         Run the complete local validation suite
   package VERSION TARGET BIN   Create one deterministic archive and checksum
+  audit-release VERSION        Verify all local release artifacts
   release VERSION              Build, verify, tag, and publish Linux artifacts
   release-host VERSION         Build and upload both native macOS artifacts
 
@@ -64,14 +65,45 @@ build_target() {
 verify_native_archive() {
   local version="$1" target="$2"
   local archive="${root}/dist/ainfra-v${version}-${target}.tar.gz"
-  local checksum="${archive}.sha256" install_root
-  [[ "$(release_sha256 "${archive}")" == "$(sed -n '1p' "${checksum}")" ]] \
-    || release_die "checksum verification failed for ${archive}"
+  local install_root
+  release_verify_archive "${root}" "${version}" "${target}"
   install_root="$(mktemp -d)"
   tar -xzf "${archive}" -C "${install_root}"
   "${install_root}/ainfra" --version | grep -Fqx "ainfra ${version}"
   "${install_root}/ainfra" --help >/dev/null
   rm -rf "${install_root}"
+}
+
+audit_release() {
+  local version="$1"
+  shift
+  release_validate_version "${version}"
+  local targets=("$@") target
+  if [[ "${#targets[@]}" -eq 0 ]]; then
+    mapfile -t targets < <(release_expected_targets)
+  fi
+  for target in "${targets[@]}"; do
+    release_verify_archive "${root}" "${version}" "${target}"
+  done
+  printf 'verified %s release artifact(s) for v%s\n' \
+    "${#targets[@]}" "${version}"
+}
+
+verify_remote_release() {
+  local version="$1" asset target
+  local assets
+  assets="$(gh release view "v${version}" --repo projectious-work/ainfra \
+    --json assets --jq '.assets[].name')"
+  for target in $(release_expected_targets); do
+    for asset in \
+      "ainfra-v${version}-${target}.tar.gz" \
+      "ainfra-v${version}-${target}.tar.gz.sha256"; do
+      grep -Fqx "${asset}" <<< "${assets}" \
+        || release_die "GitHub release is missing ${asset}"
+    done
+  done
+  grep -Fqx install.sh <<< "${assets}" \
+    || release_die "GitHub release is missing install.sh"
 }
 
 release_linux() {
@@ -83,6 +115,8 @@ release_linux() {
   for target in aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu; do
     build_target "${version}" "${target}"
   done
+  audit_release "${version}" \
+    aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu
   case "$(uname -m)" in
     x86_64|amd64) target=x86_64-unknown-linux-gnu ;;
     aarch64|arm64) target=aarch64-unknown-linux-gnu ;;
@@ -110,8 +144,11 @@ release_host() {
     build_target "${version}" "${target}"
     verify_native_archive "${version}" "${target}"
   done
+  audit_release "${version}" \
+    aarch64-apple-darwin x86_64-apple-darwin
   gh release upload "v${version}" --repo projectious-work/ainfra \
     "${root}/dist/ainfra-v${version}-"*apple-darwin.tar.gz*
+  verify_remote_release "${version}"
 }
 
 command="${1:-help}"
@@ -121,6 +158,10 @@ case "${command}" in
   package)
     [[ "$#" -eq 3 ]] || release_die "package requires VERSION TARGET BIN"
     release_package "${root}" "$1" "$2" "$3"
+    ;;
+  audit-release)
+    [[ "$#" -ge 1 ]] || release_die "audit-release requires VERSION"
+    audit_release "$@"
     ;;
   release)
     [[ "$#" -eq 1 ]] || release_die "release requires VERSION"
