@@ -5,7 +5,10 @@ description: The complete ainfra command surface.
 ---
 
 ```text
-ainfra validate <path> [--format text|json]
+ainfra init [--name NAME] [--template TEMPLATE]
+  [--environment ENVIRONMENT] [--format text|json]
+ainfra validate [<path-or-template>] [--input INPUT]
+  [--format text|json]
 ainfra doctor [--format text|json] [--input INPUT]
 ainfra plan <template> --input INPUT [--destroy] [--format text|json]
 ainfra apply <template> --input INPUT --approve PLAN_ID
@@ -15,11 +18,23 @@ ainfra configure <template> --run PLAN_ID --known-hosts FILE [--check]
 ainfra inventory --output OUTPUT --destination DESTINATION
 ```
 
+## `init`
+
+Initializes the current directory without contacting a provider or invoking
+OpenTofu or Ansible. It creates `ainfra.yaml`, `ainfra.lock`, and one example
+under `environments/`, then adds `.ainfra/` to `.gitignore`.
+
+Initialization preflights every primary file and refuses to overwrite any of
+them. There is intentionally no force flag. The lock pins the selected
+built-in template's name, version, source, and content digest.
+
 ## `validate`
 
 Validates an `InfrastructureTemplate`, `TemplateInput`, or
 `InfrastructureOutput` document. It does not resolve credentials or mutate
-infrastructure.
+infrastructure. With no target, it discovers the nearest ancestor
+`ainfra.yaml` and validates the project, lockfile, environment references,
+template digest, contracts, and policy.
 
 ## `doctor`
 

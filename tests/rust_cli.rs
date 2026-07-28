@@ -5,7 +5,8 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-const COMMANDS: [&str; 8] = [
+const COMMANDS: [&str; 9] = [
+    "init",
     "validate",
     "doctor",
     "plan",
@@ -44,6 +45,55 @@ fn help_works_outside_the_source_checkout() {
         .arg("--help")
         .assert()
         .success();
+}
+
+#[test]
+fn init_and_project_validation_work_outside_the_checkout() {
+    let project = tempfile::tempdir().unwrap();
+    let output = Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .args([
+            "init",
+            "--name",
+            "example-infrastructure",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["apiVersion"], "ainfra.init/v1alpha1");
+    assert_eq!(result["template"]["source"], "builtin");
+    assert!(!project.path().join(".ainfra").exists());
+
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path().join("environments"))
+        .args(["validate", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"kind\":\"AinfraProject\""))
+        .stdout(predicate::str::contains("\"development\""));
+}
+
+#[test]
+fn init_refuses_overwrite_without_partial_changes() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("ainfra.lock"), "user-owned\n").unwrap();
+
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .args(["init", "--name", "example-infrastructure"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("AINFRA-E600"))
+        .stderr(predicate::str::contains("ainfra.lock"));
+
+    assert!(!project.path().join("ainfra.yaml").exists());
+    assert!(!project.path().join("environments").exists());
 }
 
 #[test]

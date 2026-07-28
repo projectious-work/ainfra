@@ -36,18 +36,24 @@ Check local readiness without changing infrastructure:
 uv run ainfra doctor
 ```
 
-## Prepare a disposable input
+## Initialize a disposable project
 
-Copy the non-secret example outside version control:
+Build the Rust binary, create a separate project, and initialize it:
 
 ```sh
-mkdir -p .ainfra
-cp templates/hetzner-kubernetes-baseline/inputs/example.input.yaml \
-  .ainfra/hetzner.input.yaml
+cargo build
+mkdir ../my-infrastructure
+cd ../my-infrastructure
+../ainfra/target/debug/ainfra init \
+  --name my-infrastructure \
+  --environment development
+../ainfra/target/debug/ainfra validate
 ```
 
-Edit the input with your project name, location, SSH public key reference, and
-management network. Export the token; never place it in the input document:
+Commit `ainfra.yaml`, `ainfra.lock`, and the environment input. Keep
+`.ainfra/` ignored; it contains operational run state. Edit
+`environments/development.yaml` with the location, SSH public key, topology,
+and network policy. Export the token; never place it in a project file:
 
 ```sh
 export HCLOUD_TOKEN='...'
@@ -56,8 +62,8 @@ export HCLOUD_TOKEN='...'
 ## Plan and review
 
 ```sh
-uv run ainfra plan hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml
+../ainfra/target/debug/ainfra plan hetzner-kubernetes-baseline \
+  --input environments/development.yaml
 ```
 
 Review the resource count, networking, public-address choices, and ownership
@@ -65,8 +71,8 @@ scope. The command returns a plan identifier. Apply requires that exact
 identifier:
 
 ```sh
-uv run ainfra apply hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml \
+../ainfra/target/debug/ainfra apply hetzner-kubernetes-baseline \
+  --input environments/development.yaml \
   --approve PLAN_ID
 ```
 
@@ -80,10 +86,10 @@ remain.
 ## Read outputs and configure hosts
 
 ```sh
-uv run ainfra outputs hetzner-kubernetes-baseline \
+../ainfra/target/debug/ainfra outputs hetzner-kubernetes-baseline \
   --run PLAN_ID \
   --format json
-uv run ainfra configure hetzner-kubernetes-baseline \
+../ainfra/target/debug/ainfra configure hetzner-kubernetes-baseline \
   --run PLAN_ID \
   --known-hosts .ainfra/known_hosts
 ```
@@ -97,16 +103,16 @@ trusted out-of-band channel before the first Ansible connection. Never treat
 Create and review a destroy plan:
 
 ```sh
-uv run ainfra plan hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml \
+../ainfra/target/debug/ainfra plan hetzner-kubernetes-baseline \
+  --input environments/development.yaml \
   --destroy
 ```
 
 Then use the exact destroy-plan ID returned by the lifecycle:
 
 ```sh
-uv run ainfra destroy hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml \
+../ainfra/target/debug/ainfra destroy hetzner-kubernetes-baseline \
+  --input environments/development.yaml \
   --approve-destroy PLAN_ID
 ```
 

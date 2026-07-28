@@ -13,6 +13,7 @@ use crate::lifecycle::{self, OsEnvironment};
 use crate::plan_record::Operation;
 use crate::policy::validate_policy;
 use crate::process::SubprocessRunner;
+use crate::project::{Project, initialize};
 use crate::template::discover_builtin;
 
 /// Validate and operate explicit infrastructure templates.
@@ -27,10 +28,25 @@ pub struct Cli {
 /// Initial compatibility command surface.
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Initialize a project without overwriting configuration.
+    Init {
+        /// Project name; defaults to the current directory name.
+        #[arg(long)]
+        name: Option<String>,
+        /// Built-in template to lock.
+        #[arg(long, default_value = "hetzner-kubernetes-baseline")]
+        template: String,
+        /// Example environment name.
+        #[arg(long, default_value = "development")]
+        environment: String,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t)]
+        format: TextFormat,
+    },
     /// Validate a manifest, input, or standardized output.
     Validate {
-        /// Document path or template name beneath the template catalog.
-        target: String,
+        /// Document path or template name; omit to validate the project.
+        target: Option<String>,
         /// Input document to validate with the selected template.
         #[arg(long)]
         input: Option<PathBuf>,
@@ -124,6 +140,7 @@ impl Command {
     #[must_use]
     pub const fn name(&self) -> &'static str {
         match self {
+            Self::Init { .. } => "init",
             Self::Validate { .. } => "validate",
             Self::Doctor { .. } => "doctor",
             Self::Plan { .. } => "plan",
@@ -152,10 +169,43 @@ pub enum TextFormat {
 ///
 /// Returns a stable contract or policy error when validation fails.
 pub fn run_validate(
-    target: &str,
+    target: Option<&str>,
     input: Option<&std::path::Path>,
     format: TextFormat,
 ) -> Result<(), AinfraError> {
+    let Some(target) = target else {
+        if input.is_some() {
+            return Err(AinfraError::input_contract(
+                "--input requires a template target",
+            ));
+        }
+        let root =
+            std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+        let project = Project::discover(&root)?;
+        match format {
+            TextFormat::Text => {
+                println!("valid AinfraProject: {}", project.root.display());
+            }
+            TextFormat::Json => println!(
+                "{}",
+                serde_json::to_string(&json!({
+                    "apiVersion": project.config.api_version,
+                    "environments": project.inputs.keys().collect::<Vec<_>>(),
+                    "kind": project.config.kind,
+                    "ok": true,
+                    "projectRoot": project.root,
+                    "template": {
+                        "name": project.lock.template.name,
+                        "sha256": project.lock.template.sha256,
+                        "source": project.lock.template.source,
+                        "version": project.lock.template.version,
+                    },
+                }))
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+            ),
+        }
+        return Ok(());
+    };
     let path = std::path::Path::new(target);
     if !path.exists() {
         let template = discover_builtin(target)?;
@@ -205,6 +255,42 @@ pub fn run_validate(
             }))
             .map_err(|error| AinfraError::dependency(error.to_string()))?
         ),
+    }
+    Ok(())
+}
+
+/// Initialize the current directory as an ainfra project.
+///
+/// # Errors
+///
+/// Refuses invalid names, unsupported templates, and all primary-file
+/// overwrites.
+pub fn run_init(
+    name: Option<&str>,
+    template: &str,
+    environment: &str,
+    format: TextFormat,
+) -> Result<(), AinfraError> {
+    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let result = initialize(&root, name, template, environment)?;
+    match format {
+        TextFormat::Json => println!("{}", crate::project::init_json(&result)?),
+        TextFormat::Text => {
+            println!("initialized ainfra project: {}", result.project_root);
+            println!(
+                "template: {} {}",
+                result.template.name, result.template.version
+            );
+            for path in &result.created {
+                println!("created: {path}");
+            }
+            for path in &result.updated {
+                println!("updated: {path}");
+            }
+            for next in result.next {
+                println!("next: {next}");
+            }
+        }
     }
     Ok(())
 }

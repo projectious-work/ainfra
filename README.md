@@ -85,6 +85,9 @@ uv sync --all-groups
 scripts/validate-all
 scripts/test-all
 uv run ainfra --help
+mkdir ../my-infrastructure
+(cd ../my-infrastructure && \
+  ../ainfra/target/debug/ainfra init --name my-infrastructure)
 uv run ainfra validate \
   tests/fixtures/contracts/v1alpha1/valid/template-input.json
 uv run ainfra doctor

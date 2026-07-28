@@ -9,6 +9,7 @@ pub mod lifecycle;
 pub mod plan_record;
 pub mod policy;
 pub mod process;
+pub mod project;
 pub mod template;
 
 use clap::Parser;
@@ -42,7 +43,13 @@ pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
             target,
             input,
             format,
-        } => cli::run_validate(target, input.as_deref(), *format),
+        } => cli::run_validate(target.as_deref(), input.as_deref(), *format),
+        Command::Init {
+            name,
+            template,
+            environment,
+            format,
+        } => cli::run_init(name.as_deref(), template, environment, *format),
         Command::Inventory {
             output,
             destination,
