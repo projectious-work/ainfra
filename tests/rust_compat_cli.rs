@@ -31,6 +31,7 @@ fn rust_cli_satisfies_the_frozen_compatibility_corpus() {
             .iter()
             .map(|value| value.replace("<ROOT>", &root.display().to_string()))
             .collect();
+        let expected_version = env!("CARGO_PKG_VERSION");
         let output = Command::cargo_bin("ainfra")
             .unwrap()
             .current_dir(&root)
@@ -46,8 +47,9 @@ fn rust_cli_satisfies_the_frozen_compatibility_corpus() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         for fragment in &case.expect.stdout_contains {
+            let fragment = fragment.replace("<VERSION>", expected_version);
             assert!(
-                stdout.contains(fragment),
+                stdout.contains(&fragment),
                 "{} stdout did not contain {fragment:?}: {stdout}",
                 case.name
             );

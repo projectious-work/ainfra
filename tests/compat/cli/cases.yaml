@@ -19,7 +19,7 @@
   expect:
     exit: 0
     stdout_contains:
-      - 0.1.0-dev
+      - <VERSION>
     stderr_contains: []
 
 - name: validate-v1alpha1-input
