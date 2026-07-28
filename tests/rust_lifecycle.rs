@@ -18,7 +18,10 @@ use ainfra::process::{
     ProcessRequest, ProcessResult, Runner, SubprocessRunner, child_environment, redact,
     require_success,
 };
-use ainfra::project::initialize;
+use ainfra::project::{Project, initialize};
+use ainfra::run_record::{RecoveryCategory, RunOutcome, RunRecord, RunStage};
+use ainfra::status::inspect;
+use jsonschema::Draft;
 
 struct FixtureEnvironment(BTreeMap<String, String>);
 
@@ -108,6 +111,32 @@ impl Runner for ProjectTamperingRunner {
 struct ProjectOutputTamperingRunner {
     calls: Mutex<Vec<RecordedCall>>,
     config_path: PathBuf,
+}
+
+struct InitThenErrorRunner {
+    calls: Mutex<Vec<RecordedCall>>,
+}
+
+impl Runner for InitThenErrorRunner {
+    fn run(&self, request: &ProcessRequest) -> Result<ProcessResult, AinfraError> {
+        let mut calls = self.calls.lock().unwrap();
+        calls.push((
+            request.argv.clone(),
+            request.cwd.clone(),
+            request.environment.clone(),
+        ));
+        if calls.len() == 1 {
+            return Ok(ProcessResult {
+                argv: request.argv.clone(),
+                return_code: 0,
+                stdout: "ok\n".to_owned(),
+                stderr: String::new(),
+            });
+        }
+        Err(AinfraError::dependency(
+            "fixture-secret must not enter durable events",
+        ))
+    }
 }
 
 impl Runner for ProjectOutputTamperingRunner {
@@ -703,6 +732,62 @@ fn sensitive_output_fails_without_an_artifact() {
             .join("output.json")
             .exists()
     );
+    let events = RunRecord::load(project.path(), &record.id)
+        .unwrap()
+        .events(project.path())
+        .unwrap();
+    let failure = events.last().unwrap();
+    assert_eq!(failure.outcome, RunOutcome::Failed);
+    assert_eq!(failure.recovery, Some(RecoveryCategory::InspectOutputState));
+    assert!(
+        !serde_json::to_string(&events)
+            .unwrap()
+            .contains("fixture-secret")
+    );
+}
+
+#[test]
+fn runner_errors_after_stage_start_become_sanitized_failures() {
+    let project = tempfile::tempdir().unwrap();
+    let planning_runner = FakeRunner::default();
+    let record = plan(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    let apply_runner = InitThenErrorRunner {
+        calls: Mutex::new(Vec::new()),
+    };
+
+    apply(
+        &apply_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap_err();
+    let events = RunRecord::load(project.path(), &record.id)
+        .unwrap()
+        .events(project.path())
+        .unwrap();
+    let failure = events.last().unwrap();
+    assert_eq!(failure.outcome, RunOutcome::Failed);
+    assert_eq!(failure.error_code.as_deref(), Some("AINFRA-E500"));
+    assert_eq!(
+        failure.recovery,
+        Some(RecoveryCategory::InspectInfrastructureState)
+    );
+    assert!(
+        !serde_json::to_string(&events)
+            .unwrap()
+            .contains("fixture-secret")
+    );
 }
 
 #[cfg(unix)]
@@ -779,6 +864,16 @@ fn configure_uses_validated_inventory_and_no_provider_secret() {
             .join("inventory.yml")
             .is_file()
     );
+    let events = RunRecord::load(project.path(), &record.id)
+        .unwrap()
+        .events(project.path())
+        .unwrap();
+    assert!(
+        !events
+            .iter()
+            .any(|event| event.stage == RunStage::Configure)
+    );
+    assert_eq!(events.last().unwrap().stage, RunStage::Output);
 }
 
 #[test]
@@ -962,6 +1057,16 @@ fn project_lifecycle_binds_configuration_and_lock() {
     assert_eq!(record.format_version, PROJECT_FORMAT_VERSION);
     assert!(record.project_config_sha256.is_some());
     assert!(record.project_lock_sha256.is_some());
+    let loaded_project = Project::load(project.path()).unwrap();
+    let status = inspect(&loaded_project, "development").unwrap();
+    assert_eq!(status.lifecycle.state, "planned");
+    let schema: serde_json::Value =
+        serde_json::from_str(include_str!("../schemas/status.v1alpha1.json")).unwrap();
+    let validator = jsonschema::options()
+        .with_draft(Draft::Draft202012)
+        .build(&schema)
+        .unwrap();
+    assert!(validator.is_valid(&serde_json::to_value(&status).unwrap()));
 
     apply_project(
         &runner,
@@ -971,6 +1076,8 @@ fn project_lifecycle_binds_configuration_and_lock() {
         &record.id,
     )
     .unwrap();
+    let status = inspect(&loaded_project, "development").unwrap();
+    assert_eq!(status.lifecycle.state, "applied");
     let output_runner = FakeRunner {
         calls: Mutex::new(Vec::new()),
         fail_on_call: None,
@@ -986,6 +1093,163 @@ fn project_lifecycle_binds_configuration_and_lock() {
     )
     .unwrap();
     assert_eq!(output_runner.calls.lock().unwrap().len(), 1);
+    let status = inspect(&loaded_project, "development").unwrap();
+    assert_eq!(status.lifecycle.state, "output-collected");
+    let config_path = project.path().join("ainfra.yaml");
+    let changed = fs::read_to_string(&config_path)
+        .unwrap()
+        .replace("example-infrastructure", "changed-infrastructure");
+    fs::write(config_path, changed).unwrap();
+    let changed_project = Project::load(project.path()).unwrap();
+    let status = inspect(&changed_project, "development").unwrap();
+    assert_eq!(status.lifecycle.state, "stale");
+    assert_eq!(status.lifecycle.integrity, "stale");
+}
+
+#[test]
+fn started_run_stage_is_reported_as_partial() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+    let plan = plan_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let record = RunRecord::load(project.path(), &plan.id).unwrap();
+    record.start(project.path(), RunStage::Apply).unwrap();
+
+    let loaded_project = Project::load(project.path()).unwrap();
+    let status = inspect(&loaded_project, "development").unwrap();
+
+    assert_eq!(status.lifecycle.state, "partial");
+    assert_eq!(status.latest_run.unwrap().stages.len(), 2);
+    assert_eq!(status.next[0].command, "docs: lifecycle recovery");
+}
+
+#[test]
+fn corrupt_run_evidence_forces_manual_recovery() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runs = project.path().join(".ainfra/runs");
+    fs::create_dir_all(&runs).unwrap();
+    fs::write(runs.join("untrusted-entry"), b"fixture-secret").unwrap();
+    let loaded_project = Project::load(project.path()).unwrap();
+
+    let status = inspect(&loaded_project, "development").unwrap();
+
+    assert_eq!(status.lifecycle.state, "corrupt");
+    assert_eq!(status.lifecycle.integrity, "corrupt");
+    assert_eq!(status.next[0].command, "docs: lifecycle recovery");
+    assert!(
+        !serde_json::to_string(&status)
+            .unwrap()
+            .contains("fixture-secret")
+    );
+}
+
+#[test]
+fn corrupt_run_cannot_be_bypassed_by_an_older_valid_run() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+    let plan = plan_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    fs::write(
+        project.path().join(".ainfra/runs/untrusted-entry"),
+        b"fixture-secret",
+    )
+    .unwrap();
+    let loaded_project = Project::load(project.path()).unwrap();
+
+    let status = inspect(&loaded_project, "development").unwrap();
+
+    assert_eq!(status.lifecycle.state, "corrupt");
+    assert_eq!(status.latest_run.as_ref().unwrap().id, plan.id);
+    assert_eq!(status.next[0].command, "docs: lifecycle recovery");
+    assert!(
+        !serde_json::to_string(&status)
+            .unwrap()
+            .contains("fixture-secret")
+    );
+}
+
+#[test]
+fn controlled_failures_use_only_sanitized_recovery_categories() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let apply_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: Some(2),
+        tofu_output: None,
+        tamper_record: None,
+    };
+
+    apply_project(
+        &apply_runner,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+    )
+    .unwrap_err();
+    let events = RunRecord::load(project.path(), &plan.id)
+        .unwrap()
+        .events(project.path())
+        .unwrap();
+    let failure = events.last().unwrap();
+    assert_eq!(failure.outcome, RunOutcome::Failed);
+    assert_eq!(
+        failure.recovery,
+        Some(RecoveryCategory::InspectInfrastructureState)
+    );
+    assert!(
+        !serde_json::to_string(&events)
+            .unwrap()
+            .contains("fixture-secret")
+    );
 }
 
 #[test]

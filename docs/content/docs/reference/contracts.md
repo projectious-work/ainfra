@@ -13,6 +13,9 @@ All schemas use JSON Schema draft 2020-12 and reject unknown fields.
 | `InfrastructureOutput/v1alpha1` | [`schemas/template-output.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/template-output.v1alpha1.json) | Stable, non-secret handoff to downstream systems |
 | `ainfra.plan/v1alpha1` | [`schemas/plan-record.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/plan-record.v1alpha1.json) | Exact reviewed-plan binding for lifecycle authorization |
 | `ainfra.plan/v1alpha2` | [`schemas/plan-record.v1alpha2.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/plan-record.v1alpha2.json) | Project-bound lifecycle authorization |
+| `ainfra.run/v1alpha2` | [`schemas/run-record.v1alpha2.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/run-record.v1alpha2.json) | Immutable run identity |
+| `ainfra.run-event/v1alpha1` | [`schemas/run-event.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/run-event.v1alpha1.json) | Append-only lifecycle evidence |
+| `ainfra.status/v1alpha1` | [`schemas/status.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/status.v1alpha1.json) | Sanitized local status output |
 
 ## Compatibility
 
@@ -53,3 +56,14 @@ cross-authorize.
 Approval identifiers are exactly 20 lowercase hexadecimal characters. Plan
 files must resolve beneath their corresponding
 `.ainfra/runs/<PLAN_ID>/` directory.
+
+## Run records and events
+
+`run.json` repeats only non-secret immutable plan identity. Lifecycle evidence
+is append-only and ordered by a contiguous sequence number; timestamps are
+informational and never override event order. Failed events contain only a
+stable `AINFRA-E*` code and a sanitized recovery category.
+
+The older `ainfra.run/v1alpha1` apply/destroy marker remains legacy success
+evidence. It is not treated as a durable event history and is never upgraded
+silently.

@@ -20,6 +20,7 @@ ainfra outputs [<template> | --environment ENV] --run PLAN_ID
   [--format json|yaml]
 ainfra configure [<template> | --environment ENV] --run PLAN_ID
   --known-hosts FILE [--check]
+ainfra status --environment ENV [--format text|json]
 ainfra inventory --output OUTPUT --destination DESTINATION
 ```
 
@@ -95,3 +96,15 @@ mode and diff without changing the reviewed infrastructure plan.
 
 Transforms a validated standardized output into an Ansible inventory at an
 explicit destination.
+
+## `status`
+
+Reads only validated project files and durable local run evidence. It never
+invokes OpenTofu, Ansible, credential providers, DNS, or provider APIs.
+
+The report classifies the latest project-bound run as `planned`, `applied`,
+`output-collected`, `configured`, `destroy-planned`, `destroyed`, `partial`,
+`stale`, `corrupt`, `legacy`, or `none`. Started operations without a matching
+success or failure event are `partial`; they are never assumed safe to retry.
+Machine output uses `ainfra.status/v1alpha1` and includes sanitized checks and
+the next safe command or manual-recovery route.

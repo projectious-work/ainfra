@@ -95,6 +95,7 @@ remain.
   --environment development \
   --run PLAN_ID \
   --known-hosts .ainfra/known_hosts
+../ainfra/target/debug/ainfra status --environment development
 ```
 
 Verify SSH host-key fingerprints through the Hetzner console or another
@@ -117,6 +118,7 @@ Then use the exact destroy-plan ID returned by the lifecycle:
 ../ainfra/target/debug/ainfra destroy \
   --environment development \
   --approve-destroy PLAN_ID
+../ainfra/target/debug/ainfra status --environment development
 ```
 
 Confirm zero project-owned servers, networks, firewalls, and SSH keys in

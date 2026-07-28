@@ -5,7 +5,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-const COMMANDS: [&str; 9] = [
+const COMMANDS: [&str; 10] = [
     "init",
     "validate",
     "doctor",
@@ -14,6 +14,7 @@ const COMMANDS: [&str; 9] = [
     "destroy",
     "outputs",
     "configure",
+    "status",
     "inventory",
 ];
 
@@ -76,6 +77,16 @@ fn init_and_project_validation_work_outside_the_checkout() {
         .success()
         .stdout(predicate::str::contains("\"kind\":\"AinfraProject\""))
         .stdout(predicate::str::contains("\"development\""));
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path().join("environments"))
+        .args(["status", "--environment", "development", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"state\":\"none\""))
+        .stdout(predicate::str::contains(
+            "ainfra plan --environment development",
+        ));
 }
 
 #[test]
@@ -227,6 +238,19 @@ fn project_lifecycle_works_from_a_nested_directory() {
         .assert()
         .success()
         .stdout("configured");
+    let output = Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(&nested)
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args(["status", "--environment", "development", "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("\"state\":\"configured\""));
+    assert!(!text.contains("fixture-secret"));
+    assert!(!text.contains("HCLOUD_TOKEN"));
 }
 
 #[test]

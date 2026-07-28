@@ -142,6 +142,15 @@ pub enum Command {
         #[arg(long)]
         check: bool,
     },
+    /// Report local durable lifecycle state without provider access.
+    Status {
+        /// Configured project environment.
+        #[arg(long)]
+        environment: String,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t)]
+        format: TextFormat,
+    },
     /// Generate Ansible inventory from standardized output.
     Inventory {
         /// Standardized infrastructure output.
@@ -166,6 +175,7 @@ impl Command {
             Self::Destroy { .. } => "destroy",
             Self::Outputs { .. } => "outputs",
             Self::Configure { .. } => "configure",
+            Self::Status { .. } => "status",
             Self::Inventory { .. } => "inventory",
         }
     }
@@ -558,6 +568,43 @@ pub fn run_configure(
         }
     };
     print!("{}", result.stdout);
+    Ok(())
+}
+
+/// Report local-only durable lifecycle state for one project environment.
+///
+/// # Errors
+///
+/// Rejects missing or invalid projects and unknown environments. Corrupt
+/// individual runs are represented as sanitized findings.
+pub fn run_status(environment: &str, format: TextFormat) -> Result<(), AinfraError> {
+    let current = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let project = Project::discover(&current)?;
+    let report = crate::status::inspect(&project, environment)?;
+    match format {
+        TextFormat::Json => println!(
+            "{}",
+            serde_json::to_string(&report)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+        TextFormat::Text => {
+            println!(
+                "{}: {} ({})",
+                report.project.environment, report.lifecycle.state, report.lifecycle.integrity
+            );
+            if let Some(id) = &report.lifecycle.run_id {
+                println!("run: {id}");
+            }
+            for check in &report.checks {
+                if check.status != "pass" {
+                    println!("{}: {}", check.status, check.message);
+                }
+            }
+            for action in &report.next {
+                println!("next: {}", action.command);
+            }
+        }
+    }
     Ok(())
 }
 

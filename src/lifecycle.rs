@@ -15,6 +15,7 @@ use crate::plan_record::{
 use crate::policy::validate_policy;
 use crate::process::{ProcessRequest, ProcessResult, Runner, child_environment, require_success};
 use crate::project::Project;
+use crate::run_record::{RecoveryCategory, RunRecord, RunStage};
 use crate::template::discover_builtin;
 
 /// Create one isolated, immutable reviewed plan.
@@ -163,6 +164,7 @@ fn plan_bound(
     require_project_binding(&project_root, project)?;
     record.bind_plan(&project_root)?;
     record.write(&project_root)?;
+    RunRecord::create(&project_root, &record)?;
     Ok(record)
 }
 
@@ -382,25 +384,46 @@ fn collect_output_bound(
     )?;
     require_applied_marker(&run, &record)?;
     require_project_binding(&project_root, project)?;
+    let run_record = RunRecord::load(&project_root, run_id)?;
+    let track_output = run_record.start(&project_root, RunStage::Output)?;
+    if !track_output {
+        let output_path = run.join("output.json");
+        let output = validate_path(&output_path)?;
+        crate::contracts::validate_document(&output, &output_path)?;
+        validate_policy(&output, &output_path, Some(template.name), &project_root)?;
+        return Ok(output);
+    }
     let (environment, secrets) =
         lifecycle_environment(&document, &project_root, environment_source)?;
     let tofu_root = workspace.join("tofu");
-    let result = require_success(runner.run(&ProcessRequest {
-        argv: vec!["tofu".to_owned(), "output".to_owned(), "-json".to_owned()],
-        cwd: tofu_root,
-        environment,
-        secrets,
-    })?)?;
-    require_project_binding(&project_root, project)?;
-    let raw: Value = serde_json::from_str(&result.stdout).map_err(|error| {
-        AinfraError::output_contract(format!("cannot parse OpenTofu output: {error}"))
-    })?;
-    let output = standardized_output(&record, &document, &raw)?;
-    let output_path = run.join("output.json");
-    crate::contracts::validate_document(&output, &output_path)?;
-    validate_policy(&output, &output_path, Some(template.name), &project_root)?;
-    persist_immutable_json(&output_path, &output)?;
-    Ok(output)
+    let result: Result<Value, AinfraError> = (|| {
+        let result = require_success(runner.run(&ProcessRequest {
+            argv: vec!["tofu".to_owned(), "output".to_owned(), "-json".to_owned()],
+            cwd: tofu_root,
+            environment,
+            secrets,
+        })?)?;
+        require_project_binding(&project_root, project)?;
+        let raw: Value = serde_json::from_str(&result.stdout).map_err(|error| {
+            AinfraError::output_contract(format!("cannot parse OpenTofu output: {error}"))
+        })?;
+        let output = standardized_output(&record, &document, &raw)?;
+        let output_path = run.join("output.json");
+        crate::contracts::validate_document(&output, &output_path)?;
+        validate_policy(&output, &output_path, Some(template.name), &project_root)?;
+        persist_immutable_json(&output_path, &output)?;
+        run_record.succeed(&project_root, RunStage::Output)?;
+        Ok(output)
+    })();
+    if let Err(error) = &result {
+        let _ = run_record.fail(
+            &project_root,
+            RunStage::Output,
+            error.code(),
+            RecoveryCategory::InspectOutputState,
+        );
+    }
+    result
 }
 
 /// Configure hosts for one exact apply run using validated output.
@@ -461,6 +484,7 @@ pub fn configure_project(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)]
 fn configure_bound(
     runner: &dyn Runner,
     environment_source: &dyn EnvironmentSource,
@@ -545,12 +569,39 @@ fn configure_bound(
     }
     argv.push("site.yml".to_owned());
     require_project_binding(&project_root, project)?;
-    require_success(runner.run(&ProcessRequest {
-        argv,
-        cwd: ansible_root,
-        environment,
-        secrets: Vec::new(),
-    })?)
+    if check {
+        return require_success(runner.run(&ProcessRequest {
+            argv,
+            cwd: ansible_root,
+            environment,
+            secrets: Vec::new(),
+        })?);
+    }
+    let run_record = RunRecord::load(&project_root, run_id)?;
+    if !run_record.start(&project_root, RunStage::Configure)? {
+        return Err(AinfraError::guard(
+            "configure already succeeded for this reviewed plan",
+        ));
+    }
+    let result: Result<ProcessResult, AinfraError> = (|| {
+        let result = require_success(runner.run(&ProcessRequest {
+            argv,
+            cwd: ansible_root,
+            environment,
+            secrets: Vec::new(),
+        })?)?;
+        run_record.succeed(&project_root, RunStage::Configure)?;
+        Ok(result)
+    })();
+    if let Err(error) = &result {
+        let _ = run_record.fail(
+            &project_root,
+            RunStage::Configure,
+            error.code(),
+            RecoveryCategory::InspectHostState,
+        );
+    }
+    result
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -613,19 +664,45 @@ fn execute(
     require_project_binding(&project_root, project)?;
     initialize(runner, &tofu_root, &environment, &secrets, backend.as_ref())?;
     require_project_binding(&project_root, project)?;
-    let result = require_success(runner.run(&ProcessRequest {
-        argv: vec![
-            "tofu".to_owned(),
-            "apply".to_owned(),
-            "-input=false".to_owned(),
-            record.plan_path.clone(),
-        ],
-        cwd: tofu_root,
-        environment,
-        secrets,
-    })?)?;
-    persist_operation_marker(&run, &record)?;
-    Ok(result)
+    let run_record = RunRecord::load(&project_root, approval)?;
+    let stage = match operation {
+        Operation::Apply => RunStage::Apply,
+        Operation::Destroy => RunStage::Destroy,
+    };
+    if !run_record.start(&project_root, stage)? {
+        return Err(AinfraError::guard(format!(
+            "{} already succeeded for this reviewed plan",
+            operation.as_str()
+        )));
+    }
+    let result: Result<ProcessResult, AinfraError> = (|| {
+        let result = require_success(runner.run(&ProcessRequest {
+            argv: vec![
+                "tofu".to_owned(),
+                "apply".to_owned(),
+                "-input=false".to_owned(),
+                record.plan_path.clone(),
+            ],
+            cwd: tofu_root,
+            environment,
+            secrets,
+        })?)?;
+        persist_operation_marker(&run, &record)?;
+        run_record.succeed(&project_root, stage)?;
+        Ok(result)
+    })();
+    match result {
+        Ok(result) => Ok(result),
+        Err(error) => {
+            let _ = run_record.fail(
+                &project_root,
+                stage,
+                error.code(),
+                RecoveryCategory::InspectInfrastructureState,
+            );
+            Err(error)
+        }
+    }
 }
 
 struct ProjectSelection {

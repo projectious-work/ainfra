@@ -10,6 +10,8 @@ pub mod plan_record;
 pub mod policy;
 pub mod process;
 pub mod project;
+pub mod run_record;
+pub mod status;
 pub mod template;
 
 use clap::Parser;
@@ -54,6 +56,10 @@ pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
             output,
             destination,
         } => cli::run_inventory(output, destination),
+        Command::Status {
+            environment,
+            format,
+        } => cli::run_status(environment, *format),
         Command::Doctor {
             format,
             input,

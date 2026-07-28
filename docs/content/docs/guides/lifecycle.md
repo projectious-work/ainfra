@@ -64,6 +64,23 @@ location, and plan bytes. Project mode additionally binds the canonical project
 root plus the exact `ainfra.yaml` and `ainfra.lock` bytes. Any mismatch fails
 before OpenTofu initialization or apply begins.
 
+Each completed plan has an immutable `run.json` and append-only events beneath
+`.ainfra/runs/<PLAN_ID>/events/`. Mutating and configuration phases record a
+`started` event before execution and then a `succeeded` or sanitized `failed`
+event. A missing terminal event means the process may have been interrupted;
+do not infer success or retry automatically.
+
+Inspect local state without contacting a provider:
+
+```sh
+ainfra status --environment development
+ainfra status --environment development --format json
+```
+
+Status validates event ordering and bindings, ignores untrusted run entries,
+and emits deterministic next steps. A partial, stale, corrupt, or legacy state
+routes to manual recovery instead of an apply or destroy command.
+
 ## Read standardized outputs
 
 ```sh
