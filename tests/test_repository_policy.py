@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,3 +33,26 @@ def test_fixture_tree_has_no_private_key_or_token_shapes() -> None:
         text = path.read_text(encoding="utf-8")
         for pattern in forbidden:
             assert not pattern.search(text), f"{path} matches {pattern.pattern}"
+
+
+def test_python_is_development_tooling_not_a_product_runtime() -> None:
+    assert not any((ROOT / "src" / "ainfra").glob("*.py"))
+    config = tomllib.loads(
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    assert config["project"]["dependencies"] == []
+    assert "scripts" not in config["project"]
+    assert config["tool"]["uv"]["package"] is False
+
+
+def test_user_documentation_has_no_python_cli_runtime() -> None:
+    excluded = {
+        ROOT / "docs/content/docs/contributing/_index.md",
+        ROOT / "docs/content/docs/guides/local-tooling.md",
+    }
+    for path in (ROOT / "docs/content/docs").rglob("*.md"):
+        if path in excluded:
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert "uv run ainfra" not in text
+        assert "Python 3.12" not in text

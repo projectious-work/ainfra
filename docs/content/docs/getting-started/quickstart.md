@@ -4,50 +4,45 @@ weight: 10
 description: Validate ainfra and prepare a disposable Hetzner deployment.
 ---
 
-This guide takes you from a fresh clone to a reviewed disposable-infrastructure
-plan. Applying the plan creates billable Hetzner resources, so the final apply
-and destroy commands remain explicit.
+This guide takes you from an installed binary to a reviewed disposable-
+infrastructure plan. Applying the plan creates billable Hetzner resources, so
+the final apply and destroy commands remain explicit.
 
 ## Prerequisites
 
-- Python 3.12
-- [uv](https://docs.astral.sh/uv/)
-- Rust `1.96.1` with Cargo, Clippy, Rustfmt, and `cargo-audit`
+- A verified `ainfra` release from the [installation guide]({{< relref
+  "/docs/getting-started/installation" >}})
 - OpenTofu
 - Ansible
-- Node.js 18 or newer and Hugo Extended for the documentation
 - A Hetzner Cloud project token for live operations
 - An existing SSH public key
 
 ## Install and validate
 
-```sh
-git clone https://github.com/projectious-work/ainfra.git
-cd ainfra
-uv sync --all-groups
-scripts/bootstrap-security-tools
-scripts/validate-all
-scripts/test-all
-```
-
 Check local readiness without changing infrastructure:
 
 ```sh
-uv run ainfra doctor
+ainfra --version
 ```
 
-## Prepare a disposable input
+## Initialize a disposable project
 
-Copy the non-secret example outside version control:
+Create a separate project and initialize it:
 
 ```sh
-mkdir -p .ainfra
-cp templates/hetzner-kubernetes-baseline/inputs/example.input.yaml \
-  .ainfra/hetzner.input.yaml
+mkdir ../my-infrastructure
+cd ../my-infrastructure
+ainfra init \
+  --name my-infrastructure \
+  --environment development
+ainfra validate
+ainfra doctor --environment development
 ```
 
-Edit the input with your project name, location, SSH public key reference, and
-management network. Export the token; never place it in the input document:
+Commit `ainfra.yaml`, `ainfra.lock`, and the environment input. Keep
+`.ainfra/` ignored; it contains operational run state. Edit
+`environments/development.yaml` with the location, SSH public key, topology,
+and network policy. Export the token; never place it in a project file:
 
 ```sh
 export HCLOUD_TOKEN='...'
@@ -56,8 +51,8 @@ export HCLOUD_TOKEN='...'
 ## Plan and review
 
 ```sh
-uv run ainfra plan hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml
+ainfra plan \
+  --environment development
 ```
 
 Review the resource count, networking, public-address choices, and ownership
@@ -65,8 +60,8 @@ scope. The command returns a plan identifier. Apply requires that exact
 identifier:
 
 ```sh
-uv run ainfra apply hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml \
+ainfra apply \
+  --environment development \
   --approve PLAN_ID
 ```
 
@@ -80,10 +75,15 @@ remain.
 ## Read outputs and configure hosts
 
 ```sh
-uv run ainfra outputs hetzner-kubernetes-baseline --format json
-uv run ainfra inventory \
-  --output .ainfra/output.json \
-  --destination .ainfra/inventory.yml
+ainfra outputs \
+  --environment development \
+  --run PLAN_ID \
+  --format json
+ainfra configure \
+  --environment development \
+  --run PLAN_ID \
+  --known-hosts .ainfra/known_hosts
+ainfra status --environment development
 ```
 
 Verify SSH host-key fingerprints through the Hetzner console or another
@@ -95,17 +95,18 @@ trusted out-of-band channel before the first Ansible connection. Never treat
 Create and review a destroy plan:
 
 ```sh
-uv run ainfra plan hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml \
+ainfra plan \
+  --environment development \
   --destroy
 ```
 
 Then use the exact destroy-plan ID returned by the lifecycle:
 
 ```sh
-uv run ainfra destroy hetzner-kubernetes-baseline \
-  --input .ainfra/hetzner.input.yaml \
+ainfra down \
+  --environment development \
   --approve-destroy PLAN_ID
+ainfra status --environment development
 ```
 
 Confirm zero project-owned servers, networks, firewalls, and SSH keys in
