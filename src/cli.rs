@@ -87,9 +87,26 @@ pub enum Command {
     Outputs {
         /// Template name.
         template: String,
+        /// Exact applied run identifier.
+        #[arg(long, value_name = "PLAN_ID")]
+        run: String,
         /// Output serialization.
         #[arg(long, value_enum, default_value_t)]
         format: DocumentFormat,
+    },
+    /// Configure hosts from one exact applied run.
+    Configure {
+        /// Template name.
+        template: String,
+        /// Exact applied run identifier.
+        #[arg(long, value_name = "PLAN_ID")]
+        run: String,
+        /// Independently verified SSH known-hosts file.
+        #[arg(long)]
+        known_hosts: PathBuf,
+        /// Run Ansible in check mode with a diff.
+        #[arg(long)]
+        check: bool,
     },
     /// Generate Ansible inventory from standardized output.
     Inventory {
@@ -113,6 +130,7 @@ impl Command {
             Self::Apply { .. } => "apply",
             Self::Destroy { .. } => "destroy",
             Self::Outputs { .. } => "outputs",
+            Self::Configure { .. } => "configure",
             Self::Inventory { .. } => "inventory",
         }
     }
@@ -296,6 +314,60 @@ pub fn run_execute(
             lifecycle::destroy(&runner, &OsEnvironment, &root, template, input, approval)
         }
     }?;
+    print!("{}", result.stdout);
+    Ok(())
+}
+
+/// Emit validated standardized output for one exact apply run.
+///
+/// # Errors
+///
+/// Returns a stable output-contract, dependency, or guard error.
+pub fn run_outputs(template: &str, run: &str, format: DocumentFormat) -> Result<(), AinfraError> {
+    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let output = lifecycle::collect_output(
+        &SubprocessRunner::default(),
+        &OsEnvironment,
+        &root,
+        template,
+        run,
+    )?;
+    match format {
+        DocumentFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+        DocumentFormat::Yaml => print!(
+            "{}",
+            serde_yaml::to_string(&output)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+    }
+    Ok(())
+}
+
+/// Configure hosts from validated output and verified host keys.
+///
+/// # Errors
+///
+/// Returns before Ansible when any run binding or host-key control fails.
+pub fn run_configure(
+    template: &str,
+    run: &str,
+    known_hosts: &std::path::Path,
+    check: bool,
+) -> Result<(), AinfraError> {
+    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let result = lifecycle::configure(
+        &SubprocessRunner::default(),
+        &OsEnvironment,
+        &root,
+        template,
+        run,
+        known_hosts,
+        check,
+    )?;
     print!("{}", result.stdout);
     Ok(())
 }

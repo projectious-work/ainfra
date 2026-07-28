@@ -5,13 +5,14 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-const COMMANDS: [&str; 7] = [
+const COMMANDS: [&str; 8] = [
     "validate",
     "doctor",
     "plan",
     "apply",
     "destroy",
     "outputs",
+    "configure",
     "inventory",
 ];
 
@@ -46,16 +47,6 @@ fn help_works_outside_the_source_checkout() {
 }
 
 #[test]
-fn unported_command_shapes_refuse_safely_in_the_preview() {
-    Command::cargo_bin("ainfra")
-        .unwrap()
-        .args(["outputs", "fixture-template", "--format", "yaml"])
-        .assert()
-        .code(5)
-        .stderr(predicate::str::contains("AINFRA-E500"));
-}
-
-#[test]
 fn doctor_emits_machine_readable_checks() {
     Command::cargo_bin("ainfra")
         .unwrap()
@@ -69,6 +60,7 @@ fn doctor_emits_machine_readable_checks() {
 
 #[cfg(unix)]
 #[test]
+#[allow(clippy::too_many_lines)]
 fn plan_works_outside_the_checkout_with_an_embedded_template() {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
@@ -78,14 +70,42 @@ fn plan_works_outside_the_checkout_with_an_embedded_template() {
     let bin = project.path().join("bin");
     fs::create_dir(&bin).unwrap();
     let tofu = bin.join("tofu");
+    let raw_output = serde_json::json!({
+        "inventory_nodes": {
+            "sensitive": false,
+            "value": [{
+                "name": "ainfra-development-control-01",
+                "role": "control-plane-capable",
+                "private_ipv4": "10.42.0.10",
+                "public_ipv4": null,
+                "public_ipv6": null,
+                "image": "debian-13",
+            }],
+        },
+        "ownership": {
+            "sensitive": false,
+            "value": {
+                "managed-by": "ainfra",
+                "template": "hetzner-kubernetes-baseline",
+                "environment": "development",
+            },
+        },
+    })
+    .to_string();
     fs::write(
         &tofu,
-        "#!/bin/sh\nfor value in \"$@\"; do\n\
-         case \"$value\" in -out=*) : > \"${value#-out=}\";; esac\n\
-         done\nif [ \"$1\" = apply ]; then printf applied; fi\n",
+        format!(
+            "#!/bin/sh\nfor value in \"$@\"; do\n\
+         case \"$value\" in -out=*) : > \"${{value#-out=}}\";; esac\n\
+         done\nif [ \"$1\" = apply ]; then printf applied; fi\n\
+         if [ \"$1\" = output ]; then printf '%s' '{raw_output}'; fi\n",
+        ),
     )
     .unwrap();
     fs::set_permissions(&tofu, fs::Permissions::from_mode(0o700)).unwrap();
+    let ansible = bin.join("ansible-playbook");
+    fs::write(&ansible, "#!/bin/sh\nprintf configured\n").unwrap();
+    fs::set_permissions(&ansible, fs::Permissions::from_mode(0o700)).unwrap();
     let path = format!(
         "{}:{}",
         bin.display(),
@@ -128,6 +148,41 @@ fn plan_works_outside_the_checkout_with_an_embedded_template() {
         .assert()
         .success()
         .stdout("applied");
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args([
+            "outputs",
+            "hetzner-kubernetes-baseline",
+            "--run",
+            plan_id,
+            "--format",
+            "json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"InfrastructureOutput\""));
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args([
+            "configure",
+            "hetzner-kubernetes-baseline",
+            "--run",
+            plan_id,
+            "--known-hosts",
+            known_hosts.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout("configured");
 
     let output = Command::cargo_bin("ainfra")
         .unwrap()

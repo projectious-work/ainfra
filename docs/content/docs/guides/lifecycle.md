@@ -53,23 +53,27 @@ apply begins.
 ## Read standardized outputs
 
 ```sh
-uv run ainfra outputs TEMPLATE --format yaml
-uv run ainfra outputs TEMPLATE --format json
+uv run ainfra outputs TEMPLATE --run PLAN_ID --format yaml
+uv run ainfra outputs TEMPLATE --run PLAN_ID --format json
 ```
 
 The standardized output is designed for downstream automation. It must not be
-confused with raw provider outputs or state.
+confused with raw provider outputs or state. Output collection requires a
+successful apply marker for the same exact run and writes
+`.ainfra/runs/PLAN_ID/output.json`.
 
-## Generate inventory
+## Configure hosts
 
 ```sh
-uv run ainfra inventory \
-  --output .ainfra/output.json \
-  --destination .ainfra/inventory.yml
+uv run ainfra configure TEMPLATE \
+  --run PLAN_ID \
+  --known-hosts .ainfra/known_hosts
 ```
 
-The inventory generator selects management addresses from a validated output
-contract. Verify SSH host keys before using it.
+The command generates a run-local inventory using private management
+addresses, then runs the retained Ansible playbook. Verify SSH fingerprints
+through an independent channel and populate the protected `known_hosts` file
+before running it. Use `--check` for an explicit Ansible check-mode pass.
 
 ## Destroy
 

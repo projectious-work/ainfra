@@ -10,7 +10,8 @@ ainfra doctor [--format text|json] [--input INPUT]
 ainfra plan <template> --input INPUT [--destroy] [--format text|json]
 ainfra apply <template> --input INPUT --approve PLAN_ID
 ainfra destroy <template> --input INPUT --approve-destroy PLAN_ID
-ainfra outputs <template> [--format json|yaml]
+ainfra outputs <template> --run PLAN_ID [--format json|yaml]
+ainfra configure <template> --run PLAN_ID --known-hosts FILE [--check]
 ainfra inventory --output OUTPUT --destination DESTINATION
 ```
 
@@ -47,8 +48,17 @@ running an unreviewed direct destroy command.
 
 ## `outputs`
 
-Reads the validated, sanitized `InfrastructureOutput`. It never substitutes raw
-OpenTofu state or outputs for that contract.
+Collects OpenTofu output for one exact successfully applied run, rejects
+sensitive or ownership-inconsistent values, and emits the validated,
+sanitized `InfrastructureOutput`. It never substitutes raw state or raw engine
+output for that contract.
+
+## `configure`
+
+Builds a private-address inventory from one run's validated output and invokes
+the retained Ansible playbook. `--known-hosts` must name an independently
+verified, non-group/world-writable host-key file. `--check` adds Ansible check
+mode and diff without changing the reviewed infrastructure plan.
 
 ## `inventory`
 

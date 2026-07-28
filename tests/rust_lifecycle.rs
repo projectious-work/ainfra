@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use ainfra::error::AinfraError;
-use ainfra::lifecycle::{EnvironmentSource, apply, destroy, plan};
+use ainfra::lifecycle::{EnvironmentSource, apply, collect_output, configure, destroy, plan};
 use ainfra::plan_record::{Operation, PlanRecord, template_hash};
 use ainfra::process::{
     ProcessRequest, ProcessResult, Runner, SubprocessRunner, child_environment, redact,
@@ -30,6 +30,8 @@ type RecordedCall = (Vec<String>, PathBuf, BTreeMap<String, String>);
 struct FakeRunner {
     calls: Mutex<Vec<RecordedCall>>,
     fail_on_call: Option<usize>,
+    tofu_output: Option<String>,
+    tamper_record: Option<PathBuf>,
 }
 
 impl Runner for FakeRunner {
@@ -51,10 +53,21 @@ impl Runner for FakeRunner {
             fs::write(path, b"fake-plan").unwrap();
         }
         let failed = self.fail_on_call == Some(call_number);
+        let is_output = request.argv.get(1).map(String::as_str) == Some("output");
+        if is_output && let Some(path) = &self.tamper_record {
+            let mut record: serde_json::Value =
+                serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+            record["plan_path"] = serde_json::json!("/tmp/attacker/plan.tfplan");
+            fs::write(path, serde_json::to_vec_pretty(&record).unwrap()).unwrap();
+        }
         Ok(ProcessResult {
             argv: request.argv.clone(),
             return_code: i32::from(failed),
-            stdout: "ok\n".to_owned(),
+            stdout: if is_output {
+                self.tofu_output.clone().unwrap_or_default()
+            } else {
+                "ok\n".to_owned()
+            },
             stderr: if failed {
                 redact("fixture-secret failed\n", &request.secrets)
             } else {
@@ -74,6 +87,33 @@ fn environment() -> FixtureEnvironment {
         "HCLOUD_TOKEN".to_owned(),
         "fixture-secret".to_owned(),
     )]))
+}
+
+fn tofu_output() -> String {
+    serde_json::json!({
+        "inventory_nodes": {
+            "sensitive": false,
+            "type": ["tuple"],
+            "value": [{
+                "name": "ainfra-development-control-01",
+                "role": "control-plane-capable",
+                "private_ipv4": "10.42.0.10",
+                "public_ipv4": null,
+                "public_ipv6": null,
+                "image": "debian-13",
+            }],
+        },
+        "ownership": {
+            "sensitive": false,
+            "type": ["map", "string"],
+            "value": {
+                "managed-by": "ainfra",
+                "template": "hetzner-kubernetes-baseline",
+                "environment": "development",
+            },
+        },
+    })
+    .to_string()
 }
 
 #[test]
@@ -157,6 +197,8 @@ fn failed_init_never_runs_plan_or_writes_a_record() {
     let runner = FakeRunner {
         calls: Mutex::new(Vec::new()),
         fail_on_call: Some(1),
+        tofu_output: None,
+        tamper_record: None,
     };
     let error = plan(
         &runner,
@@ -470,6 +512,8 @@ fn init_and_apply_failures_stop_safely_with_redacted_errors() {
     let init_failure = FakeRunner {
         calls: Mutex::new(Vec::new()),
         fail_on_call: Some(1),
+        tofu_output: None,
+        tamper_record: None,
     };
     let error = apply(
         &init_failure,
@@ -487,6 +531,8 @@ fn init_and_apply_failures_stop_safely_with_redacted_errors() {
     let apply_failure = FakeRunner {
         calls: Mutex::new(Vec::new()),
         fail_on_call: Some(2),
+        tofu_output: None,
+        tamper_record: None,
     };
     let error = apply(
         &apply_failure,
@@ -501,4 +547,343 @@ fn init_and_apply_failures_stop_safely_with_redacted_errors() {
     assert_eq!(apply_failure.calls.lock().unwrap().len(), 2);
     assert!(!error.to_string().contains("fixture-secret"));
     assert!(error.to_string().contains("[REDACTED]"));
+}
+
+#[test]
+fn output_requires_apply_and_persists_a_valid_run_artifact() {
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    runner.calls.lock().unwrap().clear();
+    let error = collect_output(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(runner.calls.lock().unwrap().is_empty());
+
+    apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap();
+    let output_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+    let output = collect_output(
+        &output_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+    )
+    .unwrap();
+    assert_eq!(output["kind"], "InfrastructureOutput");
+    assert_eq!(output["metadata"]["runId"], record.id);
+    assert_eq!(output["spec"]["nodes"][0]["privateIPv4"], "10.42.0.10");
+    let run = Path::new(&record.plan_path).parent().unwrap();
+    assert!(run.join("output.json").is_file());
+    assert_eq!(output_runner.calls.lock().unwrap()[0].0[1], "output");
+}
+
+#[test]
+fn sensitive_output_fails_without_an_artifact() {
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap();
+    let mut raw: serde_json::Value = serde_json::from_str(&tofu_output()).unwrap();
+    raw["inventory_nodes"]["sensitive"] = serde_json::json!(true);
+    let output_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(raw.to_string()),
+        tamper_record: None,
+    };
+    let error = collect_output(
+        &output_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E300");
+    assert!(
+        !Path::new(&record.plan_path)
+            .parent()
+            .unwrap()
+            .join("output.json")
+            .exists()
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn configure_uses_validated_inventory_and_no_provider_secret() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let configure_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+    configure(
+        &configure_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+        &known_hosts,
+        true,
+    )
+    .unwrap();
+    let calls = configure_runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].0[1], "output");
+    assert_eq!(calls[1].0[0], "ansible-playbook");
+    assert_eq!(calls[1].0[1], "--inventory");
+    assert!(calls[1].0.contains(&"--check".to_owned()));
+    assert!(calls[1].0.contains(&"--diff".to_owned()));
+    assert!(calls[1].1.ends_with("workspace/ansible"));
+    assert!(!calls[1].2.contains_key("HCLOUD_TOKEN"));
+    assert_eq!(
+        calls[1]
+            .2
+            .get("ANSIBLE_HOST_KEY_CHECKING")
+            .map(String::as_str),
+        Some("True")
+    );
+    assert_eq!(
+        calls[1].2.get("ANSIBLE_SSH_ARGS"),
+        Some(&format!(
+            "-o UserKnownHostsFile={} -o StrictHostKeyChecking=yes",
+            known_hosts.canonicalize().unwrap().display()
+        ))
+    );
+    assert!(
+        Path::new(&record.plan_path)
+            .parent()
+            .unwrap()
+            .join("inventory.yml")
+            .is_file()
+    );
+}
+
+#[test]
+fn configure_requires_verified_host_keys_before_any_runner_call() {
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap();
+    let configure_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+    let error = configure(
+        &configure_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+        &project.path().join("missing-known-hosts"),
+        false,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(configure_runner.calls.lock().unwrap().is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn configure_rejects_writable_known_hosts_before_any_runner_call() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o620)).unwrap();
+    let configure_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+
+    let error = configure(
+        &configure_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+        &known_hosts,
+        false,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(
+        error
+            .to_string()
+            .contains("must not be group/world writable")
+    );
+    assert!(configure_runner.calls.lock().unwrap().is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn configure_rejects_plan_record_replacement_before_ansible() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let record_path = project
+        .path()
+        .join(".ainfra/runs")
+        .join(&record.id)
+        .join("plan.json");
+    let configure_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: Some(record_path),
+    };
+
+    let error = configure(
+        &configure_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+        &known_hosts,
+        false,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(
+        error
+            .to_string()
+            .contains("reviewed plan record changed during output collection")
+    );
+    let calls = configure_runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].0[1], "output");
 }

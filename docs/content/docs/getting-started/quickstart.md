@@ -80,10 +80,12 @@ remain.
 ## Read outputs and configure hosts
 
 ```sh
-uv run ainfra outputs hetzner-kubernetes-baseline --format json
-uv run ainfra inventory \
-  --output .ainfra/output.json \
-  --destination .ainfra/inventory.yml
+uv run ainfra outputs hetzner-kubernetes-baseline \
+  --run PLAN_ID \
+  --format json
+uv run ainfra configure hetzner-kubernetes-baseline \
+  --run PLAN_ID \
+  --known-hosts .ainfra/known_hosts
 ```
 
 Verify SSH host-key fingerprints through the Hetzner console or another
