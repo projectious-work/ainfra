@@ -9,12 +9,17 @@ ainfra init [--name NAME] [--template TEMPLATE]
   [--environment ENVIRONMENT] [--format text|json]
 ainfra validate [<path-or-template>] [--input INPUT]
   [--format text|json]
-ainfra doctor [--format text|json] [--input INPUT]
-ainfra plan <template> --input INPUT [--destroy] [--format text|json]
-ainfra apply <template> --input INPUT --approve PLAN_ID
-ainfra destroy <template> --input INPUT --approve-destroy PLAN_ID
-ainfra outputs <template> --run PLAN_ID [--format json|yaml]
-ainfra configure <template> --run PLAN_ID --known-hosts FILE [--check]
+ainfra doctor [--input INPUT | --environment ENV] [--format text|json]
+ainfra plan [<template> --input INPUT | --environment ENV]
+  [--destroy] [--format text|json]
+ainfra apply [<template> --input INPUT | --environment ENV]
+  --approve PLAN_ID
+ainfra destroy [<template> --input INPUT | --environment ENV]
+  --approve-destroy PLAN_ID
+ainfra outputs [<template> | --environment ENV] --run PLAN_ID
+  [--format json|yaml]
+ainfra configure [<template> | --environment ENV] --run PLAN_ID
+  --known-hosts FILE [--check]
 ainfra inventory --output OUTPUT --destination DESTINATION
 ```
 
@@ -40,7 +45,9 @@ template digest, contracts, and policy.
 
 Reports local dependency and configuration readiness without mutation.
 Providing `--input` adds checks that depend on the target environment's
-backend mode and capabilities.
+backend mode and capabilities. `--environment` selects project mode and checks
+the configured input plus compatible OpenTofu and Ansible versions. The two
+selectors are mutually exclusive.
 
 ## `plan`
 
@@ -49,11 +56,20 @@ checks, and emits a reviewable plan ID. The built-in template is materialized
 into an isolated per-plan workspace. `--destroy` creates the corresponding
 destruction review without bypassing the exact-plan gate.
 
+Project mode uses `--environment ENV` and discovers the nearest ancestor
+`ainfra.yaml`. Explicit compatibility mode remains
+`TEMPLATE --input INPUT`; mixing selectors fails before any subprocess.
+
 ## `apply`
 
 Applies only the plan identified by `--approve`, from its retained isolated
 workspace. A stale, absent, changed, or mismatched identifier fails closed
 before an infrastructure process starts.
+
+Project plans use the `ainfra.plan/v1alpha2` protocol and bind the canonical
+project root plus the exact bytes of `ainfra.yaml` and `ainfra.lock`. Legacy
+explicit records remain `v1alpha1`; records cannot cross-authorize between
+the two modes.
 
 ## `destroy`
 

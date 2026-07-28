@@ -13,6 +13,8 @@ use crate::error::AinfraError;
 
 /// Current on-disk plan-record protocol.
 pub const FORMAT_VERSION: &str = "ainfra.plan/v1alpha1";
+/// Project-bound on-disk plan-record protocol.
+pub const PROJECT_FORMAT_VERSION: &str = "ainfra.plan/v1alpha2";
 
 /// Intended use of an immutable reviewed plan.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -58,6 +60,21 @@ pub struct PlanRecord {
     pub input_sha256: String,
     /// Digest of the resolved template tree.
     pub template_sha256: String,
+    /// Canonical project root for project-driven lifecycle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_root: Option<String>,
+    /// Canonical human-authored project configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_config_path: Option<String>,
+    /// Digest of the exact project configuration bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_config_sha256: Option<String>,
+    /// Canonical generated project lockfile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_lock_path: Option<String>,
+    /// Digest of the exact project lockfile bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_lock_sha256: Option<String>,
     /// Canonical reviewed backend configuration path.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_config_path: Option<String>,
@@ -88,6 +105,55 @@ pub struct ExpectedBindings<'a> {
     pub backend_config_path: Option<&'a str>,
     /// Current backend configuration digest.
     pub backend_config_sha256: Option<&'a str>,
+    /// Current project boundary, absent only for explicit compatibility mode.
+    pub project: Option<&'a ProjectBinding>,
+}
+
+/// Exact project files bound into one reviewed plan.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProjectBinding {
+    /// Canonical project root.
+    pub root: PathBuf,
+    /// Canonical direct-child `ainfra.yaml`.
+    pub config_path: PathBuf,
+    /// SHA-256 of the exact configuration bytes.
+    pub config_sha256: String,
+    /// Canonical direct-child `ainfra.lock`.
+    pub lock_path: PathBuf,
+    /// SHA-256 of the exact lockfile bytes.
+    pub lock_sha256: String,
+}
+
+impl ProjectBinding {
+    /// Capture exact regular project files without following static symlinks.
+    ///
+    /// # Errors
+    ///
+    /// Rejects missing, redirected, non-UTF-8, or unreadable project paths.
+    pub fn capture(project_root: &Path) -> Result<Self, AinfraError> {
+        let root = project_root
+            .canonicalize()
+            .map_err(|error| AinfraError::guard(format!("cannot resolve project root: {error}")))?;
+        let config_path = binding_file(&root, "ainfra.yaml")?;
+        let lock_path = binding_file(&root, "ainfra.lock")?;
+        Ok(Self {
+            config_sha256: file_hash(&config_path)?,
+            lock_sha256: file_hash(&lock_path)?,
+            root,
+            config_path,
+            lock_path,
+        })
+    }
+
+    fn serialized(&self) -> Result<[String; 5], AinfraError> {
+        Ok([
+            utf8_path(&self.root)?,
+            utf8_path(&self.config_path)?,
+            self.config_sha256.clone(),
+            utf8_path(&self.lock_path)?,
+            self.lock_sha256.clone(),
+        ])
+    }
 }
 
 impl PlanRecord {
@@ -149,11 +215,32 @@ impl PlanRecord {
             input_path: canonical_input.display().to_string(),
             input_sha256: file_hash(&canonical_input)?,
             template_sha256: template_sha256.to_owned(),
+            project_root: None,
+            project_config_path: None,
+            project_config_sha256: None,
+            project_lock_path: None,
+            project_lock_sha256: None,
             backend_config_path: None,
             backend_config_sha256: None,
             plan_path: plan_path.display().to_string(),
             plan_sha256: String::new(),
         })
+    }
+
+    /// Upgrade a new unpersisted record to the project-bound v1alpha2 protocol.
+    ///
+    /// # Errors
+    ///
+    /// Rejects non-UTF-8 project paths.
+    pub fn bind_project(&mut self, binding: &ProjectBinding) -> Result<(), AinfraError> {
+        let [root, config_path, config_sha256, lock_path, lock_sha256] = binding.serialized()?;
+        PROJECT_FORMAT_VERSION.clone_into(&mut self.format_version);
+        self.project_root = Some(root);
+        self.project_config_path = Some(config_path);
+        self.project_config_sha256 = Some(config_sha256);
+        self.project_lock_path = Some(lock_path);
+        self.project_lock_sha256 = Some(lock_sha256);
+        self.validate_protocol_shape()
     }
 
     /// Bind the produced plan bytes to this record.
@@ -174,9 +261,8 @@ impl PlanRecord {
     /// Returns a guard error for invalid records or filesystem failures.
     pub fn write(&self, project_root: &Path) -> Result<PathBuf, AinfraError> {
         validate_id(&self.id)?;
-        if self.format_version != FORMAT_VERSION {
-            return Err(AinfraError::guard("unsupported plan record version"));
-        }
+        self.validate_protocol_shape()?;
+        self.validate_project_paths(project_root)?;
         let run = run_root(project_root).join(&self.id);
         fs::create_dir_all(&run).map_err(|error| {
             AinfraError::guard(format!("cannot create {}: {error}", run.display()))
@@ -217,9 +303,8 @@ impl PlanRecord {
                 "reviewed plan record ID does not match its directory",
             ));
         }
-        if record.format_version != FORMAT_VERSION {
-            return Err(AinfraError::guard("unsupported plan record version"));
-        }
+        record.validate_protocol_shape()?;
+        record.validate_project_paths(project_root)?;
         Ok(record)
     }
 
@@ -233,6 +318,9 @@ impl PlanRecord {
         project_root: &Path,
         expected: &ExpectedBindings<'_>,
     ) -> Result<(), AinfraError> {
+        self.validate_protocol_shape()?;
+        self.validate_project_paths(project_root)?;
+        self.verify_project_binding(project_root, expected.project)?;
         if self.operation != expected.operation {
             return Err(AinfraError::guard(format!(
                 "reviewed {} plan cannot authorize {}",
@@ -281,6 +369,95 @@ impl PlanRecord {
         if self.plan_sha256 != file_hash(&plan)? {
             return Err(AinfraError::guard(
                 "reviewed plan file was modified after planning",
+            ));
+        }
+        Ok(())
+    }
+
+    fn verify_project_binding(
+        &self,
+        project_root: &Path,
+        expected: Option<&ProjectBinding>,
+    ) -> Result<(), AinfraError> {
+        match (self.format_version.as_str(), expected) {
+            (FORMAT_VERSION, None) => Ok(()),
+            (FORMAT_VERSION, Some(_)) => Err(AinfraError::guard(
+                "legacy reviewed plan cannot authorize project-driven lifecycle",
+            )),
+            (PROJECT_FORMAT_VERSION, None) => Err(AinfraError::guard(
+                "project-bound reviewed plan requires project verification",
+            )),
+            (PROJECT_FORMAT_VERSION, Some(binding)) => {
+                let current = ProjectBinding::capture(project_root)?;
+                if &current != binding {
+                    return Err(AinfraError::guard(
+                        "project configuration changed during verification",
+                    ));
+                }
+                let [root, config_path, config_sha256, lock_path, lock_sha256] =
+                    current.serialized()?;
+                if self.project_root.as_deref() != Some(root.as_str())
+                    || self.project_config_path.as_deref() != Some(config_path.as_str())
+                    || self.project_config_sha256.as_deref() != Some(config_sha256.as_str())
+                    || self.project_lock_path.as_deref() != Some(lock_path.as_str())
+                    || self.project_lock_sha256.as_deref() != Some(lock_sha256.as_str())
+                {
+                    return Err(AinfraError::guard(
+                        "project configuration or lock changed after planning",
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(AinfraError::guard("unsupported plan record version")),
+        }
+    }
+
+    fn validate_protocol_shape(&self) -> Result<(), AinfraError> {
+        let project_fields = [
+            self.project_root.as_ref(),
+            self.project_config_path.as_ref(),
+            self.project_config_sha256.as_ref(),
+            self.project_lock_path.as_ref(),
+            self.project_lock_sha256.as_ref(),
+        ];
+        match self.format_version.as_str() {
+            FORMAT_VERSION if project_fields.iter().all(Option::is_none) => Ok(()),
+            FORMAT_VERSION => Err(AinfraError::guard(
+                "legacy plan record contains project bindings",
+            )),
+            PROJECT_FORMAT_VERSION if project_fields.iter().all(Option::is_some) => {
+                validate_digest(
+                    self.project_config_sha256.as_deref().unwrap_or_default(),
+                    "project configuration",
+                )?;
+                validate_digest(
+                    self.project_lock_sha256.as_deref().unwrap_or_default(),
+                    "project lock",
+                )
+            }
+            PROJECT_FORMAT_VERSION => Err(AinfraError::guard(
+                "project-bound plan record has incomplete project bindings",
+            )),
+            _ => Err(AinfraError::guard("unsupported plan record version")),
+        }
+    }
+
+    fn validate_project_paths(&self, project_root: &Path) -> Result<(), AinfraError> {
+        if self.format_version != PROJECT_FORMAT_VERSION {
+            return Ok(());
+        }
+        let root = project_root
+            .canonicalize()
+            .map_err(|error| AinfraError::guard(format!("cannot resolve project root: {error}")))?;
+        let expected_root = utf8_path(&root)?;
+        let expected_config = utf8_path(&root.join("ainfra.yaml"))?;
+        let expected_lock = utf8_path(&root.join("ainfra.lock"))?;
+        if self.project_root.as_deref() != Some(expected_root.as_str())
+            || self.project_config_path.as_deref() != Some(expected_config.as_str())
+            || self.project_lock_path.as_deref() != Some(expected_lock.as_str())
+        {
+            return Err(AinfraError::guard(
+                "project-bound plan paths do not match the project root",
             ));
         }
         Ok(())
@@ -392,6 +569,43 @@ fn validate_id(id: &str) -> Result<(), AinfraError> {
         return Err(AinfraError::guard("invalid reviewed plan ID"));
     }
     Ok(())
+}
+
+fn validate_digest(value: &str, label: &str) -> Result<(), AinfraError> {
+    let pattern = Regex::new(r"^[0-9a-f]{64}$")
+        .map_err(|error| AinfraError::dependency(error.to_string()))?;
+    if !pattern.is_match(value) {
+        return Err(AinfraError::guard(format!(
+            "invalid {label} digest in reviewed plan"
+        )));
+    }
+    Ok(())
+}
+
+fn binding_file(root: &Path, name: &str) -> Result<PathBuf, AinfraError> {
+    let path = root.join(name);
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|_| AinfraError::guard(format!("required project file is missing: {name}")))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(AinfraError::guard(format!(
+            "project binding must be a regular non-symlink file: {name}"
+        )));
+    }
+    let resolved = path
+        .canonicalize()
+        .map_err(|error| AinfraError::guard(format!("cannot resolve {name}: {error}")))?;
+    if resolved != path {
+        return Err(AinfraError::guard(format!(
+            "project binding path is redirected: {name}"
+        )));
+    }
+    Ok(resolved)
+}
+
+fn utf8_path(path: &Path) -> Result<String, AinfraError> {
+    path.to_str()
+        .map(str::to_owned)
+        .ok_or_else(|| AinfraError::guard("project binding path is not valid UTF-8"))
 }
 
 fn run_root(project_root: &Path) -> PathBuf {

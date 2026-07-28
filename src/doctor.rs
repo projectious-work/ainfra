@@ -78,6 +78,23 @@ pub fn run_doctor(root: &Path, input: Option<&Path>) -> Vec<Check> {
     checks
 }
 
+/// Run installed-product readiness checks for one validated project input.
+#[must_use]
+pub fn run_project_doctor(root: &Path, input: &Path) -> Vec<Check> {
+    let tofu = ("1.10.0".to_owned(), "minimum".to_owned());
+    let ansible = ("2.16.0".to_owned(), "minimum".to_owned());
+    vec![
+        command_check("tofu", &["tofu", "version"], Some(&tofu)),
+        command_check(
+            "ansible-playbook",
+            &["ansible-playbook", "--version"],
+            Some(&ansible),
+        ),
+        template_check(),
+        backend_policy_check(root, Some(input)),
+    ]
+}
+
 fn python_check() -> Check {
     let found = command_first_line(&["python3", "--version"]);
     let version = found.as_deref().and_then(extract_version);

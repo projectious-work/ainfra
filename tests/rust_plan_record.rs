@@ -5,7 +5,11 @@
 use std::fs;
 use std::path::Path;
 
-use ainfra::plan_record::{ExpectedBindings, FORMAT_VERSION, Operation, PlanRecord, template_hash};
+use ainfra::plan_record::{
+    ExpectedBindings, FORMAT_VERSION, Operation, PROJECT_FORMAT_VERSION, PlanRecord,
+    ProjectBinding, template_hash,
+};
+use ainfra::project::initialize;
 use jsonschema::Draft;
 use serde_json::Value;
 
@@ -91,6 +95,7 @@ fn verification_rejects_stale_and_cross_operation_plans() {
         operation,
         backend_config_path: None,
         backend_config_sha256: None,
+        project: None,
     };
     record
         .verify(directory.path(), &expected(Operation::Apply))
@@ -121,6 +126,7 @@ fn verification_rejects_modified_plan_and_template_bytes() {
         operation: Operation::Apply,
         backend_config_path: None,
         backend_config_sha256: None,
+        project: None,
     };
 
     fs::write(template.join("tofu/main.tf"), b"changed").unwrap();
@@ -168,4 +174,133 @@ fn new_records_conform_to_the_versioned_schema() {
         .unwrap();
     let document = serde_json::to_value(record).unwrap();
     assert!(validator.is_valid(&document));
+}
+
+#[test]
+fn project_records_use_v1alpha2_and_bind_exact_project_files() {
+    let directory = tempfile::tempdir().unwrap();
+    initialize(
+        directory.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let (mut record, input, template) = prepared_record(directory.path());
+    let binding = ProjectBinding::capture(directory.path()).unwrap();
+    record.bind_project(&binding).unwrap();
+
+    assert_eq!(record.format_version, PROJECT_FORMAT_VERSION);
+    assert_eq!(
+        record.project_root.as_deref(),
+        directory.path().canonicalize().unwrap().to_str()
+    );
+    let schema: Value =
+        serde_json::from_str(include_str!("../schemas/plan-record.v1alpha2.json")).unwrap();
+    let validator = jsonschema::options()
+        .with_draft(Draft::Draft202012)
+        .build(&schema)
+        .unwrap();
+    assert!(validator.is_valid(&serde_json::to_value(&record).unwrap()));
+    let expected = ExpectedBindings {
+        template: "hetzner-kubernetes-baseline",
+        template_version: "0.1.0",
+        environment: "development",
+        input_path: &input,
+        template_root: &template,
+        operation: Operation::Apply,
+        backend_config_path: None,
+        backend_config_sha256: None,
+        project: Some(&binding),
+    };
+    record.verify(directory.path(), &expected).unwrap();
+
+    fs::write(
+        directory.path().join("ainfra.lock"),
+        "apiVersion: changed\n",
+    )
+    .unwrap();
+    let error = record.verify(directory.path(), &expected).unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("project configuration"));
+}
+
+#[test]
+fn project_and_legacy_modes_cannot_cross_authorize() {
+    let directory = tempfile::tempdir().unwrap();
+    initialize(
+        directory.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let (mut record, input, template) = prepared_record(directory.path());
+    let binding = ProjectBinding::capture(directory.path()).unwrap();
+    let expected = |project| ExpectedBindings {
+        template: "hetzner-kubernetes-baseline",
+        template_version: "0.1.0",
+        environment: "development",
+        input_path: &input,
+        template_root: &template,
+        operation: Operation::Apply,
+        backend_config_path: None,
+        backend_config_sha256: None,
+        project,
+    };
+
+    let error = record
+        .verify(directory.path(), &expected(Some(&binding)))
+        .unwrap_err();
+    assert!(error.to_string().contains("legacy reviewed plan"));
+
+    record.bind_project(&binding).unwrap();
+    let error = record
+        .verify(directory.path(), &expected(None))
+        .unwrap_err();
+    assert!(error.to_string().contains("requires project verification"));
+}
+
+#[test]
+fn incomplete_or_unknown_project_protocol_is_rejected_on_load() {
+    let directory = tempfile::tempdir().unwrap();
+    initialize(
+        directory.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let (mut record, _, _) = prepared_record(directory.path());
+    record
+        .bind_project(&ProjectBinding::capture(directory.path()).unwrap())
+        .unwrap();
+    let record_path = directory
+        .path()
+        .join(".ainfra/runs")
+        .join(&record.id)
+        .join("plan.json");
+    let mut document = serde_json::to_value(&record).unwrap();
+    document
+        .as_object_mut()
+        .unwrap()
+        .remove("project_lock_sha256");
+    fs::write(&record_path, serde_json::to_vec_pretty(&document).unwrap()).unwrap();
+    let error = PlanRecord::load(directory.path(), &record.id).unwrap_err();
+    assert!(error.to_string().contains("incomplete project bindings"));
+
+    document = serde_json::to_value(&record).unwrap();
+    document["project_root"] = Value::String("/tmp/outside".to_owned());
+    fs::write(&record_path, serde_json::to_vec_pretty(&document).unwrap()).unwrap();
+    let error = PlanRecord::load(directory.path(), &record.id).unwrap_err();
+    assert!(error.to_string().contains("paths do not match"));
+
+    document["format_version"] = Value::String("ainfra.plan/v9".to_owned());
+    fs::write(&record_path, serde_json::to_vec_pretty(&document).unwrap()).unwrap();
+    let error = PlanRecord::load(directory.path(), &record.id).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported plan record version")
+    );
 }

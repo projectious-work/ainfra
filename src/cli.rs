@@ -62,14 +62,20 @@ pub enum Command {
         /// Validate backend readiness for this environment input.
         #[arg(long)]
         input: Option<PathBuf>,
+        /// Project environment to check.
+        #[arg(long)]
+        environment: Option<String>,
     },
     /// Create a reviewable plan.
     Plan {
-        /// Template name.
-        template: String,
-        /// Environment input document.
+        /// Template name for explicit compatibility mode.
+        template: Option<String>,
+        /// Environment input for explicit compatibility mode.
         #[arg(long)]
-        input: PathBuf,
+        input: Option<PathBuf>,
+        /// Configured project environment.
+        #[arg(long)]
+        environment: Option<String>,
         /// Create a reviewed destroy plan without applying it.
         #[arg(long)]
         destroy: bool,
@@ -79,30 +85,39 @@ pub enum Command {
     },
     /// Apply an exact reviewed plan.
     Apply {
-        /// Template name.
-        template: String,
-        /// Environment input document.
+        /// Template name for explicit compatibility mode.
+        template: Option<String>,
+        /// Environment input for explicit compatibility mode.
         #[arg(long)]
-        input: PathBuf,
+        input: Option<PathBuf>,
+        /// Configured project environment.
+        #[arg(long)]
+        environment: Option<String>,
         /// Exact reviewed plan identifier.
         #[arg(long, value_name = "PLAN_ID")]
         approve: String,
     },
     /// Destroy an exact reviewed plan.
     Destroy {
-        /// Template name.
-        template: String,
-        /// Environment input document.
+        /// Template name for explicit compatibility mode.
+        template: Option<String>,
+        /// Environment input for explicit compatibility mode.
         #[arg(long)]
-        input: PathBuf,
+        input: Option<PathBuf>,
+        /// Configured project environment.
+        #[arg(long)]
+        environment: Option<String>,
         /// Exact reviewed destroy-plan identifier.
         #[arg(long, value_name = "PLAN_ID")]
         approve_destroy: String,
     },
     /// Read the sanitized standardized output.
     Outputs {
-        /// Template name.
-        template: String,
+        /// Template name for explicit compatibility mode.
+        template: Option<String>,
+        /// Configured project environment.
+        #[arg(long)]
+        environment: Option<String>,
         /// Exact applied run identifier.
         #[arg(long, value_name = "PLAN_ID")]
         run: String,
@@ -112,8 +127,11 @@ pub enum Command {
     },
     /// Configure hosts from one exact applied run.
     Configure {
-        /// Template name.
-        template: String,
+        /// Template name for explicit compatibility mode.
+        template: Option<String>,
+        /// Configured project environment.
+        #[arg(long)]
+        environment: Option<String>,
         /// Exact applied run identifier.
         #[arg(long, value_name = "PLAN_ID")]
         run: String,
@@ -316,10 +334,30 @@ pub fn run_inventory(
 /// # Errors
 ///
 /// Returns a dependency error when any check fails.
-pub fn run_doctor(format: TextFormat, input: Option<&std::path::Path>) -> Result<(), AinfraError> {
-    let root =
+pub fn run_doctor(
+    format: TextFormat,
+    input: Option<&std::path::Path>,
+    environment: Option<&str>,
+) -> Result<(), AinfraError> {
+    let current =
         std::env::current_dir().map_err(|error| AinfraError::dependency(error.to_string()))?;
-    let checks = doctor::run_doctor(&root, input);
+    let checks = match (input, environment) {
+        (Some(_), Some(_)) => {
+            return Err(AinfraError::input_contract(
+                "choose either --input or --environment",
+            ));
+        }
+        (input, None) => doctor::run_doctor(&current, input),
+        (None, Some(environment)) => {
+            let project = Project::discover(&current)?;
+            let input = project.inputs.get(environment).ok_or_else(|| {
+                AinfraError::input_contract(format!(
+                    "environment {environment:?} is not declared in ainfra.yaml"
+                ))
+            })?;
+            doctor::run_project_doctor(&project.root, input)
+        }
+    };
     match format {
         TextFormat::Json => println!(
             "{}",
@@ -346,25 +384,39 @@ pub fn run_doctor(format: TextFormat, input: Option<&std::path::Path>) -> Result
 ///
 /// Returns a stable validation, dependency, or guard error.
 pub fn run_plan(
-    template: &str,
-    input: &std::path::Path,
+    template: Option<&str>,
+    input: Option<&std::path::Path>,
+    environment: Option<&str>,
     destroy: bool,
     format: TextFormat,
 ) -> Result<(), AinfraError> {
-    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let current = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
     let operation = if destroy {
         Operation::Destroy
     } else {
         Operation::Apply
     };
-    let record = lifecycle::plan(
-        &SubprocessRunner::default(),
-        &OsEnvironment,
-        &root,
-        template,
-        input,
-        operation,
-    )?;
+    let runner = SubprocessRunner::default();
+    let record = match lifecycle_mode(template, input, environment)? {
+        LifecycleMode::Explicit { template, input } => lifecycle::plan(
+            &runner,
+            &OsEnvironment,
+            &current,
+            template,
+            input,
+            operation,
+        )?,
+        LifecycleMode::Project { environment } => {
+            let project = Project::discover(&current)?;
+            lifecycle::plan_project(
+                &runner,
+                &OsEnvironment,
+                &project.root,
+                environment,
+                operation,
+            )?
+        }
+    };
     match format {
         TextFormat::Json => println!(
             "{}",
@@ -385,19 +437,40 @@ pub fn run_plan(
 ///
 /// Returns a stable guard error before mutation when a binding changed.
 pub fn run_execute(
-    template: &str,
-    input: &std::path::Path,
+    template: Option<&str>,
+    input: Option<&std::path::Path>,
+    environment: Option<&str>,
     approval: &str,
     operation: Operation,
 ) -> Result<(), AinfraError> {
-    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let current = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
     let runner = SubprocessRunner::default();
-    let result = match operation {
-        Operation::Apply => {
-            lifecycle::apply(&runner, &OsEnvironment, &root, template, input, approval)
+    let result = match (lifecycle_mode(template, input, environment)?, operation) {
+        (LifecycleMode::Explicit { template, input }, Operation::Apply) => {
+            lifecycle::apply(&runner, &OsEnvironment, &current, template, input, approval)
         }
-        Operation::Destroy => {
-            lifecycle::destroy(&runner, &OsEnvironment, &root, template, input, approval)
+        (LifecycleMode::Explicit { template, input }, Operation::Destroy) => {
+            lifecycle::destroy(&runner, &OsEnvironment, &current, template, input, approval)
+        }
+        (LifecycleMode::Project { environment }, Operation::Apply) => {
+            let project = Project::discover(&current)?;
+            lifecycle::apply_project(
+                &runner,
+                &OsEnvironment,
+                &project.root,
+                environment,
+                approval,
+            )
+        }
+        (LifecycleMode::Project { environment }, Operation::Destroy) => {
+            let project = Project::discover(&current)?;
+            lifecycle::destroy_project(
+                &runner,
+                &OsEnvironment,
+                &project.root,
+                environment,
+                approval,
+            )
         }
     }?;
     print!("{}", result.stdout);
@@ -409,15 +482,29 @@ pub fn run_execute(
 /// # Errors
 ///
 /// Returns a stable output-contract, dependency, or guard error.
-pub fn run_outputs(template: &str, run: &str, format: DocumentFormat) -> Result<(), AinfraError> {
-    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
-    let output = lifecycle::collect_output(
-        &SubprocessRunner::default(),
-        &OsEnvironment,
-        &root,
-        template,
-        run,
-    )?;
+pub fn run_outputs(
+    template: Option<&str>,
+    environment: Option<&str>,
+    run: &str,
+    format: DocumentFormat,
+) -> Result<(), AinfraError> {
+    let current = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let runner = SubprocessRunner::default();
+    let output = match template_mode(template, environment)? {
+        TemplateMode::Explicit(template) => {
+            lifecycle::collect_output(&runner, &OsEnvironment, &current, template, run)?
+        }
+        TemplateMode::Project(environment) => {
+            let project = Project::discover(&current)?;
+            lifecycle::collect_output_project(
+                &runner,
+                &OsEnvironment,
+                &project.root,
+                environment,
+                run,
+            )?
+        }
+    };
     match format {
         DocumentFormat::Json => println!(
             "{}",
@@ -439,23 +526,81 @@ pub fn run_outputs(template: &str, run: &str, format: DocumentFormat) -> Result<
 ///
 /// Returns before Ansible when any run binding or host-key control fails.
 pub fn run_configure(
-    template: &str,
+    template: Option<&str>,
+    environment: Option<&str>,
     run: &str,
     known_hosts: &std::path::Path,
     check: bool,
 ) -> Result<(), AinfraError> {
-    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
-    let result = lifecycle::configure(
-        &SubprocessRunner::default(),
-        &OsEnvironment,
-        &root,
-        template,
-        run,
-        known_hosts,
-        check,
-    )?;
+    let current = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let runner = SubprocessRunner::default();
+    let result = match template_mode(template, environment)? {
+        TemplateMode::Explicit(template) => lifecycle::configure(
+            &runner,
+            &OsEnvironment,
+            &current,
+            template,
+            run,
+            known_hosts,
+            check,
+        )?,
+        TemplateMode::Project(environment) => {
+            let project = Project::discover(&current)?;
+            lifecycle::configure_project(
+                &runner,
+                &OsEnvironment,
+                &project.root,
+                environment,
+                run,
+                known_hosts,
+                check,
+            )?
+        }
+    };
     print!("{}", result.stdout);
     Ok(())
+}
+
+enum LifecycleMode<'a> {
+    Explicit {
+        template: &'a str,
+        input: &'a std::path::Path,
+    },
+    Project {
+        environment: &'a str,
+    },
+}
+
+fn lifecycle_mode<'a>(
+    template: Option<&'a str>,
+    input: Option<&'a std::path::Path>,
+    environment: Option<&'a str>,
+) -> Result<LifecycleMode<'a>, AinfraError> {
+    match (template, input, environment) {
+        (Some(template), Some(input), None) => Ok(LifecycleMode::Explicit { template, input }),
+        (None, None, Some(environment)) => Ok(LifecycleMode::Project { environment }),
+        _ => Err(AinfraError::input_contract(
+            "use either TEMPLATE --input INPUT or --environment ENV",
+        )),
+    }
+}
+
+enum TemplateMode<'a> {
+    Explicit(&'a str),
+    Project(&'a str),
+}
+
+fn template_mode<'a>(
+    template: Option<&'a str>,
+    environment: Option<&'a str>,
+) -> Result<TemplateMode<'a>, AinfraError> {
+    match (template, environment) {
+        (Some(template), None) => Ok(TemplateMode::Explicit(template)),
+        (None, Some(environment)) => Ok(TemplateMode::Project(environment)),
+        _ => Err(AinfraError::input_contract(
+            "use either TEMPLATE or --environment ENV",
+        )),
+    }
 }
 
 /// JSON or YAML document output.

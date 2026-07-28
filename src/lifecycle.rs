@@ -9,9 +9,12 @@ use serde_json::{Value, json};
 
 use crate::contracts::validate_path;
 use crate::error::AinfraError;
-use crate::plan_record::{ExpectedBindings, Operation, PlanRecord, file_hash, template_hash};
+use crate::plan_record::{
+    ExpectedBindings, Operation, PlanRecord, ProjectBinding, file_hash, template_hash,
+};
 use crate::policy::validate_policy;
 use crate::process::{ProcessRequest, ProcessResult, Runner, child_environment, require_success};
+use crate::project::Project;
 use crate::template::discover_builtin;
 
 /// Create one isolated, immutable reviewed plan.
@@ -27,6 +30,50 @@ pub fn plan(
     template_name: &str,
     input_path: &Path,
     operation: Operation,
+) -> Result<PlanRecord, AinfraError> {
+    plan_bound(
+        runner,
+        environment_source,
+        project_root,
+        template_name,
+        input_path,
+        operation,
+        None,
+    )
+}
+
+/// Create one project-bound reviewed plan for an exact configured environment.
+///
+/// # Errors
+///
+/// Rejects missing, changed, or ambiguous project inputs before tool execution.
+pub fn plan_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    operation: Operation,
+) -> Result<PlanRecord, AinfraError> {
+    let selection = project_selection(project_root, environment_name)?;
+    plan_bound(
+        runner,
+        environment_source,
+        &selection.binding.root,
+        &selection.template,
+        &selection.input,
+        operation,
+        Some(&selection.binding),
+    )
+}
+
+fn plan_bound(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    template_name: &str,
+    input_path: &Path,
+    operation: Operation,
+    project: Option<&ProjectBinding>,
 ) -> Result<PlanRecord, AinfraError> {
     let project_root = project_root.canonicalize().map_err(|error| {
         AinfraError::guard(format!(
@@ -52,10 +99,10 @@ pub fn plan(
         input_path,
         &template.content_hash(),
     )?;
-    let run = PathBuf::from(&record.plan_path)
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| AinfraError::guard("plan path has no run directory"))?;
+    if let Some(binding) = project {
+        record.bind_project(binding)?;
+    }
+    let run = project_root.join(".ainfra/runs").join(&record.id);
     let runs = run
         .parent()
         .ok_or_else(|| AinfraError::guard("run path has no parent"))?;
@@ -92,7 +139,9 @@ pub fn plan(
             .as_str()
             .ok_or_else(|| AinfraError::input_contract("missing tofu working directory"))?,
     );
+    require_project_binding(&project_root, project)?;
     initialize(runner, &tofu_root, &environment, &secrets, backend.as_ref())?;
+    require_project_binding(&project_root, project)?;
     let mut plan_argv = vec![
         "tofu".to_owned(),
         "plan".to_owned(),
@@ -111,6 +160,7 @@ pub fn plan(
         environment,
         secrets,
     })?)?;
+    require_project_binding(&project_root, project)?;
     record.bind_plan(&project_root)?;
     record.write(&project_root)?;
     Ok(record)
@@ -137,6 +187,7 @@ pub fn apply(
         input_path,
         approval,
         Operation::Apply,
+        None,
     )
 }
 
@@ -161,6 +212,72 @@ pub fn destroy(
         input_path,
         approval,
         Operation::Destroy,
+        None,
+    )
+}
+
+/// Apply an exact project-bound reviewed apply plan.
+///
+/// # Errors
+///
+/// Rejects changed project files or an environment mismatch before execution.
+pub fn apply_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    approval: &str,
+) -> Result<ProcessResult, AinfraError> {
+    execute_project(
+        runner,
+        environment_source,
+        project_root,
+        environment_name,
+        approval,
+        Operation::Apply,
+    )
+}
+
+/// Apply an exact project-bound reviewed destroy plan.
+///
+/// # Errors
+///
+/// Rejects changed project files or an environment mismatch before execution.
+pub fn destroy_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    approval: &str,
+) -> Result<ProcessResult, AinfraError> {
+    execute_project(
+        runner,
+        environment_source,
+        project_root,
+        environment_name,
+        approval,
+        Operation::Destroy,
+    )
+}
+
+fn execute_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    approval: &str,
+    operation: Operation,
+) -> Result<ProcessResult, AinfraError> {
+    let selection = project_selection(project_root, environment_name)?;
+    execute(
+        runner,
+        environment_source,
+        &selection.binding.root,
+        &selection.template,
+        &selection.input,
+        approval,
+        operation,
+        Some(&selection.binding),
     )
 }
 
@@ -177,6 +294,50 @@ pub fn collect_output(
     template_name: &str,
     run_id: &str,
 ) -> Result<Value, AinfraError> {
+    collect_output_bound(
+        runner,
+        environment_source,
+        project_root,
+        template_name,
+        run_id,
+        None,
+        None,
+    )
+}
+
+/// Collect output for one exact project-bound applied run.
+///
+/// # Errors
+///
+/// Rejects changed project files or an environment mismatch before `tofu`.
+pub fn collect_output_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    run_id: &str,
+) -> Result<Value, AinfraError> {
+    let selection = project_selection(project_root, environment_name)?;
+    collect_output_bound(
+        runner,
+        environment_source,
+        &selection.binding.root,
+        &selection.template,
+        run_id,
+        Some(&selection.binding),
+        Some(environment_name),
+    )
+}
+
+fn collect_output_bound(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    template_name: &str,
+    run_id: &str,
+    project: Option<&ProjectBinding>,
+    selected_environment: Option<&str>,
+) -> Result<Value, AinfraError> {
     let project_root = project_root.canonicalize().map_err(|error| {
         AinfraError::guard(format!(
             "cannot resolve project root {}: {error}",
@@ -189,14 +350,16 @@ pub fn collect_output(
             "standardized output requires an applied plan",
         ));
     }
+    if selected_environment.is_some_and(|selected| selected != record.environment) {
+        return Err(AinfraError::guard(
+            "reviewed plan belongs to another environment",
+        ));
+    }
     let input_path = PathBuf::from(&record.input_path);
     let template = discover_builtin(template_name)?;
     let document = validate_path(&input_path)?;
     validate_policy(&document, &input_path, Some(template.name), &project_root)?;
-    let run = Path::new(&record.plan_path)
-        .parent()
-        .ok_or_else(|| AinfraError::guard("plan path has no run directory"))?;
-    require_applied_marker(run, &record)?;
+    let run = project_root.join(".ainfra/runs").join(run_id);
     let workspace = run.join("workspace");
     let backend = backend_binding(&document, &project_root, environment_source)?;
     record.verify(
@@ -214,8 +377,11 @@ pub fn collect_output(
             operation: Operation::Apply,
             backend_config_path: backend.as_ref().and_then(|binding| binding.path.to_str()),
             backend_config_sha256: backend.as_ref().map(|binding| binding.sha256.as_str()),
+            project,
         },
     )?;
+    require_applied_marker(&run, &record)?;
+    require_project_binding(&project_root, project)?;
     let (environment, secrets) =
         lifecycle_environment(&document, &project_root, environment_source)?;
     let tofu_root = workspace.join("tofu");
@@ -225,6 +391,7 @@ pub fn collect_output(
         environment,
         secrets,
     })?)?;
+    require_project_binding(&project_root, project)?;
     let raw: Value = serde_json::from_str(&result.stdout).map_err(|error| {
         AinfraError::output_contract(format!("cannot parse OpenTofu output: {error}"))
     })?;
@@ -251,6 +418,60 @@ pub fn configure(
     known_hosts: &Path,
     check: bool,
 ) -> Result<ProcessResult, AinfraError> {
+    configure_bound(
+        runner,
+        environment_source,
+        project_root,
+        template_name,
+        run_id,
+        known_hosts,
+        check,
+        None,
+        None,
+    )
+}
+
+/// Configure one exact project-bound applied environment.
+///
+/// # Errors
+///
+/// Rejects changed project files or an environment mismatch before Ansible.
+#[allow(clippy::too_many_arguments)]
+pub fn configure_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    run_id: &str,
+    known_hosts: &Path,
+    check: bool,
+) -> Result<ProcessResult, AinfraError> {
+    let selection = project_selection(project_root, environment_name)?;
+    configure_bound(
+        runner,
+        environment_source,
+        &selection.binding.root,
+        &selection.template,
+        run_id,
+        known_hosts,
+        check,
+        Some(&selection.binding),
+        Some(environment_name),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn configure_bound(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    template_name: &str,
+    run_id: &str,
+    known_hosts: &Path,
+    check: bool,
+    project: Option<&ProjectBinding>,
+    selected_environment: Option<&str>,
+) -> Result<ProcessResult, AinfraError> {
     let project_root = project_root.canonicalize().map_err(|error| {
         AinfraError::guard(format!(
             "cannot resolve project root {}: {error}",
@@ -259,18 +480,21 @@ pub fn configure(
     })?;
     let known_hosts = verified_known_hosts(known_hosts)?;
     let reviewed_record = PlanRecord::load(&project_root, run_id)?;
-    collect_output(
+    collect_output_bound(
         runner,
         environment_source,
         &project_root,
         template_name,
         run_id,
+        project,
+        selected_environment,
     )?;
     if PlanRecord::load(&project_root, run_id)? != reviewed_record {
         return Err(AinfraError::guard(
             "reviewed plan record changed during output collection",
         ));
     }
+    require_project_binding(&project_root, project)?;
     let run = project_root.join(".ainfra/runs").join(run_id);
     let output = run.join("output.json");
     let inventory = run.join("inventory.yml");
@@ -320,6 +544,7 @@ pub fn configure(
         argv.extend(["--check".to_owned(), "--diff".to_owned()]);
     }
     argv.push("site.yml".to_owned());
+    require_project_binding(&project_root, project)?;
     require_success(runner.run(&ProcessRequest {
         argv,
         cwd: ansible_root,
@@ -328,6 +553,7 @@ pub fn configure(
     })?)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn execute(
     runner: &dyn Runner,
     environment_source: &dyn EnvironmentSource,
@@ -336,6 +562,7 @@ fn execute(
     input_path: &Path,
     approval: &str,
     operation: Operation,
+    project: Option<&ProjectBinding>,
 ) -> Result<ProcessResult, AinfraError> {
     if approval.is_empty() {
         return Err(AinfraError::guard(format!(
@@ -359,9 +586,7 @@ fn execute(
     let template_version = template.manifest["metadata"]["version"]
         .as_str()
         .ok_or_else(|| AinfraError::input_contract("missing template version"))?;
-    let run = Path::new(&record.plan_path)
-        .parent()
-        .ok_or_else(|| AinfraError::guard("plan path has no run directory"))?;
+    let run = project_root.join(".ainfra/runs").join(approval);
     let workspace = run.join("workspace");
     let backend = backend_binding(&document, &project_root, environment_source)?;
     record.verify(
@@ -375,6 +600,7 @@ fn execute(
             operation,
             backend_config_path: backend.as_ref().and_then(|binding| binding.path.to_str()),
             backend_config_sha256: backend.as_ref().map(|binding| binding.sha256.as_str()),
+            project,
         },
     )?;
     let (environment, secrets) =
@@ -384,7 +610,9 @@ fn execute(
             .as_str()
             .ok_or_else(|| AinfraError::input_contract("missing tofu working directory"))?,
     );
+    require_project_binding(&project_root, project)?;
     initialize(runner, &tofu_root, &environment, &secrets, backend.as_ref())?;
+    require_project_binding(&project_root, project)?;
     let result = require_success(runner.run(&ProcessRequest {
         argv: vec![
             "tofu".to_owned(),
@@ -396,8 +624,56 @@ fn execute(
         environment,
         secrets,
     })?)?;
-    persist_operation_marker(run, &record)?;
+    persist_operation_marker(&run, &record)?;
     Ok(result)
+}
+
+struct ProjectSelection {
+    binding: ProjectBinding,
+    template: String,
+    input: PathBuf,
+}
+
+fn project_selection(
+    project_root: &Path,
+    environment_name: &str,
+) -> Result<ProjectSelection, AinfraError> {
+    let before = ProjectBinding::capture(project_root)?;
+    let project = Project::load(&before.root)?;
+    let after = ProjectBinding::capture(&before.root)?;
+    if before != after {
+        return Err(AinfraError::guard(
+            "project configuration changed during resolution",
+        ));
+    }
+    let input = project
+        .inputs
+        .get(environment_name)
+        .cloned()
+        .ok_or_else(|| {
+            AinfraError::input_contract(format!(
+                "environment {environment_name:?} is not declared in ainfra.yaml"
+            ))
+        })?;
+    Ok(ProjectSelection {
+        binding: after,
+        template: project.config.spec.template,
+        input,
+    })
+}
+
+fn require_project_binding(
+    project_root: &Path,
+    expected: Option<&ProjectBinding>,
+) -> Result<(), AinfraError> {
+    if let Some(expected) = expected
+        && ProjectBinding::capture(project_root)? != *expected
+    {
+        return Err(AinfraError::guard(
+            "project configuration changed before process execution",
+        ));
+    }
+    Ok(())
 }
 
 /// Read-only environment boundary used for secret references.

@@ -48,6 +48,7 @@ cd ../my-infrastructure
   --name my-infrastructure \
   --environment development
 ../ainfra/target/debug/ainfra validate
+../ainfra/target/debug/ainfra doctor --environment development
 ```
 
 Commit `ainfra.yaml`, `ainfra.lock`, and the environment input. Keep
@@ -62,8 +63,8 @@ export HCLOUD_TOKEN='...'
 ## Plan and review
 
 ```sh
-../ainfra/target/debug/ainfra plan hetzner-kubernetes-baseline \
-  --input environments/development.yaml
+../ainfra/target/debug/ainfra plan \
+  --environment development
 ```
 
 Review the resource count, networking, public-address choices, and ownership
@@ -71,8 +72,8 @@ scope. The command returns a plan identifier. Apply requires that exact
 identifier:
 
 ```sh
-../ainfra/target/debug/ainfra apply hetzner-kubernetes-baseline \
-  --input environments/development.yaml \
+../ainfra/target/debug/ainfra apply \
+  --environment development \
   --approve PLAN_ID
 ```
 
@@ -86,10 +87,12 @@ remain.
 ## Read outputs and configure hosts
 
 ```sh
-../ainfra/target/debug/ainfra outputs hetzner-kubernetes-baseline \
+../ainfra/target/debug/ainfra outputs \
+  --environment development \
   --run PLAN_ID \
   --format json
-../ainfra/target/debug/ainfra configure hetzner-kubernetes-baseline \
+../ainfra/target/debug/ainfra configure \
+  --environment development \
   --run PLAN_ID \
   --known-hosts .ainfra/known_hosts
 ```
@@ -103,16 +106,16 @@ trusted out-of-band channel before the first Ansible connection. Never treat
 Create and review a destroy plan:
 
 ```sh
-../ainfra/target/debug/ainfra plan hetzner-kubernetes-baseline \
-  --input environments/development.yaml \
+../ainfra/target/debug/ainfra plan \
+  --environment development \
   --destroy
 ```
 
 Then use the exact destroy-plan ID returned by the lifecycle:
 
 ```sh
-../ainfra/target/debug/ainfra destroy hetzner-kubernetes-baseline \
-  --input environments/development.yaml \
+../ainfra/target/debug/ainfra destroy \
+  --environment development \
   --approve-destroy PLAN_ID
 ```
 

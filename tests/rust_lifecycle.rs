@@ -9,12 +9,16 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use ainfra::error::AinfraError;
-use ainfra::lifecycle::{EnvironmentSource, apply, collect_output, configure, destroy, plan};
-use ainfra::plan_record::{Operation, PlanRecord, template_hash};
+use ainfra::lifecycle::{
+    EnvironmentSource, apply, apply_project, collect_output, collect_output_project, configure,
+    configure_project, destroy, plan, plan_project,
+};
+use ainfra::plan_record::{Operation, PROJECT_FORMAT_VERSION, PlanRecord, template_hash};
 use ainfra::process::{
     ProcessRequest, ProcessResult, Runner, SubprocessRunner, child_environment, redact,
     require_success,
 };
+use ainfra::project::initialize;
 
 struct FixtureEnvironment(BTreeMap<String, String>);
 
@@ -73,6 +77,54 @@ impl Runner for FakeRunner {
             } else {
                 String::new()
             },
+        })
+    }
+}
+
+struct ProjectTamperingRunner {
+    calls: Mutex<Vec<RecordedCall>>,
+    config_path: PathBuf,
+}
+
+impl Runner for ProjectTamperingRunner {
+    fn run(&self, request: &ProcessRequest) -> Result<ProcessResult, AinfraError> {
+        self.calls.lock().unwrap().push((
+            request.argv.clone(),
+            request.cwd.clone(),
+            request.environment.clone(),
+        ));
+        if request.argv.get(1).map(String::as_str) == Some("init") {
+            fs::write(&self.config_path, "apiVersion: changed\n").unwrap();
+        }
+        Ok(ProcessResult {
+            argv: request.argv.clone(),
+            return_code: 0,
+            stdout: "ok\n".to_owned(),
+            stderr: String::new(),
+        })
+    }
+}
+
+struct ProjectOutputTamperingRunner {
+    calls: Mutex<Vec<RecordedCall>>,
+    config_path: PathBuf,
+}
+
+impl Runner for ProjectOutputTamperingRunner {
+    fn run(&self, request: &ProcessRequest) -> Result<ProcessResult, AinfraError> {
+        self.calls.lock().unwrap().push((
+            request.argv.clone(),
+            request.cwd.clone(),
+            request.environment.clone(),
+        ));
+        if request.argv.get(1).map(String::as_str) == Some("output") {
+            fs::write(&self.config_path, "apiVersion: changed\n").unwrap();
+        }
+        Ok(ProcessResult {
+            argv: request.argv.clone(),
+            return_code: 0,
+            stdout: tofu_output(),
+            stderr: String::new(),
         })
     }
 }
@@ -884,6 +936,339 @@ fn configure_rejects_plan_record_replacement_before_ansible() {
             .contains("reviewed plan record changed during output collection")
     );
     let calls = configure_runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].0[1], "output");
+}
+
+#[test]
+fn project_lifecycle_binds_configuration_and_lock() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+    let record = plan_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    assert_eq!(record.format_version, PROJECT_FORMAT_VERSION);
+    assert!(record.project_config_sha256.is_some());
+    assert!(record.project_lock_sha256.is_some());
+
+    apply_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+    )
+    .unwrap();
+    let output_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+    collect_output_project(
+        &output_runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+    )
+    .unwrap();
+    assert_eq!(output_runner.calls.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn changed_project_files_fail_before_any_lifecycle_process() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let record = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    fs::write(project.path().join("ainfra.yaml"), "apiVersion: changed\n").unwrap();
+    let apply_runner = FakeRunner::default();
+
+    let error = apply_project(
+        &apply_runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+    )
+    .unwrap_err();
+
+    assert!(matches!(error.code(), "AINFRA-E200" | "AINFRA-E600"));
+    assert!(apply_runner.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn explicit_mode_rejects_a_project_bound_plan() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let record = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+    let configured_input = project.path().join("environments/development.yaml");
+
+    let error = apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &configured_input,
+        &record.id,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("requires project verification"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn project_change_during_init_prevents_apply_process() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let record = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let runner = ProjectTamperingRunner {
+        calls: Mutex::new(Vec::new()),
+        config_path: project.path().join("ainfra.yaml"),
+    };
+
+    let error = apply_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(
+        error
+            .to_string()
+            .contains("changed before process execution")
+    );
+    let calls = runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].0[1], "init");
+}
+
+#[test]
+fn project_change_during_init_prevents_plan_process() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runner = ProjectTamperingRunner {
+        calls: Mutex::new(Vec::new()),
+        config_path: project.path().join("ainfra.yaml"),
+    };
+
+    let error = plan_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(
+        error
+            .to_string()
+            .contains("changed before process execution")
+    );
+    let calls = runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].0[1], "init");
+}
+
+#[test]
+fn changed_project_lock_prevents_output_process() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+    let record = plan_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    apply_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+    )
+    .unwrap();
+    fs::write(project.path().join("ainfra.lock"), "apiVersion: changed\n").unwrap();
+    let output_runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+
+    let error = collect_output_project(
+        &output_runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+    )
+    .unwrap_err();
+
+    assert!(matches!(error.code(), "AINFRA-E200" | "AINFRA-E600"));
+    assert!(output_runner.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn undeclared_project_environment_fails_before_process() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+
+    let error = plan_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "production",
+        Operation::Apply,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E200");
+    assert!(error.to_string().contains("not declared"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn project_change_during_output_prevents_ansible_process() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let setup_runner = FakeRunner::default();
+    let record = plan_project(
+        &setup_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    apply_project(
+        &setup_runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let runner = ProjectOutputTamperingRunner {
+        calls: Mutex::new(Vec::new()),
+        config_path: project.path().join("ainfra.yaml"),
+    };
+
+    let error = configure_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &record.id,
+        &known_hosts,
+        false,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(
+        error
+            .to_string()
+            .contains("changed before process execution")
+    );
+    let calls = runner.calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].0[1], "output");
 }

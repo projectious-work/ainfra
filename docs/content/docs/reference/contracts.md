@@ -12,6 +12,7 @@ All schemas use JSON Schema draft 2020-12 and reject unknown fields.
 | `TemplateInput/v1alpha1` | [`schemas/template-input.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/template-input.v1alpha1.json) | Non-secret operator intent and credential references |
 | `InfrastructureOutput/v1alpha1` | [`schemas/template-output.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/template-output.v1alpha1.json) | Stable, non-secret handoff to downstream systems |
 | `ainfra.plan/v1alpha1` | [`schemas/plan-record.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/plan-record.v1alpha1.json) | Exact reviewed-plan binding for lifecycle authorization |
+| `ainfra.plan/v1alpha2` | [`schemas/plan-record.v1alpha2.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/plan-record.v1alpha2.json) | Project-bound lifecycle authorization |
 
 ## Compatibility
 
@@ -43,7 +44,12 @@ tree, remote backend configuration, and generated OpenTofu plan bytes. Apply
 and destroy must reject any changed binding before starting an infrastructure
 process.
 
-Rust writes `ainfra.plan/v1alpha1` records and can read normal ten-field plan
-records created by the Python implementation. Approval identifiers are exactly
-20 lowercase hexadecimal characters. Plan files must resolve beneath their
-corresponding `.ainfra/runs/<PLAN_ID>/` directory.
+Explicit compatibility mode writes `ainfra.plan/v1alpha1` and reads normal
+records created by the Python implementation. Project mode writes
+`ainfra.plan/v1alpha2`, adding the canonical project root and exact project
+configuration and lockfile paths and digests. The two modes cannot
+cross-authorize.
+
+Approval identifiers are exactly 20 lowercase hexadecimal characters. Plan
+files must resolve beneath their corresponding
+`.ainfra/runs/<PLAN_ID>/` directory.

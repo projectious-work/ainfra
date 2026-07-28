@@ -20,6 +20,7 @@ infrastructure engine.
 uv run ainfra doctor
 uv run ainfra doctor --format json
 uv run ainfra doctor --input .ainfra/hetzner.input.yaml
+ainfra doctor --environment development
 ```
 
 The input-aware form also checks backend readiness for the intended
@@ -31,11 +32,23 @@ environment.
 uv run ainfra plan TEMPLATE --input INPUT
 ```
 
+For an initialized project, use the declared environment:
+
+```sh
+ainfra plan --environment development
+```
+
 Treat the plan as sensitive. Review resource ownership, addresses, firewall
 rules, image selection, and estimated cost. Apply only the returned plan ID:
 
 ```sh
 uv run ainfra apply TEMPLATE --input INPUT --approve PLAN_ID
+```
+
+The corresponding project-mode apply is:
+
+```sh
+ainfra apply --environment development --approve PLAN_ID
 ```
 
 The Rust implementation embeds the built-in template and materializes a new
@@ -47,14 +60,16 @@ remain together in the isolated run directory.
 Before apply, ainfra revalidates the input and verifies the operation,
 template identity and version, environment, canonical input path and bytes,
 retained workspace contents, remote backend configuration path and bytes, plan
-location, and plan bytes. Any mismatch fails before OpenTofu initialization or
-apply begins.
+location, and plan bytes. Project mode additionally binds the canonical project
+root plus the exact `ainfra.yaml` and `ainfra.lock` bytes. Any mismatch fails
+before OpenTofu initialization or apply begins.
 
 ## Read standardized outputs
 
 ```sh
 uv run ainfra outputs TEMPLATE --run PLAN_ID --format yaml
 uv run ainfra outputs TEMPLATE --run PLAN_ID --format json
+ainfra outputs --environment development --run PLAN_ID
 ```
 
 The standardized output is designed for downstream automation. It must not be
@@ -66,6 +81,9 @@ successful apply marker for the same exact run and writes
 
 ```sh
 uv run ainfra configure TEMPLATE \
+  --run PLAN_ID \
+  --known-hosts .ainfra/known_hosts
+ainfra configure --environment development \
   --run PLAN_ID \
   --known-hosts .ainfra/known_hosts
 ```
@@ -81,6 +99,7 @@ Create the destroy plan first:
 
 ```sh
 uv run ainfra plan TEMPLATE --input INPUT --destroy
+ainfra plan --environment development --destroy
 ```
 
 Then approve the returned ownership scope:
@@ -88,6 +107,8 @@ Then approve the returned ownership scope:
 ```sh
 uv run ainfra destroy TEMPLATE \
   --input INPUT \
+  --approve-destroy PLAN_ID
+ainfra destroy --environment development \
   --approve-destroy PLAN_ID
 ```
 

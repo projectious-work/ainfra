@@ -36,7 +36,11 @@ and environment inputs must be regular files rather than symbolic links.
 Environment paths must be relative and remain inside the canonical project
 root.
 
-Lifecycle commands continue to require their explicit template and input
-arguments during the Rust transition. Project-driven lifecycle resolution
-will land together with plan-record bindings for the project and lockfile
-digests, so enabling the convenience path cannot weaken exact-plan approval.
+Lifecycle commands select project mode explicitly with `--environment ENV`.
+The reviewed plan uses `ainfra.plan/v1alpha2` and binds the canonical project
+root, `ainfra.yaml`, `ainfra.lock`, selected input, embedded template, backend,
+and OpenTofu plan bytes. Any committed-input change requires a new plan.
+
+The explicit `TEMPLATE --input INPUT` compatibility mode remains available for
+existing development runs. It uses the legacy `v1alpha1` record protocol.
+Neither record version can authorize execution through the other mode.
