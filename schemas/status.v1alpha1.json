@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/status.v1alpha1.json",
+  "title": "ainfra local lifecycle status v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "ok",
+    "project",
+    "lifecycle",
+    "latestRun",
+    "checks",
+    "next"
+  ],
+  "properties": {
+    "apiVersion": {"const": "ainfra.status/v1alpha1"},
+    "kind": {"const": "AinfraStatus"},
+    "ok": {"const": true},
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "environment", "template", "templateVersion"],
+      "properties": {
+        "root": {"type": "string", "minLength": 1},
+        "environment": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,62}$"
+        },
+        "template": {"type": "string", "minLength": 1},
+        "templateVersion": {"type": "string", "minLength": 1}
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "runId",
+        "operation",
+        "integrity",
+        "updatedUnixNanos"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "none",
+            "legacy",
+            "planned",
+            "applied",
+            "output-collected",
+            "configured",
+            "verified",
+            "destroy-planned",
+            "destroy-applied",
+            "destroyed",
+            "partial",
+            "stale",
+            "corrupt"
+          ]
+        },
+        "runId": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{20}$"
+        },
+        "operation": {
+          "type": ["string", "null"],
+          "enum": ["apply", "destroy", null]
+        },
+        "integrity": {
+          "enum": ["valid", "stale", "corrupt", "legacy", "none"]
+        },
+        "updatedUnixNanos": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      }
+    },
+    "latestRun": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "createdUnixNanos", "operation", "stages"],
+          "properties": {
+            "id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+            "createdUnixNanos": {"type": "integer", "minimum": 1},
+            "operation": {"enum": ["apply", "destroy"]},
+            "stages": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "state", "atUnixNanos"],
+                "properties": {
+                  "name": {
+                    "enum": [
+                      "planned",
+                      "apply",
+                      "output",
+                      "configure",
+                      "verify",
+                      "destroy",
+                      "destroy-verify"
+                    ]
+                  },
+                  "state": {"enum": ["started", "succeeded", "failed"]},
+                  "atUnixNanos": {"type": "integer", "minimum": 1},
+                  "errorCode": {
+                    "type": "string",
+                    "pattern": "^AINFRA-E[0-9]{3}$"
+                  },
+                  "recovery": {
+                    "enum": [
+                      "inspect-infrastructure-state",
+                      "inspect-output-state",
+                      "inspect-host-state"
+                    ]
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {"state": {"const": "failed"}},
+                      "required": ["state"]
+                    },
+                    "then": {"required": ["errorCode", "recovery"]},
+                    "else": {
+                      "not": {
+                        "anyOf": [
+                          {"required": ["errorCode"]},
+                          {"required": ["recovery"]}
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "message"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+          "status": {"enum": ["pass", "warn", "fail"]},
+          "message": {"type": "string", "minLength": 1, "maxLength": 200}
+        }
+      }
+    },
+    "next": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "reason"],
+        "properties": {
+          "command": {"type": "string", "minLength": 1, "maxLength": 300},
+          "reason": {"type": "string", "minLength": 1, "maxLength": 200}
+        }
+      }
+    }
+  }
+}

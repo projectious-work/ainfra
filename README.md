@@ -9,7 +9,7 @@
 [![Status: early development](https://img.shields.io/badge/status-early_development-E05232)](https://projectious-work.github.io/ainfra/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1d3352)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-projectious--work.github.io-1d3352)](https://projectious-work.github.io/ainfra/)
-[![Python: 3.12](https://img.shields.io/badge/python-3.12-546a82)](pyproject.toml)
+[![Rust: 1.96.1](https://img.shields.io/badge/rust-1.96.1-546a82)](rust-toolchain.toml)
 
 </div>
 
@@ -77,17 +77,20 @@ Template + non-secret input
 
 ## Quick start
 
-Python 3.12, [uv](https://docs.astral.sh/uv/), and the pinned Rust toolchain
-are required while the fixture-driven Rust rewrite is in progress.
+Install the verified release binary, then initialize a separate infrastructure
+project:
 
 ```sh
-uv sync --all-groups
-scripts/validate-all
-scripts/test-all
-uv run ainfra --help
-uv run ainfra validate \
-  tests/fixtures/contracts/v1alpha1/valid/template-input.json
-uv run ainfra doctor
+curl --proto '=https' --tlsv1.2 --fail --location \
+  --proto-redir '=https' \
+  https://github.com/projectious-work/ainfra/releases/latest/download/install.sh \
+  -o /tmp/ainfra-install.sh
+sh /tmp/ainfra-install.sh
+ainfra --help
+mkdir ../my-infrastructure
+(cd ../my-infrastructure && ainfra init --name my-infrastructure)
+(cd ../my-infrastructure && ainfra validate)
+(cd ../my-infrastructure && ainfra doctor --environment development)
 ```
 
 For a disposable Hetzner plan, including cost and teardown guidance, follow the
@@ -116,7 +119,7 @@ docs/scripts/serve-docs.sh
 ## Repository layout
 
 ```text
-src/ainfra/                       Python CLI and lifecycle orchestration
+src/                              Rust CLI and lifecycle implementation
 schemas/                          Versioned public JSON Schema contracts
 templates/hetzner-kubernetes-baseline/
                                   OpenTofu, cloud-init, and Ansible template
