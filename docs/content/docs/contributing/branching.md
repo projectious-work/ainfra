@@ -47,6 +47,38 @@ forward into `v0.x-dev`.
 - Keep deployment-only branches, such as `gh-pages`, outside the source
   promotion flow.
 
+## Release verification
+
+Run the complete local gate before entering the release lane:
+
+```sh
+./scripts/maintain.sh test
+```
+
+The container-side release builds and verifies both Linux targets before
+publishing them:
+
+```sh
+AINFRA_RELEASE_CONFIRM=v0.1.0 \
+  ./scripts/maintain.sh release 0.1.0
+```
+
+On macOS, the host phase builds both Darwin targets, verifies all four local
+archives and checksum sidecars, uploads the Darwin assets, and then confirms
+that the GitHub release contains every expected archive, checksum, and the
+installer:
+
+```sh
+AINFRA_RELEASE_CONFIRM=v0.1.0 \
+  ./scripts/maintain.sh release-host 0.1.0
+```
+
+To recheck a collected four-target artifact set without publishing anything:
+
+```sh
+./scripts/maintain.sh audit-release 0.1.0
+```
+
 ## Versioned documentation
 
 The documentation root always represents `main`, the latest published stable

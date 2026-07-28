@@ -53,7 +53,7 @@ For an environment-specific adaptation:
 ```sh
 cp templates/hetzner-kubernetes-baseline/inputs/example.input.yaml \
   /tmp/my-environment.input.yaml
-uv run ainfra validate hetzner-kubernetes-baseline \
+ainfra validate hetzner-kubernetes-baseline \
   --input /tmp/my-environment.input.yaml
 ```
 
@@ -80,7 +80,7 @@ Then complete every step:
 6. Reference only shared schemas that are direct children of `schemas/`.
 7. Replace example inputs, embedded template identifiers, output metadata,
    provider resources, and README content.
-8. Declare only capabilities supported by `src/ainfra/template.py`.
+8. Declare only capabilities supported by `src/template.rs`.
 9. Pin OpenTofu providers and Ansible collections and roles.
 10. Add positive and negative contract, policy, engine, and lifecycle tests.
 
@@ -119,7 +119,7 @@ OpenTofu state locations, never in Git.
 Run narrow checks while authoring, then the complete repository gates:
 
 ```sh
-uv run ainfra validate my-template \
+ainfra validate my-template \
   --input templates/my-template/inputs/example.input.yaml
 tofu -chdir=templates/my-template/tofu fmt -check -recursive
 tofu -chdir=templates/my-template/tofu init -backend=false

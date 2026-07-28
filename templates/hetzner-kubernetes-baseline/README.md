@@ -25,7 +25,7 @@ a billable public IPv4 resource.
 Generate inventory only from a validated, sanitized output document:
 
 ```sh
-uv run ainfra inventory \
+ainfra inventory \
   --output .ainfra/output.json \
   --destination .ainfra/inventory.yml
 ```
