@@ -11,6 +11,12 @@ All schemas use JSON Schema draft 2020-12 and reject unknown fields.
 | `InfrastructureTemplate/v1alpha1` | [`schemas/template-manifest.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/template-manifest.v1alpha1.json) | Template engines, paths, capabilities, and invariants |
 | `TemplateInput/v1alpha1` | [`schemas/template-input.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/template-input.v1alpha1.json) | Non-secret operator intent and credential references |
 | `InfrastructureOutput/v1alpha1` | [`schemas/template-output.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/template-output.v1alpha1.json) | Stable, non-secret handoff to downstream systems |
+| `ainfra.plan/v1alpha1` | [`schemas/plan-record.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/plan-record.v1alpha1.json) | Exact reviewed-plan binding for lifecycle authorization |
+| `ainfra.plan/v1alpha2` | [`schemas/plan-record.v1alpha2.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/plan-record.v1alpha2.json) | Project-bound lifecycle authorization |
+| `ainfra.run/v1alpha2` | [`schemas/run-record.v1alpha2.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/run-record.v1alpha2.json) | Immutable run identity |
+| `ainfra.run-event/v1alpha1` | [`schemas/run-event.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/run-event.v1alpha1.json) | Append-only lifecycle evidence |
+| `ainfra.status/v1alpha1` | [`schemas/status.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/status.v1alpha1.json) | Sanitized local status output |
+| `ainfra.legacy-inspection/v1alpha1` | [`schemas/legacy-inspection.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/legacy-inspection.v1alpha1.json) | Read-only legacy evidence report |
 
 ## Compatibility
 
@@ -29,7 +35,38 @@ a full migration rather than silent coercion.
 Run:
 
 ```sh
-uv run ainfra validate DOCUMENT
+ainfra validate DOCUMENT
 ```
 
 Positive and negative fixtures live under `tests/fixtures/contracts/`.
+
+## Reviewed-plan records
+
+A reviewed-plan record binds the intended operation to the selected template
+and version, environment identity, canonical input path and bytes, template
+tree, remote backend configuration, and generated OpenTofu plan bytes. Apply
+and destroy must reject any changed binding before starting an infrastructure
+process.
+
+Explicit compatibility mode writes `ainfra.plan/v1alpha1` and reads normal
+records created by the Python implementation. Project mode writes
+`ainfra.plan/v1alpha2`, adding the canonical project root and exact project
+configuration and lockfile paths and digests. The two modes cannot
+cross-authorize.
+
+Approval identifiers are exactly 20 lowercase hexadecimal characters. Plan
+files must resolve beneath their corresponding
+`.ainfra/runs/<PLAN_ID>/` directory.
+
+## Run records and events
+
+`run.json` repeats only non-secret immutable plan identity. Lifecycle evidence
+is append-only and ordered by a contiguous sequence number. Configuration,
+check-mode convergence verification, and post-destroy zero-resource
+verification are distinct stages; timestamps are informational and never
+override event order. Failed events contain only a stable `AINFRA-E*` code and
+a sanitized recovery category.
+
+The older `ainfra.run/v1alpha1` apply/destroy marker remains legacy success
+evidence. It is not treated as a durable event history and is never upgraded
+silently.
