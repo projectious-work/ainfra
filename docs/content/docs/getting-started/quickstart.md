@@ -115,7 +115,7 @@ Create and review a destroy plan:
 Then use the exact destroy-plan ID returned by the lifecycle:
 
 ```sh
-../ainfra/target/debug/ainfra destroy \
+../ainfra/target/debug/ainfra down \
   --environment development \
   --approve-destroy PLAN_ID
 ../ainfra/target/debug/ainfra status --environment development

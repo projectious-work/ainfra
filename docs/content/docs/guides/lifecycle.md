@@ -51,6 +51,22 @@ The corresponding project-mode apply is:
 ainfra apply --environment development --approve PLAN_ID
 ```
 
+For the complete project workflow, retain the same review boundary and pass
+that exact ID to `up`:
+
+```sh
+ainfra plan --environment development
+# Review the saved plan, then:
+ainfra up --environment development --approve PLAN_ID \
+  --known-hosts ./known_hosts
+```
+
+`up` never plans or chooses an approval implicitly. It composes the exact
+apply, validated output collection, configuration, and a separate Ansible
+check-mode verification stage. If a stage was interrupted after its `started`
+event or ended in failure, `up` stops and routes the operator to manual
+recovery.
+
 The Rust implementation embeds the built-in template and materializes a new
 workspace beneath `.ainfra/runs/<PLAN_ID>/workspace/`; it does not execute
 OpenTofu in a source checkout. Initialization uses the committed lock file in
@@ -80,6 +96,19 @@ ainfra status --environment development --format json
 Status validates event ordering and bindings, ignores untrusted run entries,
 and emits deterministic next steps. A partial, stale, corrupt, or legacy state
 routes to manual recovery instead of an apply or destroy command.
+
+Teardown uses the same two-step review:
+
+```sh
+ainfra plan --environment development --destroy
+# Review the dedicated destroy plan, then:
+ainfra down --environment development --approve-destroy DESTROY_PLAN_ID
+```
+
+An apply-plan ID can never authorize `down`, and `down` never runs a direct
+unreviewed destroy. A successful destroy process first records
+`destroy-applied`; only a subsequent empty `tofu state list` for the reviewed
+backend records the environment as `destroyed`.
 
 ## Read standardized outputs
 

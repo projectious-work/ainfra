@@ -17,7 +17,15 @@
     "run_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
     "sequence": {"type": "integer", "minimum": 1},
     "stage": {
-      "enum": ["planned", "apply", "output", "configure", "destroy"]
+      "enum": [
+        "planned",
+        "apply",
+        "output",
+        "configure",
+        "verify",
+        "destroy",
+        "destroy-verify"
+      ]
     },
     "outcome": {"enum": ["started", "succeeded", "failed"]},
     "recorded_unix_nanos": {"type": "integer", "minimum": 1},

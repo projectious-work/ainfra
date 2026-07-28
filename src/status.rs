@@ -370,8 +370,10 @@ fn state_from(operation: Operation, event: Option<&RunEvent>) -> &'static str {
         (Operation::Apply, RunStage::Apply) => "applied",
         (Operation::Apply, RunStage::Output) => "output-collected",
         (Operation::Apply, RunStage::Configure) => "configured",
+        (Operation::Apply, RunStage::Verify) => "verified",
         (Operation::Destroy, RunStage::Planned) => "destroy-planned",
-        (Operation::Destroy, RunStage::Destroy) => "destroyed",
+        (Operation::Destroy, RunStage::Destroy) => "destroy-applied",
+        (Operation::Destroy, RunStage::DestroyVerify) => "destroyed",
         _ => "corrupt",
     }
 }
@@ -391,9 +393,18 @@ fn next_actions(environment: &str, plan: &PlanRecord, state: &str) -> Vec<NextAc
              --known-hosts PATH",
             plan.id
         ),
-        "configured" => format!("ainfra plan --environment {environment} --destroy"),
+        "configured" => format!(
+            "ainfra configure --environment {environment} --run {} \
+             --known-hosts PATH --check",
+            plan.id
+        ),
+        "verified" => format!("ainfra plan --environment {environment} --destroy"),
         "destroy-planned" => format!(
             "ainfra destroy --environment {environment} --approve-destroy {}",
+            plan.id
+        ),
+        "destroy-applied" => format!(
+            "ainfra down --environment {environment} --approve-destroy {}",
             plan.id
         ),
         "destroyed" => format!("ainfra status --environment {environment}"),

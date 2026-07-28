@@ -51,7 +51,9 @@
             "applied",
             "output-collected",
             "configured",
+            "verified",
             "destroy-planned",
+            "destroy-applied",
             "destroyed",
             "partial",
             "stale",
@@ -100,7 +102,9 @@
                       "apply",
                       "output",
                       "configure",
-                      "destroy"
+                      "verify",
+                      "destroy",
+                      "destroy-verify"
                     ]
                   },
                   "state": {"enum": ["started", "succeeded", "failed"]},

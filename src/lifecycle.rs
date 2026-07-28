@@ -1,10 +1,11 @@
 //! Guarded `OpenTofu` plan orchestration.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use regex::Regex;
 use serde_json::{Value, json};
 
 use crate::contracts::validate_path;
@@ -483,6 +484,218 @@ pub fn configure_project(
     )
 }
 
+/// Complete and verify one exact reviewed project apply plan.
+///
+/// # Errors
+///
+/// Requires independently verified host keys and refuses automatic recovery
+/// from an interrupted stage. Successfully completed stages are resumed
+/// without repeating their mutations.
+pub fn up_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    run_id: &str,
+    known_hosts: &Path,
+) -> Result<Value, AinfraError> {
+    verified_known_hosts(known_hosts)?;
+    let project_root = project_root
+        .canonicalize()
+        .map_err(|error| AinfraError::guard(format!("cannot resolve project root: {error}")))?;
+    let plan = PlanRecord::load(&project_root, run_id)?;
+    if plan.operation != Operation::Apply || plan.environment != environment_name {
+        return Err(AinfraError::guard(
+            "up requires an apply plan for the selected environment",
+        ));
+    }
+    let record = RunRecord::load(&project_root, run_id)?;
+    let mut events = record.events(&project_root)?;
+    reject_interrupted_stage(&events)?;
+    if !run_stage_succeeded(&events, RunStage::Apply) {
+        apply_project(
+            runner,
+            environment_source,
+            &project_root,
+            environment_name,
+            run_id,
+        )?;
+    }
+    let output = collect_output_project(
+        runner,
+        environment_source,
+        &project_root,
+        environment_name,
+        run_id,
+    )?;
+    events = record.events(&project_root)?;
+    if !run_stage_succeeded(&events, RunStage::Configure) {
+        configure_project(
+            runner,
+            environment_source,
+            &project_root,
+            environment_name,
+            run_id,
+            known_hosts,
+            false,
+        )?;
+    }
+    events = record.events(&project_root)?;
+    if !run_stage_succeeded(&events, RunStage::Verify) {
+        configure_project(
+            runner,
+            environment_source,
+            &project_root,
+            environment_name,
+            run_id,
+            known_hosts,
+            true,
+        )?;
+    }
+    Ok(output)
+}
+
+/// Apply one exact reviewed project destruction plan.
+///
+/// # Errors
+///
+/// Rejects apply plans, environment mismatches, and interrupted stages before
+/// invoking a subprocess.
+pub fn down_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    run_id: &str,
+) -> Result<ProcessResult, AinfraError> {
+    let project_root = project_root
+        .canonicalize()
+        .map_err(|error| AinfraError::guard(format!("cannot resolve project root: {error}")))?;
+    let plan = PlanRecord::load(&project_root, run_id)?;
+    if plan.operation != Operation::Destroy || plan.environment != environment_name {
+        return Err(AinfraError::guard(
+            "down requires a destroy plan for the selected environment",
+        ));
+    }
+    let record = RunRecord::load(&project_root, run_id)?;
+    let events = record.events(&project_root)?;
+    reject_interrupted_stage(&events)?;
+    if run_stage_succeeded(&events, RunStage::DestroyVerify) {
+        return Err(AinfraError::guard(
+            "down already succeeded for this reviewed plan",
+        ));
+    }
+    if !run_stage_succeeded(&events, RunStage::Destroy) {
+        destroy_project(
+            runner,
+            environment_source,
+            &project_root,
+            environment_name,
+            run_id,
+        )?;
+    }
+    verify_destroy_project(
+        runner,
+        environment_source,
+        &project_root,
+        environment_name,
+        run_id,
+    )
+}
+
+fn reject_interrupted_stage(events: &[crate::run_record::RunEvent]) -> Result<(), AinfraError> {
+    if events.last().is_some_and(|event| {
+        matches!(
+            event.outcome,
+            crate::run_record::RunOutcome::Started | crate::run_record::RunOutcome::Failed
+        )
+    }) {
+        return Err(AinfraError::guard(
+            "incomplete run stage requires manual recovery; inspect ainfra status",
+        ));
+    }
+    Ok(())
+}
+
+fn verify_destroy_project(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    environment_name: &str,
+    run_id: &str,
+) -> Result<ProcessResult, AinfraError> {
+    let selection = project_selection(project_root, environment_name)?;
+    let record = PlanRecord::load(&selection.binding.root, run_id)?;
+    let template = discover_builtin(&selection.template)?;
+    let document = validate_path(&selection.input)?;
+    validate_policy(
+        &document,
+        &selection.input,
+        Some(template.name),
+        &selection.binding.root,
+    )?;
+    let run = selection.binding.root.join(".ainfra/runs").join(run_id);
+    let workspace = run.join("workspace");
+    let backend = backend_binding(&document, &selection.binding.root, environment_source)?;
+    record.verify(
+        &selection.binding.root,
+        &ExpectedBindings {
+            template: template.name,
+            template_version: template.manifest["metadata"]["version"]
+                .as_str()
+                .ok_or_else(|| AinfraError::input_contract("missing template version"))?,
+            environment: environment_name,
+            input_path: &selection.input,
+            template_root: &workspace,
+            operation: Operation::Destroy,
+            backend_config_path: backend.as_ref().and_then(|binding| binding.path.to_str()),
+            backend_config_sha256: backend.as_ref().map(|binding| binding.sha256.as_str()),
+            project: Some(&selection.binding),
+        },
+    )?;
+    let run_record = RunRecord::load(&selection.binding.root, run_id)?;
+    if !run_record.start(&selection.binding.root, RunStage::DestroyVerify)? {
+        return Err(AinfraError::guard(
+            "destroy verification already succeeded for this reviewed plan",
+        ));
+    }
+    let (environment, secrets) =
+        lifecycle_environment(&document, &selection.binding.root, environment_source)?;
+    let tofu_root = workspace.join("tofu");
+    let result: Result<ProcessResult, AinfraError> = (|| {
+        initialize(runner, &tofu_root, &environment, &secrets, backend.as_ref())?;
+        require_project_binding(&selection.binding.root, Some(&selection.binding))?;
+        let result = require_success(runner.run(&ProcessRequest {
+            argv: vec!["tofu".to_owned(), "state".to_owned(), "list".to_owned()],
+            cwd: tofu_root,
+            environment,
+            secrets,
+        })?)?;
+        if !result.stdout.trim().is_empty() {
+            return Err(AinfraError::guard(
+                "destroy verification found resources in OpenTofu state",
+            ));
+        }
+        run_record.succeed(&selection.binding.root, RunStage::DestroyVerify)?;
+        Ok(result)
+    })();
+    if let Err(error) = &result {
+        let _ = run_record.fail(
+            &selection.binding.root,
+            RunStage::DestroyVerify,
+            error.code(),
+            RecoveryCategory::InspectInfrastructureState,
+        );
+    }
+    result
+}
+
+fn run_stage_succeeded(events: &[crate::run_record::RunEvent], stage: RunStage) -> bool {
+    events.iter().any(|event| {
+        event.stage == stage && event.outcome == crate::run_record::RunOutcome::Succeeded
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
 fn configure_bound(
@@ -504,7 +717,7 @@ fn configure_bound(
     })?;
     let known_hosts = verified_known_hosts(known_hosts)?;
     let reviewed_record = PlanRecord::load(&project_root, run_id)?;
-    collect_output_bound(
+    let standardized_output = collect_output_bound(
         runner,
         environment_source,
         &project_root,
@@ -513,6 +726,17 @@ fn configure_bound(
         project,
         selected_environment,
     )?;
+    let expected_hosts: BTreeSet<String> = standardized_output["spec"]["nodes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|node| node["name"].as_str().map(str::to_owned))
+        .collect();
+    if expected_hosts.is_empty() {
+        return Err(AinfraError::output_contract(
+            "configuration requires at least one inventory host",
+        ));
+    }
     if PlanRecord::load(&project_root, run_id)? != reviewed_record {
         return Err(AinfraError::guard(
             "reviewed plan record changed during output collection",
@@ -549,6 +773,7 @@ fn configure_bound(
     );
     environment.insert("ANSIBLE_HOST_KEY_CHECKING".to_owned(), "True".to_owned());
     environment.insert("ANSIBLE_RETRY_FILES_ENABLED".to_owned(), "False".to_owned());
+    environment.insert("ANSIBLE_NOCOLOR".to_owned(), "True".to_owned());
     environment.insert(
         "ANSIBLE_SSH_ARGS".to_owned(),
         format!(
@@ -569,18 +794,15 @@ fn configure_bound(
     }
     argv.push("site.yml".to_owned());
     require_project_binding(&project_root, project)?;
-    if check {
-        return require_success(runner.run(&ProcessRequest {
-            argv,
-            cwd: ansible_root,
-            environment,
-            secrets: Vec::new(),
-        })?);
-    }
     let run_record = RunRecord::load(&project_root, run_id)?;
-    if !run_record.start(&project_root, RunStage::Configure)? {
+    let stage = if check {
+        RunStage::Verify
+    } else {
+        RunStage::Configure
+    };
+    if !run_record.start(&project_root, stage)? {
         return Err(AinfraError::guard(
-            "configure already succeeded for this reviewed plan",
+            "requested configuration stage already succeeded for this reviewed plan",
         ));
     }
     let result: Result<ProcessResult, AinfraError> = (|| {
@@ -590,18 +812,79 @@ fn configure_bound(
             environment,
             secrets: Vec::new(),
         })?)?;
-        run_record.succeed(&project_root, RunStage::Configure)?;
+        if check {
+            require_converged_check(&result.stdout, &expected_hosts)?;
+        }
+        run_record.succeed(&project_root, stage)?;
         Ok(result)
     })();
     if let Err(error) = &result {
         let _ = run_record.fail(
             &project_root,
-            RunStage::Configure,
+            stage,
             error.code(),
             RecoveryCategory::InspectHostState,
         );
     }
     result
+}
+
+fn require_converged_check(
+    stdout: &str,
+    expected_hosts: &BTreeSet<String>,
+) -> Result<(), AinfraError> {
+    let recap = Regex::new(
+        r"^([^ \r\n][^:\r\n]*)\s*:\s+ok=\d+\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)(?:\s|$)",
+    )
+    .map_err(|error| AinfraError::dependency(error.to_string()))?;
+    let lines: Vec<_> = stdout.lines().collect();
+    let Some(boundary) = lines
+        .iter()
+        .rposition(|line| line.trim_start().starts_with("PLAY RECAP"))
+    else {
+        return Err(AinfraError::guard(
+            "Ansible verification output has no final PLAY RECAP",
+        ));
+    };
+    let mut observed = BTreeSet::new();
+    for line in lines[boundary + 1..]
+        .iter()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+    {
+        let Some(summary) = recap.captures(line) else {
+            return Err(AinfraError::guard(
+                "Ansible verification recap is malformed",
+            ));
+        };
+        if !(2..=4).all(|index| {
+            summary
+                .get(index)
+                .is_some_and(|value| value.as_str() == "0")
+        }) {
+            return Err(AinfraError::guard(
+                "Ansible verification did not prove zero changed, unreachable, and failed hosts",
+            ));
+        }
+        let host = summary
+            .get(1)
+            .ok_or_else(|| AinfraError::guard("Ansible verification recap is malformed"))?
+            .as_str()
+            .trim()
+            .to_owned();
+        if !observed.insert(host) {
+            return Err(AinfraError::guard(
+                "Ansible verification recap contains duplicate hosts",
+            ));
+        }
+    }
+    if &observed == expected_hosts {
+        Ok(())
+    } else {
+        Err(AinfraError::guard(
+            "Ansible verification recap does not match the expected inventory hosts",
+        ))
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1173,4 +1456,52 @@ fn backend_binding(
         path: resolved,
         sha256,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use std::collections::BTreeSet;
+
+    use super::require_converged_check;
+
+    fn expected() -> BTreeSet<String> {
+        BTreeSet::from(["control-01".to_owned(), "worker-01".to_owned()])
+    }
+
+    #[test]
+    fn verification_rejects_spoofed_summary_without_recap() {
+        let error = require_converged_check(
+            "control-01 : ok=2 changed=0 unreachable=0 failed=0\n",
+            &BTreeSet::from(["control-01".to_owned()]),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("PLAY RECAP"));
+    }
+
+    #[test]
+    fn verification_requires_every_expected_inventory_host() {
+        let error = require_converged_check(
+            "PLAY RECAP ****\ncontrol-01 : ok=2 changed=0 unreachable=0 failed=0\n",
+            &expected(),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("expected inventory hosts"));
+    }
+
+    #[test]
+    fn verification_rejects_malformed_host_alongside_valid_host() {
+        let error = require_converged_check(
+            "PLAY RECAP ****\n\
+             control-01 : ok=2 changed=0 unreachable=0 failed=0\n\
+             worker-01 : changed=?\n",
+            &expected(),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("malformed"));
+    }
 }

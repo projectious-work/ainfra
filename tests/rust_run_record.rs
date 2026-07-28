@@ -85,6 +85,20 @@ fn event_history_is_contiguous_and_failures_can_be_retried() {
 }
 
 #[test]
+fn interrupted_stage_cannot_be_started_again_automatically() {
+    let directory = tempfile::tempdir().unwrap();
+    let plan = prepared_plan(directory.path());
+    let record = RunRecord::create(directory.path(), &plan).unwrap();
+    record.start(directory.path(), RunStage::Apply).unwrap();
+
+    let error = record.start(directory.path(), RunStage::Apply).unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("manual recovery"));
+    assert_eq!(record.events(directory.path()).unwrap().len(), 2);
+}
+
+#[test]
 fn gaps_and_plan_mismatches_are_rejected() {
     let directory = tempfile::tempdir().unwrap();
     let plan = prepared_plan(directory.path());

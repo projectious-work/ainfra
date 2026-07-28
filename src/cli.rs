@@ -97,6 +97,21 @@ pub enum Command {
         #[arg(long, value_name = "PLAN_ID")]
         approve: String,
     },
+    /// Complete one exact reviewed apply plan through verified configuration.
+    Up {
+        /// Configured project environment.
+        #[arg(long)]
+        environment: String,
+        /// Exact reviewed apply-plan identifier.
+        #[arg(long, value_name = "PLAN_ID")]
+        approve: String,
+        /// Independently verified SSH known-hosts file.
+        #[arg(long)]
+        known_hosts: PathBuf,
+        /// Standardized output serialization.
+        #[arg(long, value_enum, default_value_t)]
+        format: DocumentFormat,
+    },
     /// Destroy an exact reviewed plan.
     Destroy {
         /// Template name for explicit compatibility mode.
@@ -107,6 +122,15 @@ pub enum Command {
         /// Configured project environment.
         #[arg(long)]
         environment: Option<String>,
+        /// Exact reviewed destroy-plan identifier.
+        #[arg(long, value_name = "PLAN_ID")]
+        approve_destroy: String,
+    },
+    /// Apply one exact reviewed project destruction plan.
+    Down {
+        /// Configured project environment.
+        #[arg(long)]
+        environment: String,
         /// Exact reviewed destroy-plan identifier.
         #[arg(long, value_name = "PLAN_ID")]
         approve_destroy: String,
@@ -172,7 +196,9 @@ impl Command {
             Self::Doctor { .. } => "doctor",
             Self::Plan { .. } => "plan",
             Self::Apply { .. } => "apply",
+            Self::Up { .. } => "up",
             Self::Destroy { .. } => "destroy",
+            Self::Down { .. } => "down",
             Self::Outputs { .. } => "outputs",
             Self::Configure { .. } => "configure",
             Self::Status { .. } => "status",
@@ -484,6 +510,82 @@ pub fn run_execute(
         }
     }?;
     print!("{}", result.stdout);
+    Ok(())
+}
+
+/// Complete one reviewed project apply through output and verification.
+///
+/// # Errors
+///
+/// Fails before mutation when readiness, approval, project bindings, or
+/// independently verified host keys are invalid.
+pub fn run_up(
+    environment: &str,
+    approval: &str,
+    known_hosts: &std::path::Path,
+    format: DocumentFormat,
+) -> Result<(), AinfraError> {
+    let current = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let project = Project::discover(&current)?;
+    require_project_readiness(&project, environment)?;
+    let output = lifecycle::up_project(
+        &SubprocessRunner::default(),
+        &OsEnvironment,
+        &project.root,
+        environment,
+        approval,
+        known_hosts,
+    )?;
+    match format {
+        DocumentFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+        DocumentFormat::Yaml => print!(
+            "{}",
+            serde_yaml::to_string(&output)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+    }
+    Ok(())
+}
+
+/// Apply one exact reviewed project destruction plan.
+///
+/// # Errors
+///
+/// Fails before mutation when readiness, approval, or project bindings are
+/// invalid.
+pub fn run_down(environment: &str, approval: &str) -> Result<(), AinfraError> {
+    let current = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let project = Project::discover(&current)?;
+    require_project_readiness(&project, environment)?;
+    lifecycle::down_project(
+        &SubprocessRunner::default(),
+        &OsEnvironment,
+        &project.root,
+        environment,
+        approval,
+    )?;
+    println!("destroyed and verified: {approval}");
+    Ok(())
+}
+
+fn require_project_readiness(project: &Project, environment: &str) -> Result<(), AinfraError> {
+    let input = project.inputs.get(environment).ok_or_else(|| {
+        AinfraError::input_contract(format!(
+            "environment {environment:?} is not declared in ainfra.yaml"
+        ))
+    })?;
+    if doctor::run_project_doctor(&project.root, input)
+        .iter()
+        .any(|check| check.status == "fail")
+    {
+        return Err(AinfraError::dependency(
+            "one or more project readiness checks failed",
+        ));
+    }
     Ok(())
 }
 

@@ -60,9 +60,11 @@ files must resolve beneath their corresponding
 ## Run records and events
 
 `run.json` repeats only non-secret immutable plan identity. Lifecycle evidence
-is append-only and ordered by a contiguous sequence number; timestamps are
-informational and never override event order. Failed events contain only a
-stable `AINFRA-E*` code and a sanitized recovery category.
+is append-only and ordered by a contiguous sequence number. Configuration,
+check-mode convergence verification, and post-destroy zero-resource
+verification are distinct stages; timestamps are informational and never
+override event order. Failed events contain only a stable `AINFRA-E*` code and
+a sanitized recovery category.
 
 The older `ainfra.run/v1alpha1` apply/destroy marker remains legacy success
 evidence. It is not treated as a durable event history and is never upgraded

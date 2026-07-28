@@ -90,6 +90,12 @@ pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
             approve,
             crate::plan_record::Operation::Apply,
         ),
+        Command::Up {
+            environment,
+            approve,
+            known_hosts,
+            format,
+        } => cli::run_up(environment, approve, known_hosts, *format),
         Command::Destroy {
             template,
             input,
@@ -102,6 +108,10 @@ pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
             approve_destroy,
             crate::plan_record::Operation::Destroy,
         ),
+        Command::Down {
+            environment,
+            approve_destroy,
+        } => cli::run_down(environment, approve_destroy),
         Command::Outputs {
             template,
             environment,

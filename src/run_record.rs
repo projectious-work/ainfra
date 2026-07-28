@@ -58,8 +58,12 @@ pub enum RunStage {
     Output,
     /// Ansible host configuration.
     Configure,
+    /// Ansible check-mode verification after configuration.
+    Verify,
     /// Exact destroy operation.
     Destroy,
+    /// Zero-resource state verification after destroy.
+    DestroyVerify,
 }
 
 impl RunStage {
@@ -71,7 +75,9 @@ impl RunStage {
             Self::Apply => "apply",
             Self::Output => "output",
             Self::Configure => "configure",
+            Self::Verify => "verify",
             Self::Destroy => "destroy",
+            Self::DestroyVerify => "destroy-verify",
         }
     }
 }
@@ -460,12 +466,21 @@ fn validate_append(
         .ok_or_else(|| AinfraError::guard("run history is empty"))?;
     match outcome {
         RunOutcome::Started => {
+            if latest.outcome == RunOutcome::Started {
+                return Err(AinfraError::guard(
+                    "incomplete run stage requires manual recovery",
+                ));
+            }
             let allowed = match (operation, stage) {
                 (Operation::Apply, RunStage::Apply) | (Operation::Destroy, RunStage::Destroy) => {
                     succeeded(events, RunStage::Planned)
                 }
                 (Operation::Apply, RunStage::Output) => succeeded(events, RunStage::Apply),
                 (Operation::Apply, RunStage::Configure) => succeeded(events, RunStage::Output),
+                (Operation::Apply, RunStage::Verify) => succeeded(events, RunStage::Configure),
+                (Operation::Destroy, RunStage::DestroyVerify) => {
+                    succeeded(events, RunStage::Destroy)
+                }
                 _ => false,
             };
             if !allowed {

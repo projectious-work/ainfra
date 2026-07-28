@@ -14,8 +14,11 @@ ainfra plan [<template> --input INPUT | --environment ENV]
   [--destroy] [--format text|json]
 ainfra apply [<template> --input INPUT | --environment ENV]
   --approve PLAN_ID
+ainfra up --environment ENV --approve PLAN_ID --known-hosts FILE
+  [--format json|yaml]
 ainfra destroy [<template> --input INPUT | --environment ENV]
   --approve-destroy PLAN_ID
+ainfra down --environment ENV --approve-destroy PLAN_ID
 ainfra outputs [<template> | --environment ENV] --run PLAN_ID
   [--format json|yaml]
 ainfra configure [<template> | --environment ENV] --run PLAN_ID
@@ -78,6 +81,26 @@ Destroys only through the exact destroy plan identified by
 `--approve-destroy`. The implementation applies that reviewed plan rather than
 running an unreviewed direct destroy command.
 
+## `up`
+
+Completes a previously reviewed project apply plan. It does not create or
+select a plan. After rechecking local readiness and the exact approval ID, it
+composes apply, standardized output collection, Ansible configuration, and
+Ansible check-mode verification. Successfully completed stages are resumed
+without repeating their mutations; interrupted or failed stages require
+manual recovery.
+
+The required `--known-hosts` file remains independent host-identity evidence.
+The resulting validated infrastructure output is emitted as JSON or YAML.
+
+## `down`
+
+Applies only a previously reviewed project destroy plan. It never creates a
+destroy plan, reuses an apply approval, selects the latest plan implicitly, or
+invokes an unreviewed direct destroy command. After applying the exact plan,
+it runs a separate `tofu state list` verification and records `destroyed` only
+when no resources remain in the reviewed backend state.
+
 ## `outputs`
 
 Collects OpenTofu output for one exact successfully applied run, rejects
@@ -89,8 +112,9 @@ output for that contract.
 
 Builds a private-address inventory from one run's validated output and invokes
 the retained Ansible playbook. `--known-hosts` must name an independently
-verified, non-group/world-writable host-key file. `--check` adds Ansible check
-mode and diff without changing the reviewed infrastructure plan.
+verified, non-group/world-writable host-key file. After a successful
+configuration, `--check` records a distinct check-mode verification stage; it
+never records configuration as applied.
 
 ## `inventory`
 
@@ -103,8 +127,8 @@ Reads only validated project files and durable local run evidence. It never
 invokes OpenTofu, Ansible, credential providers, DNS, or provider APIs.
 
 The report classifies the latest project-bound run as `planned`, `applied`,
-`output-collected`, `configured`, `destroy-planned`, `destroyed`, `partial`,
-`stale`, `corrupt`, `legacy`, or `none`. Started operations without a matching
-success or failure event are `partial`; they are never assumed safe to retry.
-Machine output uses `ainfra.status/v1alpha1` and includes sanitized checks and
-the next safe command or manual-recovery route.
+`output-collected`, `configured`, `verified`, `destroy-planned`, `destroyed`,
+`destroy-applied`, `partial`, `stale`, `corrupt`, `legacy`, or `none`. Started
+operations without a matching success or failure event are `partial`; they are
+never assumed safe to retry. Machine output uses `ainfra.status/v1alpha1` and
+includes sanitized checks and the next safe command or manual-recovery route.

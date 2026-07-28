@@ -5,13 +5,15 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-const COMMANDS: [&str; 10] = [
+const COMMANDS: [&str; 12] = [
     "init",
     "validate",
     "doctor",
     "plan",
     "apply",
+    "up",
     "destroy",
+    "down",
     "outputs",
     "configure",
     "status",
@@ -162,7 +164,11 @@ fn project_lifecycle_works_from_a_nested_directory() {
     fs::write(
         &ansible,
         "#!/bin/sh\nif [ \"$1\" = --version ]; then \
-         printf 'ansible-playbook core 2.16.0'; else printf configured; fi\n",
+         printf 'ansible-playbook core 2.16.0'; \
+         elif printf '%s\\n' \"$@\" | grep -q '^--check$'; then \
+         printf 'PLAY RECAP ****\\nainfra-development-control-01 : \
+         ok=3 changed=0 unreachable=0 failed=0 \
+         skipped=0 rescued=0 ignored=0\\n'; else printf configured; fi\n",
     )
     .unwrap();
     fs::set_permissions(&ansible, fs::Permissions::from_mode(0o700)).unwrap();
@@ -194,30 +200,6 @@ fn project_lifecycle_works_from_a_nested_directory() {
     assert_eq!(record["format_version"], "ainfra.plan/v1alpha2");
     let plan_id = record["id"].as_str().unwrap();
 
-    Command::cargo_bin("ainfra")
-        .unwrap()
-        .current_dir(&nested)
-        .env("PATH", &path)
-        .env("HCLOUD_TOKEN", "fixture-secret")
-        .args([
-            "apply",
-            "--environment",
-            "development",
-            "--approve",
-            plan_id,
-        ])
-        .assert()
-        .success()
-        .stdout("applied");
-    Command::cargo_bin("ainfra")
-        .unwrap()
-        .current_dir(&nested)
-        .env("PATH", &path)
-        .env("HCLOUD_TOKEN", "fixture-secret")
-        .args(["outputs", "--environment", "development", "--run", plan_id])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("\"InfrastructureOutput\""));
     let known_hosts = project.path().join("known_hosts");
     fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
     fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
@@ -227,17 +209,20 @@ fn project_lifecycle_works_from_a_nested_directory() {
         .env("PATH", &path)
         .env("HCLOUD_TOKEN", "fixture-secret")
         .args([
-            "configure",
+            "up",
             "--environment",
             "development",
-            "--run",
+            "--approve",
             plan_id,
             "--known-hosts",
             known_hosts.to_str().unwrap(),
+            "--format",
+            "json",
         ])
         .assert()
         .success()
-        .stdout("configured");
+        .stdout(predicate::str::contains("\"InfrastructureOutput\""))
+        .stdout(predicate::str::contains("fixture-secret").not());
     let output = Command::cargo_bin("ainfra")
         .unwrap()
         .current_dir(&nested)
@@ -248,9 +233,51 @@ fn project_lifecycle_works_from_a_nested_directory() {
         .unwrap();
     assert!(output.status.success());
     let text = String::from_utf8(output.stdout).unwrap();
-    assert!(text.contains("\"state\":\"configured\""));
+    assert!(text.contains("\"state\":\"verified\""));
     assert!(!text.contains("fixture-secret"));
     assert!(!text.contains("HCLOUD_TOKEN"));
+
+    let output = Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(&nested)
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args([
+            "plan",
+            "--environment",
+            "development",
+            "--destroy",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let destroy_record: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let destroy_id = destroy_record["id"].as_str().unwrap();
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(&nested)
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args([
+            "down",
+            "--environment",
+            "development",
+            "--approve-destroy",
+            destroy_id,
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("destroyed and verified"));
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(&nested)
+        .env("PATH", &path)
+        .args(["status", "--environment", "development", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"state\":\"destroyed\""));
 }
 
 #[test]

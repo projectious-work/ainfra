@@ -11,7 +11,7 @@ use std::time::Duration;
 use ainfra::error::AinfraError;
 use ainfra::lifecycle::{
     EnvironmentSource, apply, apply_project, collect_output, collect_output_project, configure,
-    configure_project, destroy, plan, plan_project,
+    configure_project, destroy, down_project, plan, plan_project, up_project,
 };
 use ainfra::plan_record::{Operation, PROJECT_FORMAT_VERSION, PlanRecord, template_hash};
 use ainfra::process::{
@@ -61,6 +61,10 @@ impl Runner for FakeRunner {
         }
         let failed = self.fail_on_call == Some(call_number);
         let is_output = request.argv.get(1).map(String::as_str) == Some("output");
+        let is_state_list = request.argv.get(1).map(String::as_str) == Some("state")
+            && request.argv.get(2).map(String::as_str) == Some("list");
+        let is_check = request.argv.first().map(String::as_str) == Some("ansible-playbook")
+            && request.argv.iter().any(|argument| argument == "--check");
         if is_output && let Some(path) = &self.tamper_record {
             let mut record: serde_json::Value =
                 serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
@@ -72,6 +76,12 @@ impl Runner for FakeRunner {
             return_code: i32::from(failed),
             stdout: if is_output {
                 self.tofu_output.clone().unwrap_or_default()
+            } else if is_state_list {
+                String::new()
+            } else if is_check {
+                "PLAY RECAP ****\nainfra-development-control-01 : ok=3 changed=0 \
+                 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0\n"
+                    .to_owned()
             } else {
                 "ok\n".to_owned()
             },
@@ -115,6 +125,63 @@ struct ProjectOutputTamperingRunner {
 
 struct InitThenErrorRunner {
     calls: Mutex<Vec<RecordedCall>>,
+}
+
+struct CheckChangesRunner {
+    calls: Mutex<Vec<RecordedCall>>,
+}
+
+struct StateRemainingRunner {
+    calls: Mutex<Vec<RecordedCall>>,
+}
+
+impl Runner for StateRemainingRunner {
+    fn run(&self, request: &ProcessRequest) -> Result<ProcessResult, AinfraError> {
+        self.calls.lock().unwrap().push((
+            request.argv.clone(),
+            request.cwd.clone(),
+            request.environment.clone(),
+        ));
+        let state_list = request.argv.get(1).map(String::as_str) == Some("state")
+            && request.argv.get(2).map(String::as_str) == Some("list");
+        Ok(ProcessResult {
+            argv: request.argv.clone(),
+            return_code: 0,
+            stdout: if state_list {
+                "hcloud_server.control_plane[0]\n".to_owned()
+            } else {
+                "ok\n".to_owned()
+            },
+            stderr: String::new(),
+        })
+    }
+}
+
+impl Runner for CheckChangesRunner {
+    fn run(&self, request: &ProcessRequest) -> Result<ProcessResult, AinfraError> {
+        self.calls.lock().unwrap().push((
+            request.argv.clone(),
+            request.cwd.clone(),
+            request.environment.clone(),
+        ));
+        let is_output = request.argv.get(1).map(String::as_str) == Some("output");
+        let is_check = request.argv.first().map(String::as_str) == Some("ansible-playbook")
+            && request.argv.iter().any(|argument| argument == "--check");
+        Ok(ProcessResult {
+            argv: request.argv.clone(),
+            return_code: 0,
+            stdout: if is_output {
+                tofu_output()
+            } else if is_check {
+                "PLAY RECAP ****\nainfra-development-control-01 : ok=2 changed=1 \
+                 unreachable=0 failed=0\n"
+                    .to_owned()
+            } else {
+                "ok\n".to_owned()
+            },
+            stderr: String::new(),
+        })
+    }
 }
 
 impl Runner for InitThenErrorRunner {
@@ -831,16 +898,28 @@ fn configure_uses_validated_inventory_and_no_provider_secret() {
         "hetzner-kubernetes-baseline",
         &record.id,
         &known_hosts,
+        false,
+    )
+    .unwrap();
+    configure(
+        &configure_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &record.id,
+        &known_hosts,
         true,
     )
     .unwrap();
     let calls = configure_runner.calls.lock().unwrap();
-    assert_eq!(calls.len(), 2);
+    assert_eq!(calls.len(), 3);
     assert_eq!(calls[0].0[1], "output");
     assert_eq!(calls[1].0[0], "ansible-playbook");
     assert_eq!(calls[1].0[1], "--inventory");
-    assert!(calls[1].0.contains(&"--check".to_owned()));
-    assert!(calls[1].0.contains(&"--diff".to_owned()));
+    assert!(!calls[1].0.contains(&"--check".to_owned()));
+    assert_eq!(calls[2].0[0], "ansible-playbook");
+    assert!(calls[2].0.contains(&"--check".to_owned()));
+    assert!(calls[2].0.contains(&"--diff".to_owned()));
     assert!(calls[1].1.ends_with("workspace/ansible"));
     assert!(!calls[1].2.contains_key("HCLOUD_TOKEN"));
     assert_eq!(
@@ -868,12 +947,11 @@ fn configure_uses_validated_inventory_and_no_provider_secret() {
         .unwrap()
         .events(project.path())
         .unwrap();
-    assert!(
-        !events
-            .iter()
-            .any(|event| event.stage == RunStage::Configure)
-    );
-    assert_eq!(events.last().unwrap().stage, RunStage::Output);
+    assert!(events.iter().any(|event| {
+        event.stage == RunStage::Configure && event.outcome == RunOutcome::Succeeded
+    }));
+    assert_eq!(events.last().unwrap().stage, RunStage::Verify);
+    assert_eq!(events.last().unwrap().outcome, RunOutcome::Succeeded);
 }
 
 #[test]
@@ -1250,6 +1328,457 @@ fn controlled_failures_use_only_sanitized_recovery_categories() {
             .unwrap()
             .contains("fixture-secret")
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn up_composes_exact_apply_output_configure_and_verify_stages() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let runner = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: None,
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+
+    let output = up_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+        &known_hosts,
+    )
+    .unwrap();
+
+    assert_eq!(output["kind"], "InfrastructureOutput");
+    let calls = runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 5);
+    assert_eq!(calls[0].0[1], "init");
+    assert_eq!(calls[1].0[1], "apply");
+    assert_eq!(calls[2].0[1], "output");
+    assert_eq!(calls[3].0[0], "ansible-playbook");
+    assert!(!calls[3].0.contains(&"--check".to_owned()));
+    assert_eq!(calls[4].0[0], "ansible-playbook");
+    assert!(calls[4].0.contains(&"--check".to_owned()));
+    assert!(!calls.iter().any(|call| {
+        call.0
+            .iter()
+            .any(|arg| matches!(arg.as_str(), "-auto-approve" | "-destroy"))
+    }));
+    drop(calls);
+    let loaded = Project::load(project.path()).unwrap();
+    assert_eq!(
+        inspect(&loaded, "development").unwrap().lifecycle.state,
+        "verified"
+    );
+}
+
+#[test]
+fn down_uses_only_an_exact_destroy_plan() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Destroy,
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+
+    down_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+    )
+    .unwrap();
+
+    let calls = runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 4);
+    assert_eq!(calls[0].0[1], "init");
+    assert_eq!(calls[1].0[1], "apply");
+    assert_eq!(calls[2].0[1], "init");
+    assert_eq!(calls[3].0, ["tofu", "state", "list"]);
+    assert!(!calls.iter().any(|call| {
+        call.0
+            .iter()
+            .any(|arg| arg == "destroy" || arg == "-destroy")
+    }));
+}
+
+#[cfg(unix)]
+#[test]
+fn composed_workflows_reject_cross_operation_approvals_before_processes() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let apply_plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let destroy_plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Destroy,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let runner = FakeRunner::default();
+
+    let up_error = up_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &destroy_plan.id,
+        &known_hosts,
+    )
+    .unwrap_err();
+    let down_error = down_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &apply_plan.id,
+    )
+    .unwrap_err();
+
+    assert_eq!(up_error.code(), "AINFRA-E600");
+    assert_eq!(down_error.code(), "AINFRA-E600");
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn up_refuses_an_interrupted_stage_without_any_subprocess() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    RunRecord::load(project.path(), &plan.id)
+        .unwrap()
+        .start(project.path(), RunStage::Apply)
+        .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let runner = FakeRunner::default();
+
+    let error = up_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+        &known_hosts,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("manual recovery"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn down_refuses_an_interrupted_stage_without_any_subprocess() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Destroy,
+    )
+    .unwrap();
+    RunRecord::load(project.path(), &plan.id)
+        .unwrap()
+        .start(project.path(), RunStage::Destroy)
+        .unwrap();
+    let runner = FakeRunner::default();
+
+    let error = down_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("manual recovery"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn up_does_not_replay_a_failed_apply_automatically() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let failing = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: Some(2),
+        tofu_output: Some(tofu_output()),
+        tamper_record: None,
+    };
+    up_project(
+        &failing,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+        &known_hosts,
+    )
+    .unwrap_err();
+    let retry = FakeRunner::default();
+
+    let error = up_project(
+        &retry,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+        &known_hosts,
+    )
+    .unwrap_err();
+
+    assert!(error.to_string().contains("manual recovery"));
+    assert!(retry.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn down_does_not_replay_a_failed_destroy_automatically() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Destroy,
+    )
+    .unwrap();
+    let failing = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: Some(2),
+        tofu_output: None,
+        tamper_record: None,
+    };
+    down_project(
+        &failing,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+    )
+    .unwrap_err();
+    let retry = FakeRunner::default();
+
+    let error = down_project(
+        &retry,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+    )
+    .unwrap_err();
+
+    assert!(error.to_string().contains("manual recovery"));
+    assert!(retry.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn down_requires_zero_resources_before_recording_destroyed() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Destroy,
+    )
+    .unwrap();
+    let runner = StateRemainingRunner {
+        calls: Mutex::new(Vec::new()),
+    };
+
+    let error = down_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("found resources"));
+    let events = RunRecord::load(project.path(), &plan.id)
+        .unwrap()
+        .events(project.path())
+        .unwrap();
+    assert_eq!(events.last().unwrap().stage, RunStage::DestroyVerify);
+    assert_eq!(events.last().unwrap().outcome, RunOutcome::Failed);
+    let loaded = Project::load(project.path()).unwrap();
+    assert_eq!(
+        inspect(&loaded, "development").unwrap().lifecycle.state,
+        "partial"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn verification_requires_zero_predicted_ansible_changes() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let planning_runner = FakeRunner::default();
+    let plan = plan_project(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "development",
+        Operation::Apply,
+    )
+    .unwrap();
+    let known_hosts = project.path().join("known_hosts");
+    fs::write(&known_hosts, "host ssh-ed25519 fixture\n").unwrap();
+    fs::set_permissions(&known_hosts, fs::Permissions::from_mode(0o600)).unwrap();
+    let runner = CheckChangesRunner {
+        calls: Mutex::new(Vec::new()),
+    };
+
+    let error = up_project(
+        &runner,
+        &environment(),
+        project.path(),
+        "development",
+        &plan.id,
+        &known_hosts,
+    )
+    .unwrap_err();
+
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("zero changed"));
+    let events = RunRecord::load(project.path(), &plan.id)
+        .unwrap()
+        .events(project.path())
+        .unwrap();
+    assert_eq!(events.last().unwrap().stage, RunStage::Verify);
+    assert_eq!(events.last().unwrap().outcome, RunOutcome::Failed);
 }
 
 #[test]
