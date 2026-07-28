@@ -9,7 +9,10 @@ use crate::contracts::validate_path;
 use crate::doctor;
 use crate::error::AinfraError;
 use crate::inventory::write_inventory;
+use crate::lifecycle::{self, OsEnvironment};
+use crate::plan_record::Operation;
 use crate::policy::validate_policy;
+use crate::process::SubprocessRunner;
 use crate::template::discover_builtin;
 
 /// Validate and operate explicit infrastructure templates.
@@ -229,6 +232,45 @@ pub fn run_doctor(format: TextFormat, input: Option<&std::path::Path>) -> Result
         return Err(AinfraError::dependency(
             "one or more readiness checks failed",
         ));
+    }
+    Ok(())
+}
+
+/// Create one isolated reviewed `OpenTofu` plan.
+///
+/// # Errors
+///
+/// Returns a stable validation, dependency, or guard error.
+pub fn run_plan(
+    template: &str,
+    input: &std::path::Path,
+    destroy: bool,
+    format: TextFormat,
+) -> Result<(), AinfraError> {
+    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let operation = if destroy {
+        Operation::Destroy
+    } else {
+        Operation::Apply
+    };
+    let record = lifecycle::plan(
+        &SubprocessRunner::default(),
+        &OsEnvironment,
+        &root,
+        template,
+        input,
+        operation,
+    )?;
+    match format {
+        TextFormat::Json => println!(
+            "{}",
+            serde_json::to_string(&record)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+        TextFormat::Text => {
+            println!("plan {}", record.id);
+            println!("{} approval: {}", operation.as_str(), record.id);
+        }
     }
     Ok(())
 }

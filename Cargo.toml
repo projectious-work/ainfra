@@ -10,6 +10,7 @@ repository = "https://github.com/projectious-work/ainfra"
 [dependencies]
 clap = { version = "=4.5.41", features = ["derive"] }
 ipnet = "=2.12.0"
+include_dir = "=0.7.4"
 jsonschema = { version = "=0.49.1", default-features = false }
 pep440_rs = "=0.7.3"
 regex = "=1.13.1"

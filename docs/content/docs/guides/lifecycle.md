@@ -38,6 +38,12 @@ rules, image selection, and estimated cost. Apply only the returned plan ID:
 uv run ainfra apply TEMPLATE --input INPUT --approve PLAN_ID
 ```
 
+The Rust implementation embeds the built-in template and materializes a new
+workspace beneath `.ainfra/runs/<PLAN_ID>/workspace/`; it does not execute
+OpenTofu in a source checkout. Initialization uses the committed lock file in
+read-only mode. The generated variables, plan bytes, and versioned plan record
+remain together in the isolated run directory.
+
 ## Read standardized outputs
 
 ```sh

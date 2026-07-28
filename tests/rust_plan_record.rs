@@ -75,7 +75,7 @@ fn rejects_unsafe_ids_and_plan_paths() {
     record.plan_path = outside.display().to_string();
     let error = record.bind_plan(directory.path()).unwrap_err();
     assert_eq!(error.code(), "AINFRA-E600");
-    assert!(error.to_string().contains("escaped"));
+    assert!(error.to_string().contains("plan path"));
 }
 
 #[test]

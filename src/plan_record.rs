@@ -95,6 +95,31 @@ impl PlanRecord {
         input_path: &Path,
         template_root: &Path,
     ) -> Result<Self, AinfraError> {
+        Self::create_with_template_hash(
+            project_root,
+            operation,
+            template,
+            template_version,
+            environment,
+            input_path,
+            &template_hash(template_root)?,
+        )
+    }
+
+    /// Allocate a record from an already verified template digest.
+    ///
+    /// # Errors
+    ///
+    /// Returns a guard error when the input cannot be canonicalized or hashed.
+    pub fn create_with_template_hash(
+        project_root: &Path,
+        operation: Operation,
+        template: &str,
+        template_version: &str,
+        environment: &str,
+        input_path: &Path,
+        template_sha256: &str,
+    ) -> Result<Self, AinfraError> {
         let id = Uuid::new_v4().simple().to_string()[..20].to_owned();
         let run_root = run_root(project_root).join(&id);
         let plan_path = run_root.join(format!("{}.tfplan", operation.as_str()));
@@ -113,7 +138,7 @@ impl PlanRecord {
             environment: environment.to_owned(),
             input_path: canonical_input.display().to_string(),
             input_sha256: file_hash(&canonical_input)?,
-            template_sha256: template_hash(template_root)?,
+            template_sha256: template_sha256.to_owned(),
             plan_path: plan_path.display().to_string(),
             plan_sha256: String::new(),
         })
@@ -319,6 +344,11 @@ fn contained_plan_path(project_root: &Path, record: &PlanRecord) -> Result<PathB
     validate_id(&record.id)?;
     let expected = run_root(project_root).join(&record.id);
     let plan = PathBuf::from(&record.plan_path);
+    if plan != expected.join(format!("{}.tfplan", record.operation.as_str())) {
+        return Err(AinfraError::guard(
+            "reviewed plan path does not match its operation",
+        ));
+    }
     if !plan.is_file() {
         return Err(AinfraError::guard("reviewed plan file is missing"));
     }

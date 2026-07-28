@@ -29,8 +29,9 @@ backend mode and capabilities.
 ## `plan`
 
 Validates the template and input, invokes OpenTofu planning, applies policy
-checks, and emits a reviewable plan ID. `--destroy` creates the corresponding
-destruction review.
+checks, and emits a reviewable plan ID. The built-in template is materialized
+into an isolated per-plan workspace. `--destroy` creates the corresponding
+destruction review without bypassing the exact-plan gate.
 
 ## `apply`
 

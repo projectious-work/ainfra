@@ -12,8 +12,9 @@ security boundaries, and include evidence proportional to the risk.
 The aibox workspace installs the pinned Rust toolchain and `cargo-audit`.
 Python remains the behavioral oracle while commands are ported. The Rust
 implementation currently executes contract and policy validation, built-in
-template discovery, readiness checks, and inventory generation. Lifecycle
-mutation remains on the Python path until its compatibility gates are complete.
+template discovery, readiness checks, isolated OpenTofu planning, and inventory
+generation. Apply and destroy mutation remain on the Python path until their
+exact-plan compatibility gates are complete.
 
 ```sh
 uv sync --all-groups

@@ -5,8 +5,10 @@ pub mod contracts;
 pub mod doctor;
 pub mod error;
 pub mod inventory;
+pub mod lifecycle;
 pub mod plan_record;
 pub mod policy;
+pub mod process;
 pub mod template;
 
 use clap::Parser;
@@ -46,6 +48,12 @@ pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
             destination,
         } => cli::run_inventory(output, destination),
         Command::Doctor { format, input } => cli::run_doctor(*format, input.as_deref()),
+        Command::Plan {
+            template,
+            input,
+            destroy,
+            format,
+        } => cli::run_plan(template, input, *destroy, *format),
         command => Err(AinfraError::dependency(format!(
             "the Rust preview does not implement `{}` yet; use the Python CLI",
             command.name()

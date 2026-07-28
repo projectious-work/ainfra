@@ -1,12 +1,16 @@
 //! Built-in template discovery and compatibility validation.
 
 use std::collections::BTreeSet;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
+use include_dir::{Dir, File, include_dir};
 use pep440_rs::{Version, VersionSpecifiers};
 use regex::Regex;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::contracts::validate_document;
 use crate::error::AinfraError;
@@ -14,6 +18,8 @@ use crate::error::AinfraError;
 const BASELINE_NAME: &str = "hetzner-kubernetes-baseline";
 const BASELINE_MANIFEST: &str =
     include_str!("../templates/hetzner-kubernetes-baseline/ainfra-template.yaml");
+static BASELINE_DIRECTORY: Dir<'_> =
+    include_dir!("$CARGO_MANIFEST_DIR/templates/hetzner-kubernetes-baseline");
 const COMPATIBILITY_VERSION: &str = "0.1.0";
 const SUPPORTED_CAPABILITIES: [&str; 5] = [
     "access.ssh",
@@ -32,6 +38,91 @@ pub struct Template {
     pub manifest_path: &'static str,
     /// Validated manifest document.
     pub manifest: Value,
+}
+
+impl Template {
+    /// Return the Python-compatible digest of the embedded template tree.
+    #[must_use]
+    pub fn content_hash(&self) -> String {
+        let mut files = Vec::new();
+        embedded_files(&BASELINE_DIRECTORY, &mut files);
+        files.retain(|file| !embedded_excluded(file.path()));
+        files.sort_by_key(|file| file.path());
+        let mut digest = Sha256::new();
+        for file in files {
+            digest.update(file.path().to_string_lossy().replace('\\', "/").as_bytes());
+            digest.update(file.contents());
+        }
+        format!("{:x}", digest.finalize())
+    }
+
+    /// Materialize the embedded, immutable template into a new directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns a guard error rather than overwriting or escaping the target.
+    pub fn materialize(&self, destination: &Path) -> Result<(), AinfraError> {
+        fs::create_dir(destination).map_err(|error| {
+            AinfraError::guard(format!(
+                "cannot create template workspace {}: {error}",
+                destination.display()
+            ))
+        })?;
+        let mut files = Vec::new();
+        embedded_files(&BASELINE_DIRECTORY, &mut files);
+        files.retain(|file| !embedded_excluded(file.path()));
+        for file in files {
+            let relative = file.path();
+            if relative.is_absolute()
+                || relative.components().any(|component| {
+                    matches!(component, Component::ParentDir | Component::Prefix(_))
+                })
+            {
+                return Err(AinfraError::guard(
+                    "embedded template contains an unsafe path",
+                ));
+            }
+            let output = destination.join(relative);
+            if let Some(parent) = output.parent() {
+                fs::create_dir_all(parent).map_err(|error| {
+                    AinfraError::guard(format!(
+                        "cannot create template directory {}: {error}",
+                        parent.display()
+                    ))
+                })?;
+            }
+            let mut target = OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&output)
+                .map_err(|error| {
+                    AinfraError::guard(format!("cannot materialize {}: {error}", output.display()))
+                })?;
+            target.write_all(file.contents()).map_err(|error| {
+                AinfraError::guard(format!(
+                    "cannot write template file {}: {error}",
+                    output.display()
+                ))
+            })?;
+        }
+        Ok(())
+    }
+}
+
+fn embedded_files<'a>(directory: &'a Dir<'a>, files: &mut Vec<&'a File<'a>>) {
+    files.extend(directory.files());
+    for child in directory.dirs() {
+        embedded_files(child, files);
+    }
+}
+
+fn embedded_excluded(path: &Path) -> bool {
+    path.components().any(|part| {
+        matches!(
+            part.as_os_str().to_str(),
+            Some(".ainfra" | ".terraform" | "__pycache__")
+        )
+    })
 }
 
 /// Discover and validate a built-in template without a source checkout.
