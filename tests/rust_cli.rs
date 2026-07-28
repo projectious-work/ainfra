@@ -46,10 +46,8 @@ fn help_works_outside_the_source_checkout() {
 }
 
 #[test]
-fn compatibility_command_shapes_refuse_safely_in_the_preview() {
+fn unported_command_shapes_refuse_safely_in_the_preview() {
     let cases: &[&[&str]] = &[
-        &["validate", "fixture.json", "--format", "json"],
-        &["doctor", "--format", "json", "--input", "fixture.json"],
         &[
             "plan",
             "fixture-template",
@@ -76,13 +74,6 @@ fn compatibility_command_shapes_refuse_safely_in_the_preview() {
             "fixture-plan",
         ],
         &["outputs", "fixture-template", "--format", "yaml"],
-        &[
-            "inventory",
-            "--output",
-            "fixture-output.json",
-            "--destination",
-            "inventory.yaml",
-        ],
     ];
 
     for arguments in cases {
@@ -93,4 +84,16 @@ fn compatibility_command_shapes_refuse_safely_in_the_preview() {
             .code(5)
             .stderr(predicate::str::contains("AINFRA-E500"));
     }
+}
+
+#[test]
+fn doctor_emits_machine_readable_checks() {
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .args(["doctor", "--format", "json"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("\"id\":\"python\""))
+        .stdout(predicate::str::contains("\"id\":\"github-workflows\""))
+        .stderr(predicate::str::contains("AINFRA-E500"));
 }

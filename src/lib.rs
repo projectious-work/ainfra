@@ -1,11 +1,16 @@
 //! Library boundary for the ainfra command-line product.
 
 pub mod cli;
+pub mod contracts;
+pub mod doctor;
 pub mod error;
+pub mod inventory;
+pub mod policy;
+pub mod template;
 
 use clap::Parser;
 
-use crate::cli::Cli;
+use crate::cli::{Cli, Command};
 use crate::error::AinfraError;
 
 /// Parse and execute ainfra using the process argument vector.
@@ -29,8 +34,20 @@ pub fn run() -> Result<(), AinfraError> {
 /// Returns a stable preview error until the selected command has passed its
 /// compatibility gate and is implemented in Rust.
 pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
-    Err(AinfraError::dependency(format!(
-        "the Rust preview does not implement `{}` yet; use the Python CLI",
-        cli.command.name()
-    )))
+    match &cli.command {
+        Command::Validate {
+            target,
+            input,
+            format,
+        } => cli::run_validate(target, input.as_deref(), *format),
+        Command::Inventory {
+            output,
+            destination,
+        } => cli::run_inventory(output, destination),
+        Command::Doctor { format, input } => cli::run_doctor(*format, input.as_deref()),
+        command => Err(AinfraError::dependency(format!(
+            "the Rust preview does not implement `{}` yet; use the Python CLI",
+            command.name()
+        ))),
+    }
 }

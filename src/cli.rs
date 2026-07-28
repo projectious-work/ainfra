@@ -3,6 +3,14 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use serde_json::json;
+
+use crate::contracts::validate_path;
+use crate::doctor;
+use crate::error::AinfraError;
+use crate::inventory::write_inventory;
+use crate::policy::validate_policy;
+use crate::template::discover_builtin;
 
 /// Validate and operate explicit infrastructure templates.
 #[derive(Debug, Parser)]
@@ -115,6 +123,114 @@ pub enum TextFormat {
     Text,
     /// Machine-readable JSON.
     Json,
+}
+
+/// Validate one contract document through the Rust implementation.
+///
+/// # Errors
+///
+/// Returns a stable contract or policy error when validation fails.
+pub fn run_validate(
+    target: &str,
+    input: Option<&std::path::Path>,
+    format: TextFormat,
+) -> Result<(), AinfraError> {
+    let path = std::path::Path::new(target);
+    if !path.exists() {
+        let template = discover_builtin(target)?;
+        let mut validated = vec![template.manifest_path.to_owned()];
+        if let Some(input) = input {
+            let document = validate_path(input)?;
+            let root = std::env::current_dir()
+                .map_err(|error| AinfraError::dependency(error.to_string()))?;
+            validate_policy(&document, input, Some(template.name), &root)?;
+            validated.push(input.display().to_string());
+        }
+        match format {
+            TextFormat::Text => {
+                println!("valid InfrastructureTemplate: {target}");
+            }
+            TextFormat::Json => println!(
+                "{}",
+                serde_json::to_string(&json!({
+                    "apiVersion": template.manifest["apiVersion"],
+                    "kind": template.manifest["kind"],
+                    "ok": true,
+                    "template": template.name,
+                    "validated": validated,
+                }))
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+            ),
+        }
+        return Ok(());
+    }
+    let document = validate_path(path)?;
+    let root =
+        std::env::current_dir().map_err(|error| AinfraError::dependency(error.to_string()))?;
+    validate_policy(&document, path, None, &root)?;
+    let kind = document
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("<unknown>");
+    match format {
+        TextFormat::Text => println!("valid {kind}: {target}"),
+        TextFormat::Json => println!(
+            "{}",
+            serde_json::to_string(&json!({
+                "apiVersion": document["apiVersion"],
+                "kind": kind,
+                "ok": true,
+                "path": target,
+            }))
+            .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+    }
+    Ok(())
+}
+
+/// Generate a validated Ansible inventory.
+///
+/// # Errors
+///
+/// Returns a stable contract, policy, guard, or filesystem error.
+pub fn run_inventory(
+    output: &std::path::Path,
+    destination: &std::path::Path,
+) -> Result<(), AinfraError> {
+    let root =
+        std::env::current_dir().map_err(|error| AinfraError::dependency(error.to_string()))?;
+    write_inventory(output, destination, &root)?;
+    println!("inventory written: {}", destination.display());
+    Ok(())
+}
+
+/// Report local readiness without changing the host.
+///
+/// # Errors
+///
+/// Returns a dependency error when any check fails.
+pub fn run_doctor(format: TextFormat, input: Option<&std::path::Path>) -> Result<(), AinfraError> {
+    let root =
+        std::env::current_dir().map_err(|error| AinfraError::dependency(error.to_string()))?;
+    let checks = doctor::run_doctor(&root, input);
+    match format {
+        TextFormat::Json => println!(
+            "{}",
+            serde_json::to_string(&checks)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+        TextFormat::Text => {
+            for check in &checks {
+                println!("{}: {}", check.status, check.id);
+            }
+        }
+    }
+    if checks.iter().any(|check| check.status == "fail") {
+        return Err(AinfraError::dependency(
+            "one or more readiness checks failed",
+        ));
+    }
+    Ok(())
 }
 
 /// JSON or YAML document output.
