@@ -5,6 +5,7 @@ pub mod contracts;
 pub mod doctor;
 pub mod error;
 pub mod inventory;
+pub mod plan_record;
 pub mod policy;
 pub mod template;
 
