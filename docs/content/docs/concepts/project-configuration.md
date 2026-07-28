@@ -44,3 +44,10 @@ and OpenTofu plan bytes. Any committed-input change requires a new plan.
 The explicit `TEMPLATE --input INPUT` compatibility mode remains available for
 existing development runs. It uses the legacy `v1alpha1` record protocol.
 Neither record version can authorize execution through the other mode.
+
+Legacy explicit records may remain under the original repository's ignored
+`.ainfra/` directory as audit and recovery evidence. They cannot be upgraded
+in place, filled with project fields, or used by `up` or `down`. Inspect them
+with `ainfra legacy inspect --root PATH`; normal project lifecycle requires a
+new `v1alpha2` plan bound to the exact project, lockfile, input, template, and
+backend configuration.

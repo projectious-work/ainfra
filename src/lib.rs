@@ -5,6 +5,7 @@ pub mod contracts;
 pub mod doctor;
 pub mod error;
 pub mod inventory;
+pub mod legacy;
 pub mod lifecycle;
 pub mod plan_record;
 pub mod policy;
@@ -16,7 +17,7 @@ pub mod template;
 
 use clap::Parser;
 
-use crate::cli::{Cli, Command};
+use crate::cli::{Cli, Command, LegacyCommand};
 use crate::error::AinfraError;
 
 /// Parse and execute ainfra using the process argument vector.
@@ -60,6 +61,9 @@ pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
             environment,
             format,
         } => cli::run_status(environment, *format),
+        Command::Legacy { command } => match command {
+            LegacyCommand::Inspect { root, format } => cli::run_legacy_inspect(root, *format),
+        },
         Command::Doctor {
             format,
             input,

@@ -68,6 +68,54 @@ fn writes_a_versioned_record_without_overwrite() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn load_rejects_symlinked_legacy_record_and_plan_files() {
+    use std::os::unix::fs::symlink;
+
+    let directory = tempfile::tempdir().unwrap();
+    let (record, _, _) = prepared_record(directory.path());
+    let record_path = record.write(directory.path()).unwrap();
+    let real_record = record_path.with_file_name("real-plan.json");
+    fs::rename(&record_path, &real_record).unwrap();
+    symlink(&real_record, &record_path).unwrap();
+    let error = PlanRecord::load(directory.path(), &record.id).unwrap_err();
+    assert!(error.to_string().contains("non-symlink file"));
+
+    fs::remove_file(&record_path).unwrap();
+    fs::rename(&real_record, &record_path).unwrap();
+    let plan = std::path::PathBuf::from(&record.plan_path);
+    let real_plan = plan.with_file_name("real-apply.tfplan");
+    fs::rename(&plan, &real_plan).unwrap();
+    symlink(&real_plan, &plan).unwrap();
+    let error = record
+        .verify(
+            directory.path(),
+            &ExpectedBindings {
+                template: "hetzner-kubernetes-baseline",
+                template_version: "0.1.0",
+                environment: "development",
+                input_path: &directory.path().join("input.json"),
+                template_root: &directory.path().join("template"),
+                operation: Operation::Apply,
+                backend_config_path: None,
+                backend_config_sha256: None,
+                project: None,
+            },
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("non-symlink file"));
+
+    let redirected = tempfile::tempdir().unwrap();
+    symlink(
+        directory.path().join(".ainfra"),
+        redirected.path().join(".ainfra"),
+    )
+    .unwrap();
+    let error = PlanRecord::load(redirected.path(), &record.id).unwrap_err();
+    assert!(error.to_string().contains("non-symlink directory"));
+}
+
 #[test]
 fn rejects_unsafe_ids_and_plan_paths() {
     let directory = tempfile::tempdir().unwrap();

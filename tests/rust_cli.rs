@@ -5,7 +5,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-const COMMANDS: [&str; 12] = [
+const COMMANDS: [&str; 13] = [
     "init",
     "validate",
     "doctor",
@@ -17,6 +17,7 @@ const COMMANDS: [&str; 12] = [
     "outputs",
     "configure",
     "status",
+    "legacy",
     "inventory",
 ];
 
@@ -312,6 +313,31 @@ fn doctor_emits_machine_readable_checks() {
         .stdout(predicate::str::contains("\"id\":\"python\""))
         .stdout(predicate::str::contains("\"id\":\"github-workflows\""))
         .stderr(predicate::str::contains("AINFRA-E500"));
+}
+
+#[test]
+fn legacy_inspection_is_read_only_and_checkout_independent() {
+    let source = tempfile::tempdir().unwrap();
+
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(std::env::temp_dir())
+        .args([
+            "legacy",
+            "inspect",
+            "--root",
+            source.path().to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "\"apiVersion\":\"ainfra.legacy-inspection/v1alpha1\"",
+        ))
+        .stdout(predicate::str::contains("\"state\":\"none\""));
+
+    assert!(!source.path().join(".ainfra").exists());
 }
 
 #[cfg(unix)]

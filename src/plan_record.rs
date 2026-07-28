@@ -1,7 +1,7 @@
 //! Versioned immutable bindings for reviewed `OpenTofu` plans.
 
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -249,8 +249,7 @@ impl PlanRecord {
     ///
     /// Returns a guard error when the declared plan is missing or unsafe.
     pub fn bind_plan(&mut self, project_root: &Path) -> Result<(), AinfraError> {
-        let plan = contained_plan_path(project_root, self)?;
-        self.plan_sha256 = file_hash(&plan)?;
+        self.plan_sha256 = contained_plan_hash(project_root, self)?;
         Ok(())
     }
 
@@ -262,6 +261,7 @@ impl PlanRecord {
     pub fn write(&self, project_root: &Path) -> Result<PathBuf, AinfraError> {
         validate_id(&self.id)?;
         self.validate_protocol_shape()?;
+        validate_digest(&self.plan_sha256, "plan")?;
         self.validate_project_paths(project_root)?;
         let run = run_root(project_root).join(&self.id);
         fs::create_dir_all(&run).map_err(|error| {
@@ -293,10 +293,18 @@ impl PlanRecord {
     /// records.
     pub fn load(project_root: &Path, id: &str) -> Result<Self, AinfraError> {
         validate_id(id)?;
-        let path = run_root(project_root).join(id).join("plan.json");
-        let content = fs::read_to_string(&path)
-            .map_err(|_| AinfraError::guard(format!("reviewed plan does not exist: {id}")))?;
-        let record: Self = serde_json::from_str(&content)
+        let root = project_root
+            .canonicalize()
+            .map_err(|error| AinfraError::guard(format!("cannot resolve project root: {error}")))?;
+        let state = root.join(".ainfra");
+        require_directory(&state, "operational state directory")?;
+        let runs = run_root(&root);
+        require_directory(&runs, "run root")?;
+        let run = runs.join(id);
+        require_directory(&run, "plan run directory")?;
+        let path = run.join("plan.json");
+        let content = secure_read(&root, &path, "plan record")?;
+        let record: Self = serde_json::from_slice(&content)
             .map_err(|error| AinfraError::guard(format!("invalid plan record: {error}")))?;
         if record.id != id {
             return Err(AinfraError::guard(
@@ -304,7 +312,8 @@ impl PlanRecord {
             ));
         }
         record.validate_protocol_shape()?;
-        record.validate_project_paths(project_root)?;
+        validate_digest(&record.plan_sha256, "plan")?;
+        record.validate_project_paths(&root)?;
         Ok(record)
     }
 
@@ -319,6 +328,7 @@ impl PlanRecord {
         expected: &ExpectedBindings<'_>,
     ) -> Result<(), AinfraError> {
         self.validate_protocol_shape()?;
+        validate_digest(&self.plan_sha256, "plan")?;
         self.validate_project_paths(project_root)?;
         self.verify_project_binding(project_root, expected.project)?;
         if self.operation != expected.operation {
@@ -365,8 +375,7 @@ impl PlanRecord {
                 "backend configuration changed after planning",
             ));
         }
-        let plan = contained_plan_path(project_root, self)?;
-        if self.plan_sha256 != file_hash(&plan)? {
+        if self.plan_sha256 != contained_plan_hash(project_root, self)? {
             return Err(AinfraError::guard(
                 "reviewed plan file was modified after planning",
             ));
@@ -413,6 +422,19 @@ impl PlanRecord {
     }
 
     fn validate_protocol_shape(&self) -> Result<(), AinfraError> {
+        validate_id(&self.id)?;
+        validate_name(&self.template, "template", 3)?;
+        validate_name(&self.environment, "environment", 2)?;
+        if self.template_version.is_empty() || self.template_version.len() > 64 {
+            return Err(AinfraError::guard(
+                "invalid template version in reviewed plan",
+            ));
+        }
+        validate_digest(&self.input_sha256, "input")?;
+        validate_digest(&self.template_sha256, "template")?;
+        if !self.plan_sha256.is_empty() {
+            validate_digest(&self.plan_sha256, "plan")?;
+        }
         let project_fields = [
             self.project_root.as_ref(),
             self.project_config_path.as_ref(),
@@ -536,30 +558,117 @@ fn collect_files(
     Ok(())
 }
 
-fn contained_plan_path(project_root: &Path, record: &PlanRecord) -> Result<PathBuf, AinfraError> {
+fn contained_plan_hash(project_root: &Path, record: &PlanRecord) -> Result<String, AinfraError> {
     validate_id(&record.id)?;
-    let expected = run_root(project_root).join(&record.id);
+    let root = project_root
+        .canonicalize()
+        .map_err(|error| AinfraError::guard(format!("cannot resolve project root: {error}")))?;
+    let state = root.join(".ainfra");
+    require_directory(&state, "operational state directory")?;
+    let runs = run_root(&root);
+    require_directory(&runs, "run root")?;
+    let expected = runs.join(&record.id);
     let plan = PathBuf::from(&record.plan_path);
     if plan != expected.join(format!("{}.tfplan", record.operation.as_str())) {
         return Err(AinfraError::guard(
             "reviewed plan path does not match its operation",
         ));
     }
-    if !plan.is_file() {
-        return Err(AinfraError::guard("reviewed plan file is missing"));
+    require_directory(&expected, "plan run directory")?;
+    let bytes = secure_read(&root, &plan, "reviewed plan file")?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+fn require_directory(path: &Path, label: &str) -> Result<(), AinfraError> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|_| AinfraError::guard(format!("{label} is missing")))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(AinfraError::guard(format!(
+            "{label} must be a regular non-symlink directory"
+        )));
     }
-    let resolved = plan
-        .canonicalize()
-        .map_err(|error| AinfraError::guard(format!("cannot resolve reviewed plan: {error}")))?;
-    let allowed = expected
-        .canonicalize()
-        .map_err(|error| AinfraError::guard(format!("cannot resolve plan directory: {error}")))?;
-    if !resolved.starts_with(&allowed) {
-        return Err(AinfraError::guard(
-            "reviewed plan path escaped its run directory",
-        ));
+    Ok(())
+}
+
+fn require_regular_file(path: &Path, label: &str) -> Result<(), AinfraError> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|_| AinfraError::guard(format!("{label} is missing")))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(AinfraError::guard(format!(
+            "{label} must be a regular non-symlink file"
+        )));
     }
-    Ok(resolved)
+    Ok(())
+}
+
+fn secure_read(root: &Path, path: &Path, label: &str) -> Result<Vec<u8>, AinfraError> {
+    let root = root
+        .canonicalize()
+        .map_err(|error| AinfraError::guard(format!("cannot resolve project root: {error}")))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| AinfraError::guard(format!("{label} has no parent directory")))?;
+    let before_parent = parent
+        .canonicalize()
+        .map_err(|error| AinfraError::guard(format!("cannot resolve {label} parent: {error}")))?;
+    if !before_parent.starts_with(&root) {
+        return Err(AinfraError::guard(format!(
+            "{label} escaped the project root"
+        )));
+    }
+    require_regular_file(path, label)?;
+    let before = fs::symlink_metadata(path)
+        .map_err(|_| AinfraError::guard(format!("{label} is missing")))?;
+    let mut file = fs::File::open(path)
+        .map_err(|error| AinfraError::guard(format!("cannot open {label}: {error}")))?;
+    let opened = file
+        .metadata()
+        .map_err(|error| AinfraError::guard(format!("cannot inspect {label}: {error}")))?;
+    if !same_file(&before, &opened) {
+        return Err(AinfraError::guard(format!(
+            "{label} changed while it was opened"
+        )));
+    }
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)
+        .map_err(|error| AinfraError::guard(format!("cannot read {label}: {error}")))?;
+    let after = fs::symlink_metadata(path)
+        .map_err(|_| AinfraError::guard(format!("{label} changed while it was read")))?;
+    let after_parent = parent
+        .canonicalize()
+        .map_err(|error| AinfraError::guard(format!("cannot resolve {label} parent: {error}")))?;
+    if !same_file(&opened, &after) || after_parent != before_parent {
+        return Err(AinfraError::guard(format!(
+            "{label} changed while it was read"
+        )));
+    }
+    Ok(bytes)
+}
+
+pub(crate) fn secure_file_hash(
+    root: &Path,
+    path: &Path,
+    label: &str,
+) -> Result<String, AinfraError> {
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(secure_read(root, path, label)?)
+    ))
+}
+
+#[cfg(unix)]
+fn same_file(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+
+    left.dev() == right.dev() && left.ino() == right.ino()
+}
+
+#[cfg(not(unix))]
+fn same_file(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    left.len() == right.len()
+        && left.modified().ok() == right.modified().ok()
+        && left.file_type().is_file()
+        && right.file_type().is_file()
 }
 
 fn validate_id(id: &str) -> Result<(), AinfraError> {
@@ -577,6 +686,17 @@ fn validate_digest(value: &str, label: &str) -> Result<(), AinfraError> {
     if !pattern.is_match(value) {
         return Err(AinfraError::guard(format!(
             "invalid {label} digest in reviewed plan"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_name(value: &str, label: &str, minimum: usize) -> Result<(), AinfraError> {
+    let pattern = Regex::new(r"^[a-z][a-z0-9-]{1,62}$")
+        .map_err(|error| AinfraError::dependency(error.to_string()))?;
+    if value.len() < minimum || !pattern.is_match(value) {
+        return Err(AinfraError::guard(format!(
+            "invalid {label} identity in reviewed plan"
         )));
     }
     Ok(())

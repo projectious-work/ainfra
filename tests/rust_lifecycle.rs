@@ -1242,6 +1242,37 @@ fn corrupt_run_evidence_forces_manual_recovery() {
 }
 
 #[test]
+fn project_status_never_promotes_legacy_plan_evidence() {
+    let project = tempfile::tempdir().unwrap();
+    initialize(
+        project.path(),
+        Some("example-infrastructure"),
+        "hetzner-kubernetes-baseline",
+        "development",
+    )
+    .unwrap();
+    let runner = FakeRunner::default();
+    let legacy = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    assert_eq!(legacy.format_version, "ainfra.plan/v1alpha1");
+    let loaded = Project::load(project.path()).unwrap();
+
+    let status = inspect(&loaded, "development").unwrap();
+
+    assert_eq!(status.lifecycle.state, "legacy");
+    assert_eq!(status.lifecycle.integrity, "legacy");
+    assert_eq!(status.next[0].command, "docs: lifecycle recovery");
+    assert!(status.latest_run.is_none());
+}
+
+#[test]
 fn corrupt_run_cannot_be_bypassed_by_an_older_valid_run() {
     let project = tempfile::tempdir().unwrap();
     initialize(

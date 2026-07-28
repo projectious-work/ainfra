@@ -24,6 +24,7 @@ ainfra outputs [<template> | --environment ENV] --run PLAN_ID
 ainfra configure [<template> | --environment ENV] --run PLAN_ID
   --known-hosts FILE [--check]
 ainfra status --environment ENV [--format text|json]
+ainfra legacy inspect [--root PYTHON_REPOSITORY] [--format text|json]
 ainfra inventory --output OUTPUT --destination DESTINATION
 ```
 
@@ -120,6 +121,19 @@ never records configuration as applied.
 
 Transforms a validated standardized output into an Ansible inventory at an
 explicit destination.
+
+## `legacy inspect`
+
+Inspects Python-prototype `.ainfra/runs/` evidence without invoking OpenTofu,
+Ansible, credential providers, or provider APIs and without writing files. It
+reports sanitized record identities, exact plan-byte integrity, and corrupt
+entry counts.
+
+Legacy lifecycle state is always `unknown`. The command never imports a plan,
+synthesizes project bindings or lifecycle events, or recommends applying or
+destroying with an old ID. Machine output uses
+`ainfra.legacy-inspection/v1alpha1` and always requires a new project-bound
+plan before normal project lifecycle can begin.
 
 ## `status`
 

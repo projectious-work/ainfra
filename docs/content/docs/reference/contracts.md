@@ -16,6 +16,7 @@ All schemas use JSON Schema draft 2020-12 and reject unknown fields.
 | `ainfra.run/v1alpha2` | [`schemas/run-record.v1alpha2.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/run-record.v1alpha2.json) | Immutable run identity |
 | `ainfra.run-event/v1alpha1` | [`schemas/run-event.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/run-event.v1alpha1.json) | Append-only lifecycle evidence |
 | `ainfra.status/v1alpha1` | [`schemas/status.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/status.v1alpha1.json) | Sanitized local status output |
+| `ainfra.legacy-inspection/v1alpha1` | [`schemas/legacy-inspection.v1alpha1.json`](https://github.com/projectious-work/ainfra/blob/main/schemas/legacy-inspection.v1alpha1.json) | Read-only legacy evidence report |
 
 ## Compatibility
 

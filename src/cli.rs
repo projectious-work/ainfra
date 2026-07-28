@@ -175,6 +175,12 @@ pub enum Command {
         #[arg(long, value_enum, default_value_t)]
         format: TextFormat,
     },
+    /// Inspect Python-prototype evidence without importing authority.
+    Legacy {
+        /// Read-only legacy evidence operation.
+        #[command(subcommand)]
+        command: LegacyCommand,
+    },
     /// Generate Ansible inventory from standardized output.
     Inventory {
         /// Standardized infrastructure output.
@@ -202,6 +208,7 @@ impl Command {
             Self::Outputs { .. } => "outputs",
             Self::Configure { .. } => "configure",
             Self::Status { .. } => "status",
+            Self::Legacy { .. } => "legacy",
             Self::Inventory { .. } => "inventory",
         }
     }
@@ -215,6 +222,20 @@ pub enum TextFormat {
     Text,
     /// Machine-readable JSON.
     Json,
+}
+
+/// Read-only Python-prototype compatibility commands.
+#[derive(Debug, Subcommand)]
+pub enum LegacyCommand {
+    /// Inspect sanitized legacy plan evidence and recovery requirements.
+    Inspect {
+        /// Python-prototype repository root.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Output format.
+        #[arg(long, value_enum, default_value_t)]
+        format: TextFormat,
+    },
 }
 
 /// Validate one contract document through the Rust implementation.
@@ -705,6 +726,40 @@ pub fn run_status(environment: &str, format: TextFormat) -> Result<(), AinfraErr
             for action in &report.next {
                 println!("next: {}", action.command);
             }
+        }
+    }
+    Ok(())
+}
+
+/// Inspect Python-prototype evidence without subprocesses or mutation.
+///
+/// # Errors
+///
+/// Rejects an invalid or redirected source boundary.
+pub fn run_legacy_inspect(root: &std::path::Path, format: TextFormat) -> Result<(), AinfraError> {
+    let report = crate::legacy::inspect(root)?;
+    match format {
+        TextFormat::Json => println!(
+            "{}",
+            serde_json::to_string(&report)
+                .map_err(|error| AinfraError::dependency(error.to_string()))?
+        ),
+        TextFormat::Text => {
+            println!(
+                "{}: {} legacy record(s), {} corrupt entry/entries",
+                report.state, report.legacy_records, report.corrupt_entries
+            );
+            for run in report.runs {
+                println!(
+                    "{}: {} {} {} (plan {}, lifecycle unknown)",
+                    run.id,
+                    run.operation.as_str(),
+                    run.environment,
+                    run.template,
+                    run.plan_integrity
+                );
+            }
+            println!("next: {}", report.next);
         }
     }
     Ok(())
