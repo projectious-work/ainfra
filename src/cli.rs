@@ -275,6 +275,31 @@ pub fn run_plan(
     Ok(())
 }
 
+/// Execute one exact reviewed apply or destroy plan.
+///
+/// # Errors
+///
+/// Returns a stable guard error before mutation when a binding changed.
+pub fn run_execute(
+    template: &str,
+    input: &std::path::Path,
+    approval: &str,
+    operation: Operation,
+) -> Result<(), AinfraError> {
+    let root = std::env::current_dir().map_err(|error| AinfraError::guard(error.to_string()))?;
+    let runner = SubprocessRunner::default();
+    let result = match operation {
+        Operation::Apply => {
+            lifecycle::apply(&runner, &OsEnvironment, &root, template, input, approval)
+        }
+        Operation::Destroy => {
+            lifecycle::destroy(&runner, &OsEnvironment, &root, template, input, approval)
+        }
+    }?;
+    print!("{}", result.stdout);
+    Ok(())
+}
+
 /// JSON or YAML document output.
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
 pub enum DocumentFormat {

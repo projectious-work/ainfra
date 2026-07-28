@@ -35,13 +35,15 @@ destruction review without bypassing the exact-plan gate.
 
 ## `apply`
 
-Applies only the plan identified by `--approve`. A stale, absent, or mismatched
-identifier fails closed.
+Applies only the plan identified by `--approve`, from its retained isolated
+workspace. A stale, absent, changed, or mismatched identifier fails closed
+before an infrastructure process starts.
 
 ## `destroy`
 
-Destroys only the resource ownership scope identified by
-`--approve-destroy`.
+Destroys only through the exact destroy plan identified by
+`--approve-destroy`. The implementation applies that reviewed plan rather than
+running an unreviewed direct destroy command.
 
 ## `outputs`
 

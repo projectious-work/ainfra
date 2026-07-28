@@ -54,7 +54,27 @@ pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
             destroy,
             format,
         } => cli::run_plan(template, input, *destroy, *format),
-        command => Err(AinfraError::dependency(format!(
+        Command::Apply {
+            template,
+            input,
+            approve,
+        } => cli::run_execute(
+            template,
+            input,
+            approve,
+            crate::plan_record::Operation::Apply,
+        ),
+        Command::Destroy {
+            template,
+            input,
+            approve_destroy,
+        } => cli::run_execute(
+            template,
+            input,
+            approve_destroy,
+            crate::plan_record::Operation::Destroy,
+        ),
+        command @ Command::Outputs { .. } => Err(AinfraError::dependency(format!(
             "the Rust preview does not implement `{}` yet; use the Python CLI",
             command.name()
         ))),

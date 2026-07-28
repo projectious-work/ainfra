@@ -50,6 +50,13 @@
     "template_sha256": {
       "$ref": "#/$defs/digest"
     },
+    "backend_config_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "backend_config_sha256": {
+      "$ref": "#/$defs/digest"
+    },
     "plan_path": {
       "type": "string",
       "minLength": 1
@@ -57,6 +64,10 @@
     "plan_sha256": {
       "$ref": "#/$defs/digest"
     }
+  },
+  "dependentRequired": {
+    "backend_config_path": ["backend_config_sha256"],
+    "backend_config_sha256": ["backend_config_path"]
   },
   "$defs": {
     "digest": {

@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use ainfra::error::AinfraError;
-use ainfra::lifecycle::{EnvironmentSource, plan};
+use ainfra::lifecycle::{EnvironmentSource, apply, destroy, plan};
 use ainfra::plan_record::{Operation, PlanRecord, template_hash};
 use ainfra::process::{
     ProcessRequest, ProcessResult, Runner, SubprocessRunner, child_environment, redact,
@@ -29,16 +29,20 @@ type RecordedCall = (Vec<String>, PathBuf, BTreeMap<String, String>);
 #[derive(Default)]
 struct FakeRunner {
     calls: Mutex<Vec<RecordedCall>>,
-    failure: Option<i32>,
+    fail_on_call: Option<usize>,
 }
 
 impl Runner for FakeRunner {
     fn run(&self, request: &ProcessRequest) -> Result<ProcessResult, AinfraError> {
-        self.calls.lock().unwrap().push((
-            request.argv.clone(),
-            request.cwd.clone(),
-            request.environment.clone(),
-        ));
+        let call_number = {
+            let mut calls = self.calls.lock().unwrap();
+            calls.push((
+                request.argv.clone(),
+                request.cwd.clone(),
+                request.environment.clone(),
+            ));
+            calls.len()
+        };
         if let Some(path) = request
             .argv
             .iter()
@@ -46,12 +50,13 @@ impl Runner for FakeRunner {
         {
             fs::write(path, b"fake-plan").unwrap();
         }
+        let failed = self.fail_on_call == Some(call_number);
         Ok(ProcessResult {
             argv: request.argv.clone(),
-            return_code: self.failure.unwrap_or(0),
+            return_code: i32::from(failed),
             stdout: "ok\n".to_owned(),
-            stderr: if self.failure.is_some() {
-                "fixture failed\n".to_owned()
+            stderr: if failed {
+                redact("fixture-secret failed\n", &request.secrets)
             } else {
                 String::new()
             },
@@ -151,7 +156,7 @@ fn failed_init_never_runs_plan_or_writes_a_record() {
     let project = tempfile::tempdir().unwrap();
     let runner = FakeRunner {
         calls: Mutex::new(Vec::new()),
-        failure: Some(1),
+        fail_on_call: Some(1),
     };
     let error = plan(
         &runner,
@@ -237,4 +242,263 @@ fn truncated_secret_fragments_are_not_exposed() {
     );
     assert!(!output.contains("fixture-"));
     assert!(output.contains("[REDACTED]"));
+}
+
+#[test]
+fn apply_rechecks_bindings_then_uses_the_exact_plan() {
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    runner.calls.lock().unwrap().clear();
+    let result = apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap();
+    assert_eq!(result.return_code, 0);
+    let calls = runner.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(
+        calls[1].0,
+        ["tofu", "apply", "-input=false", record.plan_path.as_str()]
+    );
+    assert!(calls[1].1.ends_with("workspace/tofu"));
+}
+
+#[test]
+fn destroy_requires_a_destroy_plan_and_uses_tofu_apply() {
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let apply_record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    runner.calls.lock().unwrap().clear();
+    let error = destroy(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &apply_record.id,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("cannot authorize"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+
+    let destroy_record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Destroy,
+    )
+    .unwrap();
+    runner.calls.lock().unwrap().clear();
+    destroy(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &destroy_record.id,
+    )
+    .unwrap();
+    let calls = runner.calls.lock().unwrap();
+    assert_eq!(calls[1].0[1], "apply");
+    assert_eq!(calls[1].0[3], destroy_record.plan_path);
+}
+
+#[test]
+fn tampered_plan_is_rejected_before_init_or_apply() {
+    let project = tempfile::tempdir().unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+    fs::write(&record.plan_path, b"tampered").unwrap();
+    runner.calls.lock().unwrap().clear();
+    let error = apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("modified"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn changed_input_and_workspace_are_rejected_before_execution() {
+    let project = tempfile::tempdir().unwrap();
+    let copied_input = project.path().join("input.json");
+    fs::copy(input(), &copied_input).unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &copied_input,
+        Operation::Apply,
+    )
+    .unwrap();
+    runner.calls.lock().unwrap().clear();
+
+    let mut changed = fs::read(&copied_input).unwrap();
+    changed.push(b'\n');
+    fs::write(&copied_input, changed).unwrap();
+    let error = apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &copied_input,
+        &record.id,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("input content changed"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+
+    fs::copy(input(), &copied_input).unwrap();
+    let workspace = Path::new(&record.plan_path)
+        .parent()
+        .unwrap()
+        .join("workspace/tofu/providers.tf");
+    fs::write(workspace, b"changed").unwrap();
+    let error = apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &copied_input,
+        &record.id,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("template content changed"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn changed_backend_configuration_is_rejected_before_init() {
+    let project = tempfile::tempdir().unwrap();
+    let input = project.path().join("remote-input.json");
+    fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/policy/v1alpha1/valid/remote-input.json"),
+        &input,
+    )
+    .unwrap();
+    let backend = project.path().join(".ainfra/backend.hcl");
+    fs::create_dir_all(backend.parent().unwrap()).unwrap();
+    fs::write(&backend, b"bucket = \"reviewed\"\n").unwrap();
+    let runner = FakeRunner::default();
+    let record = plan(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input,
+        Operation::Apply,
+    )
+    .unwrap();
+    assert_eq!(
+        record.backend_config_path.as_deref(),
+        Some(backend.canonicalize().unwrap().to_str().unwrap())
+    );
+    assert!(record.backend_config_sha256.is_some());
+
+    fs::write(&backend, b"bucket = \"changed\"\n").unwrap();
+    runner.calls.lock().unwrap().clear();
+    let error = apply(
+        &runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input,
+        &record.id,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E600");
+    assert!(error.to_string().contains("backend configuration changed"));
+    assert!(runner.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn init_and_apply_failures_stop_safely_with_redacted_errors() {
+    let project = tempfile::tempdir().unwrap();
+    let planning_runner = FakeRunner::default();
+    let record = plan(
+        &planning_runner,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        Operation::Apply,
+    )
+    .unwrap();
+
+    let init_failure = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: Some(1),
+    };
+    let error = apply(
+        &init_failure,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E500");
+    assert_eq!(init_failure.calls.lock().unwrap().len(), 1);
+    assert!(!error.to_string().contains("fixture-secret"));
+
+    let apply_failure = FakeRunner {
+        calls: Mutex::new(Vec::new()),
+        fail_on_call: Some(2),
+    };
+    let error = apply(
+        &apply_failure,
+        &environment(),
+        project.path(),
+        "hetzner-kubernetes-baseline",
+        &input(),
+        &record.id,
+    )
+    .unwrap_err();
+    assert_eq!(error.code(), "AINFRA-E500");
+    assert_eq!(apply_failure.calls.lock().unwrap().len(), 2);
+    assert!(!error.to_string().contains("fixture-secret"));
+    assert!(error.to_string().contains("[REDACTED]"));
 }

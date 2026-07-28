@@ -58,6 +58,12 @@ pub struct PlanRecord {
     pub input_sha256: String,
     /// Digest of the resolved template tree.
     pub template_sha256: String,
+    /// Canonical reviewed backend configuration path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_config_path: Option<String>,
+    /// Digest of the reviewed backend configuration bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_config_sha256: Option<String>,
     /// Absolute immutable `OpenTofu` plan path.
     pub plan_path: String,
     /// Digest of the `OpenTofu` plan bytes.
@@ -78,6 +84,10 @@ pub struct ExpectedBindings<'a> {
     pub template_root: &'a Path,
     /// Requested operation.
     pub operation: Operation,
+    /// Current canonical backend configuration path.
+    pub backend_config_path: Option<&'a str>,
+    /// Current backend configuration digest.
+    pub backend_config_sha256: Option<&'a str>,
 }
 
 impl PlanRecord {
@@ -139,6 +149,8 @@ impl PlanRecord {
             input_path: canonical_input.display().to_string(),
             input_sha256: file_hash(&canonical_input)?,
             template_sha256: template_sha256.to_owned(),
+            backend_config_path: None,
+            backend_config_sha256: None,
             plan_path: plan_path.display().to_string(),
             plan_sha256: String::new(),
         })
@@ -256,6 +268,13 @@ impl PlanRecord {
         if self.template_sha256 != template_hash(expected.template_root)? {
             return Err(AinfraError::guard(
                 "template content changed after planning",
+            ));
+        }
+        if self.backend_config_path.as_deref() != expected.backend_config_path
+            || self.backend_config_sha256.as_deref() != expected.backend_config_sha256
+        {
+            return Err(AinfraError::guard(
+                "backend configuration changed after planning",
             ));
         }
         let plan = contained_plan_path(project_root, self)?;

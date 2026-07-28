@@ -47,34 +47,12 @@ fn help_works_outside_the_source_checkout() {
 
 #[test]
 fn unported_command_shapes_refuse_safely_in_the_preview() {
-    let cases: &[&[&str]] = &[
-        &[
-            "apply",
-            "fixture-template",
-            "--input",
-            "fixture.json",
-            "--approve",
-            "fixture-plan",
-        ],
-        &[
-            "destroy",
-            "fixture-template",
-            "--input",
-            "fixture.json",
-            "--approve-destroy",
-            "fixture-plan",
-        ],
-        &["outputs", "fixture-template", "--format", "yaml"],
-    ];
-
-    for arguments in cases {
-        Command::cargo_bin("ainfra")
-            .unwrap()
-            .args(*arguments)
-            .assert()
-            .code(5)
-            .stderr(predicate::str::contains("AINFRA-E500"));
-    }
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .args(["outputs", "fixture-template", "--format", "yaml"])
+        .assert()
+        .code(5)
+        .stderr(predicate::str::contains("AINFRA-E500"));
 }
 
 #[test]
@@ -104,7 +82,7 @@ fn plan_works_outside_the_checkout_with_an_embedded_template() {
         &tofu,
         "#!/bin/sh\nfor value in \"$@\"; do\n\
          case \"$value\" in -out=*) : > \"${value#-out=}\";; esac\n\
-         done\n",
+         done\nif [ \"$1\" = apply ]; then printf applied; fi\n",
     )
     .unwrap();
     fs::set_permissions(&tofu, fs::Permissions::from_mode(0o700)).unwrap();
@@ -115,10 +93,10 @@ fn plan_works_outside_the_checkout_with_an_embedded_template() {
     );
     let input = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/contracts/v1alpha1/valid/template-input.json");
-    Command::cargo_bin("ainfra")
+    let output = Command::cargo_bin("ainfra")
         .unwrap()
         .current_dir(project.path())
-        .env("PATH", path)
+        .env("PATH", &path)
         .env("HCLOUD_TOKEN", "fixture-secret")
         .args([
             "plan",
@@ -128,11 +106,64 @@ fn plan_works_outside_the_checkout_with_an_embedded_template() {
             "--format",
             "json",
         ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let record: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(record["format_version"], "ainfra.plan/v1alpha1");
+    let plan_id = record["id"].as_str().unwrap();
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args([
+            "apply",
+            "hetzner-kubernetes-baseline",
+            "--input",
+            input.to_str().unwrap(),
+            "--approve",
+            plan_id,
+        ])
         .assert()
         .success()
-        .stdout(predicate::str::contains(
-            "\"format_version\":\"ainfra.plan/v1alpha1\"",
-        ));
+        .stdout("applied");
+
+    let output = Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args([
+            "plan",
+            "hetzner-kubernetes-baseline",
+            "--input",
+            input.to_str().unwrap(),
+            "--destroy",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let record: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let destroy_id = record["id"].as_str().unwrap();
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .env("PATH", &path)
+        .env("HCLOUD_TOKEN", "fixture-secret")
+        .args([
+            "destroy",
+            "hetzner-kubernetes-baseline",
+            "--input",
+            input.to_str().unwrap(),
+            "--approve-destroy",
+            destroy_id,
+        ])
+        .assert()
+        .success()
+        .stdout("applied");
     let runs = project.path().join(".ainfra/runs");
     assert!(
         fs::read_dir(runs)

@@ -44,6 +44,12 @@ OpenTofu in a source checkout. Initialization uses the committed lock file in
 read-only mode. The generated variables, plan bytes, and versioned plan record
 remain together in the isolated run directory.
 
+Before apply, ainfra revalidates the input and verifies the operation,
+template identity and version, environment, canonical input path and bytes,
+retained workspace contents, remote backend configuration path and bytes, plan
+location, and plan bytes. Any mismatch fails before OpenTofu initialization or
+apply begins.
+
 ## Read standardized outputs
 
 ```sh
@@ -80,6 +86,10 @@ uv run ainfra destroy TEMPLATE \
   --input INPUT \
   --approve-destroy PLAN_ID
 ```
+
+Destroy applies the exact reviewed destroy plan through `tofu apply`; it never
+uses an unreviewed direct `tofu destroy` operation. An apply plan cannot
+authorize destroy, and a destroy plan cannot authorize apply.
 
 After a disposable test, confirm zero owned resources in both Hetzner and
 OpenTofu state. A successful command without this independent check is not

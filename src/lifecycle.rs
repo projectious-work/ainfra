@@ -9,9 +9,9 @@ use serde_json::{Value, json};
 
 use crate::contracts::validate_path;
 use crate::error::AinfraError;
-use crate::plan_record::{Operation, PlanRecord, template_hash};
+use crate::plan_record::{ExpectedBindings, Operation, PlanRecord, file_hash, template_hash};
 use crate::policy::validate_policy;
-use crate::process::{ProcessRequest, Runner, child_environment, require_success};
+use crate::process::{ProcessRequest, ProcessResult, Runner, child_environment, require_success};
 use crate::template::discover_builtin;
 
 /// Create one isolated, immutable reviewed plan.
@@ -80,6 +80,11 @@ pub fn plan(
     }
     let variables = run.join("input.auto.tfvars.json");
     write_new_json(&variables, &tofu_variables(&document))?;
+    let backend = backend_binding(&document, &project_root, environment_source)?;
+    record.backend_config_path = backend
+        .as_ref()
+        .map(|binding| binding.path.display().to_string());
+    record.backend_config_sha256 = backend.as_ref().map(|binding| binding.sha256.clone());
     let (environment, secrets) =
         lifecycle_environment(&document, &project_root, environment_source)?;
     let tofu_root = workspace.join(
@@ -87,20 +92,7 @@ pub fn plan(
             .as_str()
             .ok_or_else(|| AinfraError::input_contract("missing tofu working directory"))?,
     );
-    let mut init = vec![
-        "tofu".to_owned(),
-        "init".to_owned(),
-        "-input=false".to_owned(),
-        "-lockfile=readonly".to_owned(),
-        "-reconfigure".to_owned(),
-    ];
-    init.extend(backend_args(&document, &project_root, environment_source)?);
-    require_success(runner.run(&ProcessRequest {
-        argv: init,
-        cwd: tofu_root.clone(),
-        environment: environment.clone(),
-        secrets: secrets.clone(),
-    })?)?;
+    initialize(runner, &tofu_root, &environment, &secrets, backend.as_ref())?;
     let mut plan_argv = vec![
         "tofu".to_owned(),
         "plan".to_owned(),
@@ -124,6 +116,124 @@ pub fn plan(
     Ok(record)
 }
 
+/// Apply one exact reviewed apply plan.
+///
+/// # Errors
+///
+/// Returns a guard error before process execution when any binding changed.
+pub fn apply(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    template_name: &str,
+    input_path: &Path,
+    approval: &str,
+) -> Result<ProcessResult, AinfraError> {
+    execute(
+        runner,
+        environment_source,
+        project_root,
+        template_name,
+        input_path,
+        approval,
+        Operation::Apply,
+    )
+}
+
+/// Apply one exact reviewed destroy plan.
+///
+/// # Errors
+///
+/// Returns a guard error before process execution when any binding changed.
+pub fn destroy(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    template_name: &str,
+    input_path: &Path,
+    approval: &str,
+) -> Result<ProcessResult, AinfraError> {
+    execute(
+        runner,
+        environment_source,
+        project_root,
+        template_name,
+        input_path,
+        approval,
+        Operation::Destroy,
+    )
+}
+
+fn execute(
+    runner: &dyn Runner,
+    environment_source: &dyn EnvironmentSource,
+    project_root: &Path,
+    template_name: &str,
+    input_path: &Path,
+    approval: &str,
+    operation: Operation,
+) -> Result<ProcessResult, AinfraError> {
+    if approval.is_empty() {
+        return Err(AinfraError::guard(format!(
+            "{} requires an exact reviewed plan ID",
+            operation.as_str()
+        )));
+    }
+    let project_root = project_root.canonicalize().map_err(|error| {
+        AinfraError::guard(format!(
+            "cannot resolve project root {}: {error}",
+            project_root.display()
+        ))
+    })?;
+    let record = PlanRecord::load(&project_root, approval)?;
+    let template = discover_builtin(template_name)?;
+    let document = validate_path(input_path)?;
+    validate_policy(&document, input_path, Some(template.name), &project_root)?;
+    let environment_name = document["metadata"]["environment"]
+        .as_str()
+        .ok_or_else(|| AinfraError::input_contract("missing environment"))?;
+    let template_version = template.manifest["metadata"]["version"]
+        .as_str()
+        .ok_or_else(|| AinfraError::input_contract("missing template version"))?;
+    let run = Path::new(&record.plan_path)
+        .parent()
+        .ok_or_else(|| AinfraError::guard("plan path has no run directory"))?;
+    let workspace = run.join("workspace");
+    let backend = backend_binding(&document, &project_root, environment_source)?;
+    record.verify(
+        &project_root,
+        &ExpectedBindings {
+            template: template.name,
+            template_version,
+            environment: environment_name,
+            input_path,
+            template_root: &workspace,
+            operation,
+            backend_config_path: backend.as_ref().and_then(|binding| binding.path.to_str()),
+            backend_config_sha256: backend.as_ref().map(|binding| binding.sha256.as_str()),
+        },
+    )?;
+    let (environment, secrets) =
+        lifecycle_environment(&document, &project_root, environment_source)?;
+    let tofu_root = workspace.join(
+        template.manifest["spec"]["engines"]["tofu"]["workingDirectory"]
+            .as_str()
+            .ok_or_else(|| AinfraError::input_contract("missing tofu working directory"))?,
+    );
+    initialize(runner, &tofu_root, &environment, &secrets, backend.as_ref())?;
+    require_success(runner.run(&ProcessRequest {
+        argv: vec![
+            "tofu".to_owned(),
+            "apply".to_owned(),
+            "-input=false".to_owned(),
+            record.plan_path,
+        ],
+        cwd: tofu_root,
+        environment,
+        secrets,
+    })?)
+}
+
 /// Read-only environment boundary used for secret references.
 pub trait EnvironmentSource {
     /// Return one environment value without exposing it through diagnostics.
@@ -133,10 +243,41 @@ pub trait EnvironmentSource {
 /// Real process-environment source.
 pub struct OsEnvironment;
 
+struct BackendBinding {
+    path: PathBuf,
+    sha256: String,
+}
+
 impl EnvironmentSource for OsEnvironment {
     fn get(&self, name: &str) -> Option<String> {
         std::env::var(name).ok()
     }
+}
+
+fn initialize(
+    runner: &dyn Runner,
+    tofu_root: &Path,
+    environment: &BTreeMap<String, String>,
+    secrets: &[String],
+    backend: Option<&BackendBinding>,
+) -> Result<(), AinfraError> {
+    let mut argv = vec![
+        "tofu".to_owned(),
+        "init".to_owned(),
+        "-input=false".to_owned(),
+        "-lockfile=readonly".to_owned(),
+        "-reconfigure".to_owned(),
+    ];
+    if let Some(binding) = backend {
+        argv.push(format!("-backend-config={}", binding.path.display()));
+    }
+    require_success(runner.run(&ProcessRequest {
+        argv,
+        cwd: tofu_root.to_path_buf(),
+        environment: environment.clone(),
+        secrets: secrets.to_vec(),
+    })?)?;
+    Ok(())
 }
 
 fn write_new_json(path: &Path, document: &Value) -> Result<(), AinfraError> {
@@ -240,14 +381,14 @@ fn resolve_reference(
     Ok(())
 }
 
-fn backend_args(
+fn backend_binding(
     document: &Value,
     project_root: &Path,
     environment_source: &dyn EnvironmentSource,
-) -> Result<Vec<String>, AinfraError> {
+) -> Result<Option<BackendBinding>, AinfraError> {
     let state = &document["spec"]["state"];
     if state["mode"] != "remote" {
-        return Ok(Vec::new());
+        return Ok(None);
     }
     let reference = &state["backendConfigRef"];
     let path = if reference["type"] == "environment" {
@@ -290,5 +431,9 @@ fn backend_args(
             resolved.display()
         )));
     }
-    Ok(vec![format!("-backend-config={}", resolved.display())])
+    let sha256 = file_hash(&resolved)?;
+    Ok(Some(BackendBinding {
+        path: resolved,
+        sha256,
+    }))
 }

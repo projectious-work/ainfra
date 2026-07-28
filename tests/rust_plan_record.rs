@@ -89,6 +89,8 @@ fn verification_rejects_stale_and_cross_operation_plans() {
         input_path: &input,
         template_root: &template,
         operation,
+        backend_config_path: None,
+        backend_config_sha256: None,
     };
     record
         .verify(directory.path(), &expected(Operation::Apply))
@@ -117,6 +119,8 @@ fn verification_rejects_modified_plan_and_template_bytes() {
         input_path: &input,
         template_root: &template,
         operation: Operation::Apply,
+        backend_config_path: None,
+        backend_config_sha256: None,
     };
 
     fs::write(template.join("tofu/main.tf"), b"changed").unwrap();

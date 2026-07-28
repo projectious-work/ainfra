@@ -39,8 +39,9 @@ Positive and negative fixtures live under `tests/fixtures/contracts/`.
 
 A reviewed-plan record binds the intended operation to the selected template
 and version, environment identity, canonical input path and bytes, template
-tree, and generated OpenTofu plan bytes. Apply and destroy must reject any
-changed binding before starting an infrastructure process.
+tree, remote backend configuration, and generated OpenTofu plan bytes. Apply
+and destroy must reject any changed binding before starting an infrastructure
+process.
 
 Rust writes `ainfra.plan/v1alpha1` records and can read normal ten-field plan
 records created by the Python implementation. Approval identifiers are exactly
