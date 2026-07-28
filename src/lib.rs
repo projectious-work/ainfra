@@ -22,14 +22,12 @@ use crate::error::AinfraError;
 
 /// Parse and execute ainfra using the process argument vector.
 ///
-/// The first Rust milestone intentionally exposes only the product shell.
-/// Python remains the behavioral oracle until compatibility fixtures cover
-/// each command.
+/// The production command surface is implemented entirely in Rust. Frozen
+/// compatibility fixtures preserve the former prototype's external contract.
 ///
 /// # Errors
 ///
-/// Returns a stable preview error when a parsed command reaches the
-/// not-yet-ported execution boundary.
+/// Returns a stable typed error when command validation or execution fails.
 pub fn run() -> Result<(), AinfraError> {
     run_from(&Cli::parse())
 }
@@ -38,8 +36,7 @@ pub fn run() -> Result<(), AinfraError> {
 ///
 /// # Errors
 ///
-/// Returns a stable preview error until the selected command has passed its
-/// compatibility gate and is implemented in Rust.
+/// Returns a stable typed error when the selected command fails.
 pub fn run_from(cli: &Cli) -> Result<(), AinfraError> {
     match &cli.command {
         Command::Validate {

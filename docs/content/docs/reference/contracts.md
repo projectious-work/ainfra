@@ -35,7 +35,7 @@ a full migration rather than silent coercion.
 Run:
 
 ```sh
-uv run ainfra validate DOCUMENT
+ainfra validate DOCUMENT
 ```
 
 Positive and negative fixtures live under `tests/fixtures/contracts/`.

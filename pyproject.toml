@@ -1,36 +1,21 @@
-[build-system]
-requires = ["hatchling==1.27.0"]
-build-backend = "hatchling.build"
-
 [project]
-name = "ainfra"
+name = "ainfra-repository-tooling"
 version = "0.1.0.dev0"
-description = "Secure, contract-driven infrastructure template tooling"
-readme = "README.md"
+description = "Development-only checks for the Rust ainfra project"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
-authors = [{ name = "projectious.work" }]
-dependencies = [
-  "jsonschema==4.25.1",
-  "packaging==26.2",
-  "PyYAML==6.0.2",
-]
-
-[project.scripts]
-ainfra = "ainfra.cli:main"
+dependencies = []
 
 [dependency-groups]
 dev = [
   "ansible-core==2.21.2",
   "ansible-lint==26.6.0",
-  "mypy==1.17.1",
   "pytest==8.4.2",
-  "pytest-cov==7.0.0",
   "ruff==0.13.1",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/ainfra"]
+[tool.uv]
+package = false
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -42,11 +27,3 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
-
-[tool.mypy]
-python_version = "3.12"
-strict = true
-packages = ["ainfra"]
-
-[tool.coverage.run]
-source = ["ainfra"]

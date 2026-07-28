@@ -76,7 +76,8 @@ Before any recovery action:
 6. create and review a fresh project-bound plan—never reuse a legacy plan ID;
 7. independently verify provider resources and state after apply or teardown.
 
-For legacy local state, continue using the preserved Python checkout or an
-operator-approved OpenTofu state recovery procedure until the environment is
-retired or its state has been deliberately moved. ainfra does not copy,
-rewrite, import, or infer that state automatically.
+For legacy local state, preserve the old checkout strictly as read-only
+evidence and use an operator-approved OpenTofu state recovery procedure until
+the environment is retired or its state has been deliberately moved. The old
+Python CLI is not a supported recovery runtime. ainfra does not copy, rewrite,
+import, or infer that state automatically.

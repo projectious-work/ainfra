@@ -47,10 +47,9 @@ impl Check {
 /// Run the compatibility doctor against an explicit project root.
 #[must_use]
 pub fn run_doctor(root: &Path, input: Option<&Path>) -> Vec<Check> {
-    let mut checks = vec![python_check()];
+    let mut checks = Vec::new();
     let pins = load_tool_pins(&root.join("tools.lock"));
     for (id, argv) in [
-        ("uv", &["uv", "--version"][..]),
         ("tofu", &["tofu", "version"][..]),
         ("ansible-playbook", &["ansible-playbook", "--version"][..]),
         ("checkov", &["checkov", "--version"][..]),
@@ -58,14 +57,9 @@ pub fn run_doctor(root: &Path, input: Option<&Path>) -> Vec<Check> {
     ] {
         checks.push(command_check(id, argv, pins.get(id)));
     }
-    for (name, id) in [
-        ("uv.lock", "uv-lock"),
-        ("tools.lock", "tool-lock"),
-        (".gitignore", "gitignore"),
-    ] {
+    for (name, id) in [("tools.lock", "tool-lock"), (".gitignore", "gitignore")] {
         checks.push(file_check(&root.join(name), id));
     }
-    checks.push(python_pins_check(&root.join("pyproject.toml")));
     checks.push(template_check());
     checks.push(backend_policy_check(root, input));
     checks.push(Check::new(
@@ -93,18 +87,6 @@ pub fn run_project_doctor(root: &Path, input: &Path) -> Vec<Check> {
         template_check(),
         backend_policy_check(root, Some(input)),
     ]
-}
-
-fn python_check() -> Check {
-    let found = command_first_line(&["python3", "--version"]);
-    let version = found.as_deref().and_then(extract_version);
-    Check::new(
-        "python",
-        version.is_some_and(|value| value.starts_with("3.12.")),
-        version.map(str::to_owned),
-        "Python 3.12",
-        "Run through `uv run` with the committed .python-version.",
-    )
 }
 
 fn command_check(id: &str, argv: &[&str], pin: Option<&(String, String)>) -> Check {
@@ -216,28 +198,6 @@ fn file_check(path: &Path, id: &str) -> Check {
             "Restore the committed {} file.",
             path.file_name().unwrap_or_default().to_string_lossy()
         ),
-    )
-}
-
-fn python_pins_check(path: &Path) -> Check {
-    let document = std::fs::read_to_string(path).unwrap_or_default();
-    let dependencies: Vec<_> = document
-        .lines()
-        .map(str::trim)
-        .filter(|line| line.starts_with('"') && line.ends_with("\","))
-        .map(|line| line.trim_matches(&['"', ','][..]))
-        .filter(|line| line.contains('='))
-        .collect();
-    let passed = !dependencies.is_empty()
-        && dependencies
-            .iter()
-            .all(|dependency| dependency.contains("=="));
-    Check::new(
-        "python-pins",
-        passed,
-        Some(dependencies.join(", ")),
-        "all Python dependencies exactly pinned",
-        "Pin every runtime and development dependency with ==.",
     )
 }
 

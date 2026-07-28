@@ -7,8 +7,8 @@ description: Validate, plan, apply, inspect, and destroy infrastructure.
 ## Validate
 
 ```sh
-uv run ainfra validate path/to/document.yaml
-uv run ainfra validate path/to/document.json --format json
+ainfra validate path/to/document.yaml
+ainfra validate path/to/document.json --format json
 ```
 
 Validation reads a document but does not resolve secret references or run an
@@ -17,9 +17,9 @@ infrastructure engine.
 ## Check readiness
 
 ```sh
-uv run ainfra doctor
-uv run ainfra doctor --format json
-uv run ainfra doctor --input .ainfra/hetzner.input.yaml
+ainfra doctor
+ainfra doctor --format json
+ainfra doctor --input .ainfra/hetzner.input.yaml
 ainfra doctor --environment development
 ```
 
@@ -29,7 +29,7 @@ environment.
 ## Plan
 
 ```sh
-uv run ainfra plan TEMPLATE --input INPUT
+ainfra plan TEMPLATE --input INPUT
 ```
 
 For an initialized project, use the declared environment:
@@ -42,7 +42,7 @@ Treat the plan as sensitive. Review resource ownership, addresses, firewall
 rules, image selection, and estimated cost. Apply only the returned plan ID:
 
 ```sh
-uv run ainfra apply TEMPLATE --input INPUT --approve PLAN_ID
+ainfra apply TEMPLATE --input INPUT --approve PLAN_ID
 ```
 
 The corresponding project-mode apply is:
@@ -113,8 +113,8 @@ backend records the environment as `destroyed`.
 ## Read standardized outputs
 
 ```sh
-uv run ainfra outputs TEMPLATE --run PLAN_ID --format yaml
-uv run ainfra outputs TEMPLATE --run PLAN_ID --format json
+ainfra outputs TEMPLATE --run PLAN_ID --format yaml
+ainfra outputs TEMPLATE --run PLAN_ID --format json
 ainfra outputs --environment development --run PLAN_ID
 ```
 
@@ -126,7 +126,7 @@ successful apply marker for the same exact run and writes
 ## Configure hosts
 
 ```sh
-uv run ainfra configure TEMPLATE \
+ainfra configure TEMPLATE \
   --run PLAN_ID \
   --known-hosts .ainfra/known_hosts
 ainfra configure --environment development \
@@ -144,14 +144,14 @@ before running it. Use `--check` for an explicit Ansible check-mode pass.
 Create the destroy plan first:
 
 ```sh
-uv run ainfra plan TEMPLATE --input INPUT --destroy
+ainfra plan TEMPLATE --input INPUT --destroy
 ainfra plan --environment development --destroy
 ```
 
 Then approve the returned ownership scope:
 
 ```sh
-uv run ainfra destroy TEMPLATE \
+ainfra destroy TEMPLATE \
   --input INPUT \
   --approve-destroy PLAN_ID
 ainfra destroy --environment development \

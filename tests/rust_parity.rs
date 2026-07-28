@@ -170,11 +170,8 @@ fn wrapper_and_capability_policy_keep_rule_ids() {
 #[test]
 fn doctor_has_stable_order_and_shape() {
     let checks = doctor::run_doctor(Path::new(env!("CARGO_MANIFEST_DIR")), None);
-    assert_eq!(checks.len(), 13);
-    assert_eq!(
-        checks.first().map(|check| check.id.as_str()),
-        Some("python")
-    );
+    assert_eq!(checks.len(), 9);
+    assert_eq!(checks.first().map(|check| check.id.as_str()), Some("tofu"));
     assert_eq!(
         checks.last().map(|check| check.id.as_str()),
         Some("github-workflows")

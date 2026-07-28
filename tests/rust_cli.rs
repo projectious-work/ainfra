@@ -52,6 +52,25 @@ fn help_works_outside_the_source_checkout() {
 }
 
 #[test]
+fn installed_product_shell_does_not_require_python_or_uv() {
+    let project = tempfile::tempdir().unwrap();
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .env("PATH", "/ainfra-test-no-runtime-tools")
+        .args(["init", "--name", "standalone-product"])
+        .assert()
+        .success();
+    Command::cargo_bin("ainfra")
+        .unwrap()
+        .current_dir(project.path())
+        .env("PATH", "/ainfra-test-no-runtime-tools")
+        .arg("validate")
+        .assert()
+        .success();
+}
+
+#[test]
 fn init_and_project_validation_work_outside_the_checkout() {
     let project = tempfile::tempdir().unwrap();
     let output = Command::cargo_bin("ainfra")
@@ -310,7 +329,7 @@ fn doctor_emits_machine_readable_checks() {
         .args(["doctor", "--format", "json"])
         .assert()
         .failure()
-        .stdout(predicate::str::contains("\"id\":\"python\""))
+        .stdout(predicate::str::contains("\"id\":\"tofu\""))
         .stdout(predicate::str::contains("\"id\":\"github-workflows\""))
         .stderr(predicate::str::contains("AINFRA-E500"));
 }

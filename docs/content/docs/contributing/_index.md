@@ -10,13 +10,9 @@ security boundaries, and include evidence proportional to the risk.
 ## Development setup
 
 The aibox workspace installs the pinned Rust toolchain and `cargo-audit`.
-Python remains the behavioral oracle while commands are ported. The Rust
-implementation currently executes contract and policy validation, built-in
-template discovery, readiness checks, isolated OpenTofu planning, and inventory
-generation. Reviewed apply and destroy reuse the retained plan workspace and
-recheck every v1alpha1 binding before process execution. Standardized output
-collection and Ansible configuration are also run-bound and validated. Python
-remains in the tree as the migration oracle until the final cutover gate.
+The production implementation is entirely Rust. Python and `uv` are
+development-only dependencies for repository policy, OpenTofu, and Ansible
+tests; they are not part of the installed product.
 
 ```sh
 uv sync --all-groups
@@ -25,8 +21,8 @@ scripts/validate-all
 scripts/test-all
 ```
 
-Python and Markdown lines are hard-wrapped at 80 columns. Use Conventional
-Commits and never bypass hooks.
+Python, Rust, and Markdown lines are hard-wrapped at 80 columns. Use
+Conventional Commits and never bypass hooks.
 
 ## Branches
 

@@ -4,51 +4,39 @@ weight: 10
 description: Validate ainfra and prepare a disposable Hetzner deployment.
 ---
 
-This guide takes you from a fresh clone to a reviewed disposable-infrastructure
-plan. Applying the plan creates billable Hetzner resources, so the final apply
-and destroy commands remain explicit.
+This guide takes you from an installed binary to a reviewed disposable-
+infrastructure plan. Applying the plan creates billable Hetzner resources, so
+the final apply and destroy commands remain explicit.
 
 ## Prerequisites
 
-- Python 3.12
-- [uv](https://docs.astral.sh/uv/)
-- Rust `1.96.1` with Cargo, Clippy, Rustfmt, and `cargo-audit`
+- A verified `ainfra` release from the [installation guide]({{< relref
+  "/docs/getting-started/installation" >}})
 - OpenTofu
 - Ansible
-- Node.js 18 or newer and Hugo Extended for the documentation
 - A Hetzner Cloud project token for live operations
 - An existing SSH public key
 
 ## Install and validate
 
-```sh
-git clone https://github.com/projectious-work/ainfra.git
-cd ainfra
-uv sync --all-groups
-scripts/bootstrap-security-tools
-scripts/validate-all
-scripts/test-all
-```
-
 Check local readiness without changing infrastructure:
 
 ```sh
-uv run ainfra doctor
+ainfra --version
 ```
 
 ## Initialize a disposable project
 
-Build the Rust binary, create a separate project, and initialize it:
+Create a separate project and initialize it:
 
 ```sh
-cargo build
 mkdir ../my-infrastructure
 cd ../my-infrastructure
-../ainfra/target/debug/ainfra init \
+ainfra init \
   --name my-infrastructure \
   --environment development
-../ainfra/target/debug/ainfra validate
-../ainfra/target/debug/ainfra doctor --environment development
+ainfra validate
+ainfra doctor --environment development
 ```
 
 Commit `ainfra.yaml`, `ainfra.lock`, and the environment input. Keep
@@ -63,7 +51,7 @@ export HCLOUD_TOKEN='...'
 ## Plan and review
 
 ```sh
-../ainfra/target/debug/ainfra plan \
+ainfra plan \
   --environment development
 ```
 
@@ -72,7 +60,7 @@ scope. The command returns a plan identifier. Apply requires that exact
 identifier:
 
 ```sh
-../ainfra/target/debug/ainfra apply \
+ainfra apply \
   --environment development \
   --approve PLAN_ID
 ```
@@ -87,15 +75,15 @@ remain.
 ## Read outputs and configure hosts
 
 ```sh
-../ainfra/target/debug/ainfra outputs \
+ainfra outputs \
   --environment development \
   --run PLAN_ID \
   --format json
-../ainfra/target/debug/ainfra configure \
+ainfra configure \
   --environment development \
   --run PLAN_ID \
   --known-hosts .ainfra/known_hosts
-../ainfra/target/debug/ainfra status --environment development
+ainfra status --environment development
 ```
 
 Verify SSH host-key fingerprints through the Hetzner console or another
@@ -107,7 +95,7 @@ trusted out-of-band channel before the first Ansible connection. Never treat
 Create and review a destroy plan:
 
 ```sh
-../ainfra/target/debug/ainfra plan \
+ainfra plan \
   --environment development \
   --destroy
 ```
@@ -115,10 +103,10 @@ Create and review a destroy plan:
 Then use the exact destroy-plan ID returned by the lifecycle:
 
 ```sh
-../ainfra/target/debug/ainfra down \
+ainfra down \
   --environment development \
   --approve-destroy PLAN_ID
-../ainfra/target/debug/ainfra status --environment development
+ainfra status --environment development
 ```
 
 Confirm zero project-owned servers, networks, firewalls, and SSH keys in
