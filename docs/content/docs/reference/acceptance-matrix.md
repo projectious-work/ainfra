@@ -14,6 +14,7 @@ description: Evidence expected for the initial secure template release.
 | Safe state | Backend capability validation |
 | Secret-free output | Strict schema, redaction, Gitleaks |
 | Local validation gates | `scripts/validate-all`, `scripts/test-all` |
+| Standalone Rust product | No Python package; installed-shell no-tool test |
 | Disposable lifecycle | Approved live apply, idempotence, and teardown |
 | Clear portfolio boundaries | README and architecture review |
 | No unsafe donor behavior | Negative policy and plan tests |
