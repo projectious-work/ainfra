@@ -148,6 +148,14 @@ in an issue or commit. Review the
 [security model](https://projectious-work.github.io/ainfra/docs/concepts/security-model/)
 before operating live infrastructure.
 
+## Rollback
+
+Reinstall a previously verified CLI release with `AINFRA_VERSION` when a
+binary rollback is required. Infrastructure rollback is a separate reviewed
+operation: create and approve an exact destroy plan, retain the backend state,
+and verify provider cleanup. Never remove `.ainfra/` or OpenTofu state to
+simulate rollback.
+
 ## License
 
 [MIT](LICENSE) © Bnaard

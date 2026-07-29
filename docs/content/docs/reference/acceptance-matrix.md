@@ -23,3 +23,13 @@ description: Evidence expected for the initial secure template release.
 Every release criterion maps to an automated local check or documented manual
 verification with sanitized evidence. A claim without one of those forms of
 evidence remains unverified.
+
+## Supported versions
+
+| Version | Status | Documentation | Compatibility |
+|---|---|---|---|
+| `v0.1` | Supported | [/v0.1/](https://projectious-work.github.io/ainfra/v0.1/) | Rust 1.96; OpenTofu 1.10 or newer; Ansible Core 2.16 or newer |
+
+Pre-1.0 minor lines may change operator-facing contracts. Patch releases keep
+the documented schemas and exact-plan safety rules compatible within their
+minor line.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import platform
 import subprocess
@@ -198,3 +199,98 @@ def test_macos_release_uses_system_tar_and_tag_bound_inputs() -> None:
         "templates",
     ):
         assert release_input in maintain
+
+
+def test_release_phase0_is_candidate_bound_and_documented() -> None:
+    maintain = (ROOT / "scripts/maintain.sh").read_text()
+    evidence = (ROOT / "scripts/release-evidence.sh").read_text()
+    assert "release VERSION --steps phase0" in maintain
+    assert "release VERSION --steps checks" in maintain
+    assert 'release-evidence.sh" phase0' in maintain
+    assert "set_version" in maintain
+    assert "must be prepared and merged by PR" in maintain
+    for report in (
+        "RELEASE-STATE.md",
+        "RELEASE-DOCTORS.md",
+        "RELEASE-DOCS.md",
+        "PHASE0.sha256",
+    ):
+        assert report in evidence
+    for heading in (
+        "Added",
+        "Changed",
+        "Fixed",
+        "Known limitations",
+        "Install",
+        "Rollback",
+    ):
+        assert f"## {heading}" in (ROOT / "release-notes/v0.1.0.md").read_text()
+
+
+def test_release_checks_are_bounded_bound_and_tamper_aware() -> None:
+    checks = (ROOT / "scripts/release-checks.sh").read_text()
+    for gate in (
+        "rust-quality",
+        "rust-tests",
+        "repository",
+        "infrastructure",
+    ):
+        assert gate in checks
+    assert "AINFRA_RELEASE_JOBS:-2" in checks
+    assert "candidate_commit=" in checks
+    assert "cargo_lock_sha256=" in checks
+    assert "rustc_fingerprint=" in checks
+    assert "evidence_reusable" in checks
+    assert "CHECKS.sha256" in checks
+
+
+def test_live_hetzner_smoke_is_opt_in_and_cleanup_bound() -> None:
+    smoke = (ROOT / "scripts/live-hetzner-release-smoke").read_text()
+    assert "cost-and-destroy-approved" in smoke
+    assert "trap cleanup EXIT INT TERM" in smoke
+    assert "workerCount: 0" in smoke
+    assert "serverType: cx23" in smoke
+    assert "prepare_destroy_plan" in smoke
+    assert 'state list)" ]]' in smoke
+    assert "--selector" in smoke
+    assert "cleanup_complete=true" in smoke
+
+
+def test_release_metadata_binds_archive_and_locked_source() -> None:
+    target = "aarch64-unknown-linux-gnu"
+    archive = ROOT / f"dist/ainfra-v0.1.0-{target}.tar.gz"
+    archive.parent.mkdir(exist_ok=True)
+    archive.write_bytes(b"release artifact fixture")
+    source_commit = "0" * 40
+    env = os.environ | {
+        "SOURCE_DATE_EPOCH": "0",
+        "AINFRA_RELEASE_SOURCE_COMMIT": source_commit,
+    }
+    generated = run(
+        str(ROOT / "scripts/generate-release-metadata.py"),
+        "--root",
+        str(ROOT),
+        "--version",
+        "0.1.0",
+        "--target",
+        target,
+        env=env,
+    )
+    assert generated.returncode == 0, generated.stderr
+    sbom = json.loads((ROOT / "dist/ainfra-v0.1.0.spdx.json").read_text())
+    assert sbom["spdxVersion"] == "SPDX-2.3"
+    assert sbom["creationInfo"]["created"] == "1970-01-01T00:00:00Z"
+    provenance = json.loads(
+        (ROOT / f"dist/ainfra-v0.1.0-{target}.provenance.json").read_text()
+    )
+    assert provenance["predicateType"] == "https://slsa.dev/provenance/v1"
+    dependencies = provenance["predicate"]["buildDefinition"][
+        "resolvedDependencies"
+    ]
+    assert dependencies[0]["digest"]["gitCommit"] == source_commit
+    subject = provenance["subject"][0]
+    assert subject["name"] == archive.name
+    assert (
+        subject["digest"]["sha256"]
+        == hashlib.sha256(archive.read_bytes()).hexdigest()
+    )
