@@ -39,6 +39,8 @@ params:
     - version: "main"
       kind: latest
       url: "https://projectious-work.github.io/ainfra/"
+    - version: "v0.1"
+      url: "https://projectious-work.github.io/ainfra/v0.1/"
   ui:
     navbar_logo: true
     navbar_theme: dark
