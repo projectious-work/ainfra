@@ -52,6 +52,7 @@ fi
 
 if [[ "${DOCS_VERSION}" == "main" ]]; then
   find "${WORKTREE_DIR}" -mindepth 1 -maxdepth 1 ! -name .git \
+    ! -name 'v[0-9]*.[0-9]*' \
     -exec rm -rf {} +
   cp -R "${BUILD_DIR}/." "${WORKTREE_DIR}/"
 else
