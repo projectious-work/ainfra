@@ -189,6 +189,8 @@ def test_macos_release_uses_system_tar_and_tag_bound_inputs() -> None:
     assert "AINFRA_TAR=gtar" not in maintain
     assert "COPYFILE_DISABLE=1" in release_lib
     assert "--format ustar" in release_lib
+    assert 'date -r "${epoch}"' in release_lib
+    assert 'date -u -r "${epoch}"' not in release_lib
     for release_input in (
         "Cargo.toml",
         "Cargo.lock",
