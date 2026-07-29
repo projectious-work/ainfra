@@ -19,7 +19,7 @@
   expect:
     exit: 0
     stdout_contains:
-      - 0.1.0.dev0
+      - <VERSION>
     stderr_contains: []
 
 - name: validate-v1alpha1-input
@@ -39,10 +39,10 @@
     - --input
     - <ROOT>/tests/fixtures/contracts/v1alpha1/valid/template-input.json
     - --approve
-    - missing-plan
+    - 00000000000000000000
   expect:
     exit: 6
     stdout_contains: []
     stderr_contains:
       - AINFRA-E600
-      - "reviewed plan does not exist: missing-plan"
+      - "plan run directory is missing"

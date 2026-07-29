@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/run-record.v1alpha2.json",
+  "title": "ainfra immutable run record v1alpha2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format_version",
+    "id",
+    "plan_format_version",
+    "operation",
+    "template",
+    "template_version",
+    "environment",
+    "plan_sha256",
+    "created_unix_nanos"
+  ],
+  "properties": {
+    "format_version": {"const": "ainfra.run/v1alpha2"},
+    "id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+    "plan_format_version": {
+      "enum": ["ainfra.plan/v1alpha1", "ainfra.plan/v1alpha2"]
+    },
+    "operation": {"enum": ["apply", "destroy"]},
+    "template": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{2,62}$"
+    },
+    "template_version": {"type": "string", "minLength": 1},
+    "environment": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}$"
+    },
+    "plan_sha256": {"$ref": "#/$defs/digest"},
+    "project_config_sha256": {"$ref": "#/$defs/digest"},
+    "project_lock_sha256": {"$ref": "#/$defs/digest"},
+    "created_unix_nanos": {"type": "integer", "minimum": 1}
+  },
+  "dependentRequired": {
+    "project_config_sha256": ["project_lock_sha256"],
+    "project_lock_sha256": ["project_config_sha256"]
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

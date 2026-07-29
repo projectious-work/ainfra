@@ -39,32 +39,18 @@ beyond cloud-init is a separate, explicit operation.
 
 Install the prerequisites:
 
-- Git;
-- Python 3.12 and `uv`;
-- the pinned OpenTofu version from `tools.lock`;
-- Ansible and the local security tools used by repository validation;
+- a verified `ainfra` release;
+- OpenTofu `1.10.0` or newer;
+- Ansible Core `2.16.0` or newer;
+- `jq` for reading machine output;
 - an Ed25519 SSH key pair.
 
-Clone and prepare the repository:
+Install ainfra using the [installation guide]({{< relref
+"/docs/getting-started/installation" >}}), then verify the binary:
 
 ```sh
-git clone --recurse-submodules \
-  https://github.com/projectious-work/ainfra-templates.git
-cd ainfra-templates
-uv sync --all-groups
-scripts/bootstrap-security-tools
-scripts/validate-all
-scripts/test-all
+ainfra --version
 ```
-
-Check the CLI:
-
-```sh
-uv run ainfra --version
-uv run ainfra doctor
-```
-
-Do not proceed while `doctor` reports a failed required dependency.
 
 ## 2. Create a Hetzner project token
 
@@ -115,16 +101,17 @@ key into the repository, YAML document, state configuration, or plan record.
 
 ## 4. Create the environment input
 
-Create a private working directory and copy the non-secret example:
+Create and enter a standalone project:
 
 ```sh
-mkdir -p .ainfra
-cp templates/hetzner-kubernetes-baseline/inputs/example.input.yaml \
-  .ainfra/hetzner-tutorial.input.yaml
-chmod 600 .ainfra/hetzner-tutorial.input.yaml
+mkdir ainfra-hetzner-tutorial
+cd ainfra-hetzner-tutorial
+ainfra init \
+  --name ainfra-hetzner-tutorial \
+  --environment tutorial
 ```
 
-Edit `.ainfra/hetzner-tutorial.input.yaml`:
+Edit the generated `environments/tutorial.yaml`:
 
 ```yaml
 apiVersion: ainfra.projectious.work/v1alpha1
@@ -189,44 +176,35 @@ the Hetzner private network; ainfra does not create a VPN or bastion.
 
 ## 5. Validate input and readiness
 
-Validate the manifest and input together:
+Validate the project and its declared environment:
 
 ```sh
-INPUT=.ainfra/hetzner-tutorial.input.yaml
-TEMPLATE=hetzner-kubernetes-baseline
-
-uv run ainfra validate "$TEMPLATE" --input "$INPUT"
-uv run ainfra doctor --input "$INPUT"
+ainfra validate
+ainfra doctor --environment tutorial
 ```
 
 These commands do not create infrastructure. Resolve every error before
 planning.
 
-Keep the same input path and contents for plan, apply, destroy planning, and
-destroy. ainfra binds the reviewed plan to the exact template, version,
-environment, input path, input digest, template digest, and plan bytes.
+Keep the project configuration, lockfile, and environment input unchanged
+between plan and apply. ainfra binds the reviewed plan to their exact bytes,
+the template version and digest, backend identity, and plan bytes.
 
 ## 6. Create the apply plan
 
 Create a machine-readable plan record:
 
 ```sh
-uv run ainfra plan "$TEMPLATE" \
-  --input "$INPUT" \
+ainfra plan --environment tutorial \
   --format json | tee .ainfra/apply-plan.json
 ```
 
-Extract its exact identifier and plan path without adding another dependency:
+Extract its exact identifier and plan path:
 
 ```sh
-APPLY_PLAN_ID="$(
-  uv run python -c \
-    'import json; print(json.load(open(".ainfra/apply-plan.json"))["id"])'
-)"
-APPLY_PLAN_PATH="$(
-  uv run python -c \
-    'import json; print(json.load(open(".ainfra/apply-plan.json"))["plan_path"])'
-)"
+APPLY_PLAN_ID="$(jq -r '.id' .ainfra/apply-plan.json)"
+APPLY_PLAN_PATH="$(jq -r '.plan_path' .ainfra/apply-plan.json)"
+APPLY_WORKSPACE="$(dirname "$APPLY_PLAN_PATH")"
 printf 'Apply plan ID: %s\n' "$APPLY_PLAN_ID"
 ```
 
@@ -235,8 +213,7 @@ printf 'Apply plan ID: %s\n' "$APPLY_PLAN_ID"
 Render the exact saved OpenTofu plan:
 
 ```sh
-tofu -chdir=templates/hetzner-kubernetes-baseline/tofu \
-  show "$APPLY_PLAN_PATH"
+tofu show "$APPLY_PLAN_PATH"
 ```
 
 Before approval, verify:
@@ -261,8 +238,7 @@ the plan and create a new one after correcting the input.
 Apply only the exact plan ID printed above:
 
 ```sh
-uv run ainfra apply "$TEMPLATE" \
-  --input "$INPUT" \
+ainfra apply --environment tutorial \
   --approve "$APPLY_PLAN_ID"
 ```
 
@@ -275,11 +251,9 @@ destroying.
 Inspect the local OpenTofu state:
 
 ```sh
-tofu -chdir=templates/hetzner-kubernetes-baseline/tofu state list
-tofu -chdir=templates/hetzner-kubernetes-baseline/tofu \
-  output -json inventory_nodes
-tofu -chdir=templates/hetzner-kubernetes-baseline/tofu \
-  output -json ownership
+tofu -chdir="$APPLY_WORKSPACE" state list
+tofu -chdir="$APPLY_WORKSPACE" output -json inventory_nodes
+tofu -chdir="$APPLY_WORKSPACE" output -json ownership
 ```
 
 In Hetzner Console, confirm the expected server, network, firewall, and SSH-key
@@ -306,8 +280,7 @@ Do not reuse the apply plan. Create a dedicated destroy plan from the unchanged
 template and input:
 
 ```sh
-uv run ainfra plan "$TEMPLATE" \
-  --input "$INPUT" \
+ainfra plan --environment tutorial \
   --destroy \
   --format json | tee .ainfra/destroy-plan.json
 ```
@@ -315,22 +288,16 @@ uv run ainfra plan "$TEMPLATE" \
 Extract the destroy approval ID and plan path:
 
 ```sh
-DESTROY_PLAN_ID="$(
-  uv run python -c \
-    'import json; print(json.load(open(".ainfra/destroy-plan.json"))["id"])'
-)"
-DESTROY_PLAN_PATH="$(
-  uv run python -c \
-    'import json; print(json.load(open(".ainfra/destroy-plan.json"))["plan_path"])'
-)"
+DESTROY_PLAN_ID="$(jq -r '.id' .ainfra/destroy-plan.json)"
+DESTROY_PLAN_PATH="$(jq -r '.plan_path' .ainfra/destroy-plan.json)"
+DESTROY_WORKSPACE="$(dirname "$DESTROY_PLAN_PATH")"
 printf 'Destroy plan ID: %s\n' "$DESTROY_PLAN_ID"
 ```
 
 Review it:
 
 ```sh
-tofu -chdir=templates/hetzner-kubernetes-baseline/tofu \
-  show "$DESTROY_PLAN_PATH"
+tofu show "$DESTROY_PLAN_PATH"
 ```
 
 Confirm that it removes every resource owned by the tutorial environment and
@@ -342,8 +309,7 @@ The exact destroy-plan ID is the scope-bound approval token expected by
 `--approve-destroy`:
 
 ```sh
-uv run ainfra destroy "$TEMPLATE" \
-  --input "$INPUT" \
+ainfra destroy --environment tutorial \
   --approve-destroy "$DESTROY_PLAN_ID"
 ```
 
@@ -352,7 +318,7 @@ uv run ainfra destroy "$TEMPLATE" \
 The state list must be empty:
 
 ```sh
-tofu -chdir=templates/hetzner-kubernetes-baseline/tofu state list
+tofu -chdir="$DESTROY_WORKSPACE" state list
 ```
 
 Independently inspect the Hetzner project and confirm that no tutorial-owned
@@ -364,7 +330,7 @@ Only after both checks are clean:
 
 ```sh
 unset HCLOUD_TOKEN APPLY_PLAN_ID APPLY_PLAN_PATH
-unset DESTROY_PLAN_ID DESTROY_PLAN_PATH INPUT TEMPLATE
+unset DESTROY_PLAN_ID DESTROY_PLAN_PATH
 ```
 
 Retain redacted evidence if required, then remove the disposable local state
