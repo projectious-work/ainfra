@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "${script_dir}/.." && pwd)"
+ainfra_bin="${AINFRA_BIN:-ainfra}"
+environment="${AINFRA_HETZNER_E2E_NAME:-}"
+known_hosts="${AINFRA_KNOWN_HOSTS:-}"
+ssh_public_key="${AINFRA_SSH_PUBLIC_KEY:-}"
+management_cidr="${AINFRA_MANAGEMENT_CIDR:-}"
+location="${AINFRA_HETZNER_LOCATION:-fsn1}"
+confirmation="${AINFRA_HETZNER_E2E_CONFIRM:-}"
+
+die() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ "${confirmation}" == cost-and-destroy-approved ]] \
+  || die "set AINFRA_HETZNER_E2E_CONFIRM=cost-and-destroy-approved"
+[[ -n "${HCLOUD_TOKEN:-}" ]] || die "HCLOUD_TOKEN is required"
+[[ "${environment}" =~ ^release-[a-z0-9-]{6,32}$ ]] \
+  || die "AINFRA_HETZNER_E2E_NAME must match release-[a-z0-9-]{6,32}"
+[[ "${ssh_public_key}" == ssh-ed25519\ * ]] \
+  || die "AINFRA_SSH_PUBLIC_KEY must be one Ed25519 public key"
+[[ "${management_cidr}" =~ ^[0-9.]+/3[0-2]$ ]] \
+  || die "AINFRA_MANAGEMENT_CIDR must be an IPv4 /30, /31, or /32"
+[[ -f "${known_hosts}" ]] || die "AINFRA_KNOWN_HOSTS must name a trusted file"
+for command in "${ainfra_bin}" tofu ansible-playbook jq hcloud; do
+  command -v "${command}" >/dev/null 2>&1 \
+    || die "required command is missing: ${command}"
+done
+
+commit="$(git -C "${root}" rev-parse HEAD)"
+evidence="${root}/dist/release-evidence/live-hetzner/${environment}-${commit}"
+project="$(mktemp -d "/tmp/ainfra-${environment}.XXXXXX")"
+mkdir -p "${evidence}"
+apply_plan_id=""
+destroy_plan_id=""
+applied=false
+destroyed=false
+
+record() {
+  local name="$1"
+  shift
+  "$@" > "${evidence}/${name}.log" 2>&1
+}
+
+prepare_destroy_plan() {
+  "${ainfra_bin}" plan --environment "${environment}" --destroy \
+    --format json > "${evidence}/destroy-plan.json"
+  destroy_plan_id="$(jq -er '.id' "${evidence}/destroy-plan.json")"
+}
+
+cleanup() {
+  local status=$?
+  if [[ "${applied}" == true && "${destroyed}" != true ]]; then
+    printf 'cleanup: destroying %s\n' "${environment}" >&2
+    if [[ -z "${destroy_plan_id}" ]]; then
+      prepare_destroy_plan || true
+    fi
+    if [[ -n "${destroy_plan_id}" ]]; then
+      "${ainfra_bin}" destroy --environment "${environment}" \
+        --approve-destroy "${destroy_plan_id}" \
+        > "${evidence}/cleanup-destroy.log" 2>&1 || true
+    fi
+  fi
+  if [[ "${destroyed}" == true ]]; then
+    rm -rf "${project}"
+  else
+    printf 'recovery project retained at %s\n' "${project}" >&2
+    printf 'manual recovery evidence: %s\n' "${evidence}" >&2
+  fi
+  exit "${status}"
+}
+trap cleanup EXIT INT TERM
+
+(
+  cd "${project}"
+  "${ainfra_bin}" init --name "${environment}" \
+    --environment "${environment}" >/dev/null
+)
+input="${project}/environments/${environment}.yaml"
+{
+  printf 'apiVersion: ainfra.projectious.work/v1alpha1\n'
+  printf 'kind: TemplateInput\n'
+  printf 'metadata:\n'
+  printf '  template: hetzner-kubernetes-baseline\n'
+  printf '  environment: %s\n' "${environment}"
+  printf '  disposable: true\n'
+  printf 'spec:\n'
+  printf '  provider:\n'
+  printf '    location: %s\n' "${location}"
+  printf '    projectTokenRef:\n'
+  printf '      type: environment\n'
+  printf '      name: HCLOUD_TOKEN\n'
+  printf '  topology:\n'
+  printf '    controlPlaneCount: 1\n'
+  printf '    workerCount: 0\n'
+  printf '    image: debian-13\n'
+  printf '    serverType: cx23\n'
+  printf '  network:\n'
+  printf '    privateCidr: 10.42.0.0/16\n'
+  printf '    publicIPv4: true\n'
+  printf '    publicIPv6: false\n'
+  printf '    managementIngressCidrs:\n'
+  printf '      - %s\n' "${management_cidr}"
+  printf '    workloadIngressCidrs: []\n'
+  printf '  access:\n'
+  printf '    adminSshPublicKeys:\n'
+  printf '      - %s\n' "${ssh_public_key}"
+  printf '  state:\n'
+  printf '    mode: local-disposable\n'
+} > "${input}"
+
+cd "${project}"
+record validate "${ainfra_bin}" validate
+record doctor "${ainfra_bin}" doctor --environment "${environment}"
+"${ainfra_bin}" plan --environment "${environment}" --format json \
+  > "${evidence}/apply-plan.json"
+apply_plan_id="$(jq -er '.id' "${evidence}/apply-plan.json")"
+record apply "${ainfra_bin}" apply --environment "${environment}" \
+  --approve "${apply_plan_id}"
+applied=true
+record outputs "${ainfra_bin}" outputs --environment "${environment}" \
+  --run "${apply_plan_id}" --format json
+record configure "${ainfra_bin}" configure --environment "${environment}" \
+  --run "${apply_plan_id}" --known-hosts "${known_hosts}"
+record idempotence "${ainfra_bin}" configure \
+  --environment "${environment}" --run "${apply_plan_id}" \
+  --known-hosts "${known_hosts}" --check
+prepare_destroy_plan
+record destroy "${ainfra_bin}" destroy --environment "${environment}" \
+  --approve-destroy "${destroy_plan_id}"
+
+destroy_workspace="$(jq -er '.plan_path' "${evidence}/destroy-plan.json")"
+destroy_workspace="$(dirname "${destroy_workspace}")"
+[[ -z "$(tofu -chdir="${destroy_workspace}" state list)" ]] \
+  || die "OpenTofu state is not empty after destroy"
+for kind in server network firewall ssh-key primary-ip; do
+  [[ -z "$(hcloud "${kind}" list \
+    --selector "environment=${environment}" --output noheader)" ]] \
+    || die "provider still contains ${kind} resources"
+done
+destroyed=true
+{
+  printf 'environment=%s\n' "${environment}"
+  printf 'candidate_commit=%s\n' "${commit}"
+  printf 'apply_plan_id=%s\n' "${apply_plan_id}"
+  printf 'destroy_plan_id=%s\n' "${destroy_plan_id}"
+  printf 'tofu_state_empty=true\n'
+  printf 'provider_resources_empty=true\n'
+  printf 'cleanup_complete=true\n'
+} > "${evidence}/RESULT.env"
+printf 'live Hetzner evidence: %s\n' "${evidence}"

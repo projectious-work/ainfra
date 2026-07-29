@@ -19,6 +19,28 @@ release_sha256() {
   fi
 }
 
+release_create_archive() {
+  local stage="$1"
+  local tar_bin="${AINFRA_TAR:-tar}"
+  local epoch="${SOURCE_DATE_EPOCH:-0}"
+
+  if "${tar_bin}" --version 2>/dev/null | grep -Fq 'GNU tar'; then
+    "${tar_bin}" --sort=name --owner=0 --group=0 --numeric-owner \
+      --mtime="@${epoch}" -cf - -C "${stage}" LICENSE ainfra
+    return
+  fi
+
+  [[ "$(uname -s)" == Darwin ]] \
+    || release_die "deterministic packaging requires GNU tar or macOS tar"
+  local timestamp
+  timestamp="$(date -u -r "${epoch}" '+%Y%m%d%H%M.%S')" \
+    || release_die "invalid SOURCE_DATE_EPOCH: ${epoch}"
+  touch -t "${timestamp}" "${stage}/LICENSE" "${stage}/ainfra"
+  COPYFILE_DISABLE=1 "${tar_bin}" --format ustar \
+    --uid 0 --gid 0 --uname root --gname root \
+    -cf - -C "${stage}" LICENSE ainfra
+}
+
 release_package() {
   local root="$1" version="$2" target="$3" binary="$4"
   release_validate_version "${version}"
@@ -41,11 +63,7 @@ release_package() {
   install -m 0755 "${binary}" "${stage}/ainfra"
   install -m 0644 "${root}/LICENSE" "${stage}/LICENSE"
 
-  # GNU tar is used by the Linux release environment. macOS installs gtar.
-  local tar_bin="${AINFRA_TAR:-tar}"
-  "${tar_bin}" --sort=name --owner=0 --group=0 --numeric-owner \
-    --mtime="@${SOURCE_DATE_EPOCH:-0}" -cf - -C "${stage}" LICENSE ainfra \
-    | gzip -n > "${archive}"
+  release_create_archive "${stage}" | gzip -n > "${archive}"
   printf '%s\n' "$(release_sha256 "${archive}")" > "${archive}.sha256"
   rm -rf "${stage}"
   trap - RETURN

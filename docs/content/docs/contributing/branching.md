@@ -55,6 +55,32 @@ Run the complete local gate before entering the release lane:
 ./scripts/maintain.sh test
 ```
 
+Prepare the release version and `release-notes/vX.Y.Z.md` through a pull
+request. The release command never edits or commits version metadata. Before
+building or tagging, run the non-publishing phase:
+
+```sh
+AINFRA_RELEASE_CONFIRM=v0.1.0 \
+  ./scripts/maintain.sh release 0.1.0 --steps phase0
+```
+
+It writes commit-bound state, doctor, documentation, and checksum reports
+under `dist/release-evidence/v0.1.0/COMMIT/`. Resolve every doctor failure
+before continuing. Evidence from another commit is not reusable.
+
+Run the independent validation gates with bounded local concurrency:
+
+```sh
+AINFRA_RELEASE_CONFIRM=v0.1.0 \
+  ./scripts/maintain.sh release 0.1.0 --steps checks
+```
+
+Set `AINFRA_RELEASE_JOBS` from `1` through `4` to control concurrency. Each
+gate retains a separate log and status. A repeated run reuses evidence only
+when the version, commit, Cargo lockfile, Rust toolchain, environment scope,
+and every recorded log checksum still match. Delete the candidate evidence
+directory to force a complete rerun.
+
 The container-side release builds and verifies both Linux targets before
 publishing them:
 
@@ -63,21 +89,47 @@ AINFRA_RELEASE_CONFIRM=v0.1.0 \
   ./scripts/maintain.sh release 0.1.0
 ```
 
-On macOS, the host phase builds both Darwin targets, verifies all four local
-archives and checksum sidecars, uploads the Darwin assets, and then confirms
-that the GitHub release contains every expected archive, checksum, and the
-installer:
+On macOS, the host phase uses the standard system `tar`, builds both Darwin
+targets, verifies all four local archives and checksum sidecars, uploads the
+Darwin assets, and then confirms that the GitHub release contains every
+expected archive, checksum, and the installer:
 
 ```sh
 AINFRA_RELEASE_CONFIRM=v0.1.0 \
   ./scripts/maintain.sh release-host 0.1.0
 ```
 
+The host phase refuses changes to the tagged binary inputs. Release-tooling
+repairs may be newer than an immutable tag only when the Cargo metadata,
+lockfile, license, installer, schemas, Rust source, and templates are
+byte-for-byte unchanged from that tag.
+
 To recheck a collected four-target artifact set without publishing anything:
 
 ```sh
 ./scripts/maintain.sh audit-release 0.1.0
 ```
+
+## Live Hetzner release evidence
+
+The live smoke is deliberately separate, local, and opt-in. It fixes the
+topology at one `cx23` server with no workers, requires a unique release name,
+and retains the recovery project unless both OpenTofu state and independently
+queried provider resources are empty.
+
+```sh
+export HCLOUD_TOKEN
+export AINFRA_HETZNER_E2E_CONFIRM=cost-and-destroy-approved
+export AINFRA_HETZNER_E2E_NAME=release-v010-a1b2c3
+export AINFRA_SSH_PUBLIC_KEY="ssh-ed25519 ... operator@example.com"
+export AINFRA_MANAGEMENT_CIDR="203.0.113.24/32"
+export AINFRA_KNOWN_HOSTS="$PWD/known_hosts"
+scripts/live-hetzner-release-smoke
+```
+
+The operator must verify pricing, private-network reachability, the SSH host
+key, and the teardown path before confirming. Sanitized logs and the final
+cleanup result are retained under `dist/release-evidence/live-hetzner/`.
 
 ## Versioned documentation
 
