@@ -63,10 +63,10 @@ AINFRA_RELEASE_CONFIRM=v0.1.0 \
   ./scripts/maintain.sh release 0.1.0
 ```
 
-On macOS, the host phase builds both Darwin targets, verifies all four local
-archives and checksum sidecars, uploads the Darwin assets, and then confirms
-that the GitHub release contains every expected archive, checksum, and the
-installer:
+On macOS, the host phase uses the standard system `tar`, builds both Darwin
+targets, verifies all four local archives and checksum sidecars, uploads the
+Darwin assets, and then confirms that the GitHub release contains every
+expected archive, checksum, and the installer:
 
 ```sh
 AINFRA_RELEASE_CONFIRM=v0.1.0 \
