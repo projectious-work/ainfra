@@ -179,3 +179,22 @@ def test_installer_verifies_and_installs_release(tmp_path: Path) -> None:
 def test_no_github_actions_release_workflow() -> None:
     workflows = ROOT / ".github/workflows"
     assert not workflows.exists() or not any(workflows.iterdir())
+
+
+def test_macos_release_uses_system_tar_and_tag_bound_inputs() -> None:
+    maintain = (ROOT / "scripts/maintain.sh").read_text()
+    release_lib = (ROOT / "scripts/release-lib.sh").read_text()
+    assert "command -v gtar" not in maintain
+    assert "AINFRA_TAR=gtar" not in maintain
+    assert "COPYFILE_DISABLE=1" in release_lib
+    assert "--format ustar" in release_lib
+    for release_input in (
+        "Cargo.toml",
+        "Cargo.lock",
+        "LICENSE",
+        "install.sh",
+        "schemas",
+        "src",
+        "templates",
+    ):
+        assert release_input in maintain

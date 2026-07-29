@@ -136,10 +136,9 @@ release_host() {
   [[ "$(uname -s)" == Darwin ]] || release_die "release-host requires macOS"
   require_clean_release_source "${version}" v0.x-release
   tag_commit="$(git -C "${root}" rev-parse "v${version}^{commit}")"
-  [[ "${tag_commit}" == "$(git -C "${root}" rev-parse HEAD)" ]] \
-    || release_die "HEAD must be the exact v${version} source"
-  command -v gtar >/dev/null || release_die "GNU tar (gtar) is required"
-  export AINFRA_TAR=gtar
+  git -C "${root}" diff --quiet "${tag_commit}" HEAD -- \
+    Cargo.toml Cargo.lock LICENSE install.sh schemas src templates \
+    || release_die "release inputs differ from v${version}"
   for target in aarch64-apple-darwin x86_64-apple-darwin; do
     build_target "${version}" "${target}"
     verify_native_archive "${version}" "${target}"
