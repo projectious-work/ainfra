@@ -33,7 +33,9 @@ release_create_archive() {
   [[ "$(uname -s)" == Darwin ]] \
     || release_die "deterministic packaging requires GNU tar or macOS tar"
   local timestamp
-  timestamp="$(date -u -r "${epoch}" '+%Y%m%d%H%M.%S')" \
+  # BSD touch interprets -t in local time. Formatting in UTC would shift
+  # epoch 0 into 1969 for positive UTC offsets, which USTAR cannot encode.
+  timestamp="$(date -r "${epoch}" '+%Y%m%d%H%M.%S')" \
     || release_die "invalid SOURCE_DATE_EPOCH: ${epoch}"
   touch -t "${timestamp}" "${stage}/LICENSE" "${stage}/ainfra"
   COPYFILE_DISABLE=1 "${tar_bin}" --format ustar \
@@ -95,8 +97,10 @@ release_verify_archive() {
     || release_die "checksum verification failed for ${archive}"
 
   members="$(tar -tzf "${archive}")"
-  [[ "${members}" == $'LICENSE\nainfra' ]] \
-    || release_die "archive has unexpected members: ${archive}"
+  if [[ "${members}" != $'LICENSE\nainfra' ]]; then
+    printf 'archive members were:\n%s\n' "${members}" >&2
+    release_die "archive has unexpected members: ${archive}"
+  fi
   types="$(tar -tvzf "${archive}" | awk '{print substr($1, 1, 1)}')"
   [[ "${types}" == $'-\n-' ]] \
     || release_die "archive members must be regular files: ${archive}"
