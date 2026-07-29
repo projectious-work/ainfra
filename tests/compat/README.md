@@ -1,11 +1,11 @@
 # ainfra compatibility corpus
 
-This directory defines the language-neutral behavior that the Python and Rust
-implementations must share during the rewrite.
+This directory preserves the language-neutral behavior frozen before the Rust
+cutover.
 
-The Python implementation is the executable oracle until a case is explicitly
-marked as implemented in Rust. A Rust command is not considered compatible
-merely because it accepts the same arguments.
+The Rust implementation is the production executable. These fixtures retain
+the former prototype's stable output fragments, exit codes, and security
+boundaries without retaining its runtime.
 
 ## Case format
 
@@ -24,14 +24,13 @@ otherwise.
 
 ## Compatibility rules
 
-- Assert stable identifiers and semantic fragments, not Python exception text.
+- Assert stable identifiers and semantic fragments, not implementation text.
 - Keep `v1alpha1` schemas and policy identifiers unchanged during the port.
 - Never normalize away security-relevant values such as digests, operations,
   template identities, or approval IDs.
-- Run the same cases against Rust as each command becomes implemented.
+- Run every retained case against Rust.
 - Keep legacy records literal. Substitute only documented placeholders such as
   `<ROOT>` and recomputed fixture digests during setup.
 
-The initial executable slice covers help, version, validation, and refusal of
-an unknown reviewed plan. Further cases are added before their corresponding
-Rust behavior is ported.
+The corpus covers stable command behavior and remains a regression boundary
+for future versions.

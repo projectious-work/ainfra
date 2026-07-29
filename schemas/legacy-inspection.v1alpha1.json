@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/legacy-inspection.v1alpha1.json",
+  "title": "ainfra legacy inspection v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "ok",
+    "state",
+    "legacyRecords",
+    "corruptEntries",
+    "runs",
+    "requiresNewProjectPlan",
+    "next"
+  ],
+  "properties": {
+    "apiVersion": {"const": "ainfra.legacy-inspection/v1alpha1"},
+    "kind": {"const": "AinfraLegacyInspection"},
+    "ok": {"const": true},
+    "state": {"enum": ["none", "legacy", "corrupt"]},
+    "legacyRecords": {"type": "integer", "minimum": 0},
+    "corruptEntries": {"type": "integer", "minimum": 0},
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "operation",
+          "environment",
+          "template",
+          "planIntegrity",
+          "lifecycleState"
+        ],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+          "operation": {"enum": ["apply", "destroy"]},
+          "environment": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,62}$"
+          },
+          "template": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{2,62}$"
+          },
+          "planIntegrity": {"enum": ["valid", "missing", "mismatch"]},
+          "lifecycleState": {"const": "unknown"}
+        }
+      }
+    },
+    "requiresNewProjectPlan": {"const": true},
+    "next": {"const": "docs: legacy recovery"}
+  }
+}
