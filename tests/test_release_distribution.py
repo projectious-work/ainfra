@@ -179,3 +179,8 @@ def test_installer_verifies_and_installs_release(tmp_path: Path) -> None:
 def test_no_github_actions_release_workflow() -> None:
     workflows = ROOT / ".github/workflows"
     assert not workflows.exists() or not any(workflows.iterdir())
+
+
+def test_main_docs_deploy_preserves_versioned_snapshots() -> None:
+    script = (ROOT / "docs/scripts/deploy-docs.sh").read_text()
+    assert "! -name 'v[0-9]*.[0-9]*'" in script
