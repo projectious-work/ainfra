@@ -1,6 +1,7 @@
 <div align="center">
 
-<img src="docs/static/logo/ainfra-light.svg" alt="ainfra" width="96" height="96">
+<img src="docs/static/logo/ainfra-light.svg" alt="ainfra"
+  width="96" height="96">
 
 # ainfra
 
@@ -109,7 +110,7 @@ Full documentation lives at
 | [Reference](https://projectious-work.github.io/ainfra/docs/reference/) | CLI, schemas, Hetzner baseline, acceptance evidence |
 | [Contributing](https://projectious-work.github.io/ainfra/docs/contributing/) | Development and documentation workflow |
 
-Build and serve the Hugo + Docsy site locally:
+Build and serve the Hugo + Hextra site locally:
 
 ```sh
 docs/scripts/build-docs.sh
@@ -124,7 +125,7 @@ schemas/                          Versioned public JSON Schema contracts
 templates/hetzner-kubernetes-baseline/
                                   OpenTofu, cloud-init, and Ansible template
 tests/                            Contract, policy, and lifecycle tests
-docs/                            Self-contained Hugo + Docsy site and tooling
+docs/                            Self-contained Hugo + Hextra site and tooling
 scripts/                          Local gates and documentation commands
 ```
 

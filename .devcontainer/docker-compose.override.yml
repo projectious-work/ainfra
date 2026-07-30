@@ -15,7 +15,6 @@
 #       ports:
 #         - "5432:5432"
 #
-services: {}
 #
 # Example — add depends_on to the main service:
 #
@@ -23,3 +22,8 @@ services: {}
 #     my-project:            # must match [container] name in aibox.toml
 #       depends_on:
 #         - postgres
+
+services:
+  ainfra:
+    ports:
+      - "127.0.0.1:1313:1313"

@@ -179,6 +179,10 @@ def _iter_files(root: Path, names: set[str]) -> list[Path]:
         return found
 
     for dirpath, dirnames, filenames in os.walk(root):
+        current = Path(dirpath)
+        if current != root and (current / ".git").exists():
+            dirnames[:] = []
+            continue
         dirnames[:] = [
             d
             for d in dirnames
@@ -233,6 +237,10 @@ def _find_sbom_files(repo_root: Path) -> list[Path]:
             found.append(path)
 
     for dirpath, dirnames, filenames in os.walk(repo_root):
+        current = Path(dirpath)
+        if current != repo_root and (current / ".git").exists():
+            dirnames[:] = []
+            continue
         dirnames[:] = [
             d
             for d in dirnames

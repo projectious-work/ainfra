@@ -10,9 +10,16 @@ BUILD_DIR="${ROOT_DIR}/public"
 DOCS_BASE_URL="${DOCS_BASE_URL:-https://projectious-work.github.io/ainfra/}"
 DOCS_LATEST_URL="https://projectious-work.github.io/ainfra/"
 DOCS_VERSION="${DOCS_VERSION:-main}"
+DOCS_DEPLOY_DRY_RUN="${DOCS_DEPLOY_DRY_RUN:-false}"
 
 if [[ ! "${DOCS_VERSION}" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo "DOCS_VERSION must contain only letters, numbers, dots, underscores, or hyphens." >&2
+  exit 1
+fi
+
+if [[ "${DOCS_DEPLOY_DRY_RUN}" != "true" &&
+  "${DOCS_DEPLOY_DRY_RUN}" != "false" ]]; then
+  echo "DOCS_DEPLOY_DRY_RUN must be true or false." >&2
   exit 1
 fi
 
@@ -51,8 +58,23 @@ else
 fi
 
 if [[ "${DOCS_VERSION}" == "main" ]]; then
-  find "${WORKTREE_DIR}" -mindepth 1 -maxdepth 1 ! -name .git \
-    -exec rm -rf {} +
+  V01_TREE_BEFORE=""
+  if git -C "${WORKTREE_DIR}" cat-file -e HEAD:v0.1 2>/dev/null; then
+    V01_TREE_BEFORE="$(git -C "${WORKTREE_DIR}" rev-parse HEAD:v0.1)"
+  fi
+
+  for ENTRY in \
+    "${WORKTREE_DIR}"/* \
+    "${WORKTREE_DIR}"/.[!.]* \
+    "${WORKTREE_DIR}"/..?*; do
+    [[ -e "${ENTRY}" ]] || continue
+    ENTRY_NAME="${ENTRY##*/}"
+    if [[ "${ENTRY_NAME}" == ".git" ||
+      "${ENTRY_NAME}" =~ ^v[0-9]+([.][0-9]+)*$ ]]; then
+      continue
+    fi
+    rm -rf -- "${ENTRY}"
+  done
   cp -R "${BUILD_DIR}/." "${WORKTREE_DIR}/"
 else
   VERSION_DIR="${WORKTREE_DIR}/${DOCS_VERSION}"
@@ -63,6 +85,23 @@ fi
 : > "${WORKTREE_DIR}/.nojekyll"
 
 git -C "${WORKTREE_DIR}" add -A
+if [[ "${DOCS_VERSION}" == "main" && -n "${V01_TREE_BEFORE:-}" ]]; then
+  INDEX_TREE="$(git -C "${WORKTREE_DIR}" write-tree)"
+  V01_TREE_AFTER="$(
+    git -C "${WORKTREE_DIR}" rev-parse "${INDEX_TREE}:v0.1"
+  )"
+  if [[ "${V01_TREE_AFTER}" != "${V01_TREE_BEFORE}" ]]; then
+    echo "Refusing deployment: the v0.1 archive changed." >&2
+    exit 1
+  fi
+fi
+
+if [[ "${DOCS_DEPLOY_DRY_RUN}" == "true" ]]; then
+  git -C "${WORKTREE_DIR}" diff --cached --stat
+  echo "Documentation deployment dry run passed; nothing was pushed."
+  exit 0
+fi
+
 if git -C "${WORKTREE_DIR}" diff --cached --quiet; then
   echo "No documentation changes to deploy."
 else

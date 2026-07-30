@@ -65,12 +65,11 @@ ainfra apply \
   --approve PLAN_ID
 ```
 
-{{% alert title="Cost and teardown" color="warning" %}}
-Apply creates billable resources. Keep the input, state, ownership scope, and
-destroy command available throughout the test. Do not end a disposable test
-until Hetzner and the local state both confirm that no managed resources
-remain.
-{{% /alert %}}
+> [!WARNING] Cost and teardown
+> Apply creates billable resources. Keep the input, state, ownership scope,
+> and destroy command available throughout the test. Do not end a disposable
+> test until Hetzner and the local state both confirm that no managed
+> resources remain.
 
 ## Read outputs and configure hosts
 

@@ -11,7 +11,7 @@ paths = [
   '''(^|/)(\.aibox-home|\.root|node_modules)(/|$)''',
   '''(^|/)target(/|$)''',
   '''^context/templates/''',
-  '''^docs/themes/docsy/''',
+  '''^docs/themes/hextra/''',
   '''^\.aibox-local\.(env|toml)$''',
   '''^aibox\.lock$''',
 ]
