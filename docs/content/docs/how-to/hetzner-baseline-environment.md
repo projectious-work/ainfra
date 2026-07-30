@@ -10,12 +10,11 @@ This tutorial creates a disposable Hetzner Cloud environment with the
 Debian 13 control-plane-capable host, a private network, firewall rules, and
 the operator SSH key registration. It then destroys every managed resource.
 
-{{% alert title="Cost and responsibility" color="warning" %}}
-The apply step creates billable Hetzner resources. Check current pricing and
-quotas in your Hetzner project before continuing. Keep the input, local state,
-plan records, token, and destroy procedure available until independent checks
-confirm that no managed resources remain.
-{{% /alert %}}
+> [!WARNING] Cost and responsibility
+> The apply step creates billable Hetzner resources. Check current pricing and
+> quotas in your Hetzner project before continuing. Keep the input, local
+> state, plan records, token, and destroy procedure available until
+> independent checks confirm that no managed resources remain.
 
 ## What this procedure does
 
@@ -265,14 +264,14 @@ through the Hetzner console or another trusted out-of-band channel. Add the
 verified key to `known_hosts`; do not use `ssh-keyscan` as the source of trust.
 Cloud-init creates the `ainfra` user and installs its authorized public key.
 
-{{% alert title="Ansible is separate" color="info" %}}
-The infrastructure is now up, but the CLI has not run Ansible. The baseline's
-Ansible playbook is intentionally explicit. Its generated inventory uses
-private node addresses, so run it only from a trusted host with private-network
-reachability and after host-key verification. See the
-[Hetzner baseline reference]({{< relref
-"/docs/reference/hetzner-baseline" >}}).
-{{% /alert %}}
+> [!NOTE] Ansible is separate
+> The infrastructure is now up, but the CLI has not run Ansible. The
+> baseline's Ansible playbook is intentionally explicit. Its generated
+> inventory uses private node addresses, so run it only from a trusted host
+> with private-network reachability and after host-key verification. See the
+> [Hetzner baseline reference][baseline-reference].
+
+[baseline-reference]: {{< relref "/docs/reference/hetzner-baseline" >}}
 
 ## 10. Create and review the destroy plan
 

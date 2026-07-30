@@ -1,26 +1,28 @@
 # ainfra documentation
 
-This directory is the complete Hugo and Docsy documentation project. A fresh
-checkout needs only the repository-level Git metadata plus the files beneath
-this directory to install documentation dependencies and build the site.
+This directory is the complete Hugo and Hextra documentation project. A fresh
+checkout needs Hugo Extended, Git, the repository-level Git metadata, and the
+files beneath this directory. Node.js and npm are not required.
 
 ## Layout
 
 ```text
 docs/
 ├── hugo.yaml
-├── package.json
-├── package-lock.json
 ├── assets/
 ├── content/
 ├── layouts/
 ├── static/
-├── themes/docsy/
+├── themes/hextra/
 └── scripts/
 ```
 
-`themes/docsy` is a pinned Git submodule. `node_modules/`, `.cache/`,
-`resources/_gen/`, and `public/` are generated locally and ignored.
+`themes/hextra` is pinned to Hextra `v0.12.3` as a Git submodule. `.cache/`,
+`resources/_gen/`, and `public/` are generated locally and ignored. The
+FlexSearch `0.8.143` browser bundle is vendored at
+`assets/js/vendor/flexsearch.bundle.min.js` so builds do not fetch it from a
+CDN. Its SHA-256 digest is
+`433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c`.
 
 ## Commands
 
@@ -35,7 +37,13 @@ docs/scripts/deploy-docs.sh
 
 The scripts resolve `docs/` from their own location, so they work regardless
 of the caller's current directory. The build and serve commands initialize the
-Docsy submodule and run `npm ci` inside `docs/` when required.
+Hextra submodule when required.
+
+Preview the exact `gh-pages` change without committing or pushing:
+
+```sh
+DOCS_DEPLOY_DRY_RUN=true docs/scripts/deploy-docs.sh
+```
 
 To publish an immutable version snapshot:
 

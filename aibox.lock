@@ -1,5 +1,5 @@
 [aibox]
-cli_version = "0.28.13"
+cli_version = "0.28.17"
 synced_at = "2026-07-24T16:52:19.094549+00:00"
 
 [processkit]
@@ -7,7 +7,7 @@ source = "https://github.com/projectious-work/processkit.git"
 version = "v0.28.4"
 src_path = "src"
 installed_at = "2026-07-24T16:52:19.094549+00:00"
-processkit_install_hash = "v2:9a724d11e3b37024103eacbc40d73248b28e9b21c1876c0ec198d6b992bd3630"
+processkit_install_hash = "v2:a3061b4cd58a7353c628b61315b686f47577852533c9ec6955bfda08ed093d5c"
 
 [addons]
 resolved_at = "2026-07-24T16:55:42Z"
@@ -61,7 +61,7 @@ python = [
 ]
 
 [runtime_home]
-generated_at = "2026-07-24T16:55:43.023134+00:00"
+generated_at = "2026-07-30T05:55:43.300005+00:00"
 
 [runtime_home.files]
 ".config/aibox/theme-env.sh" = "52f584e0fad4e27494e2b1f7b01497ec0fe40acf28025618ee84ae50514904aa"
@@ -74,15 +74,15 @@ generated_at = "2026-07-24T16:55:43.023134+00:00"
 ".config/starship.toml" = "6deb2846348b3113b7074717d98a17d15a9d395b6b80fdbb9f0953711ef77524"
 ".config/tmux/aibox-powerkit-overrides.tmux" = "05a42416244fb86c9d4499dd1f371b4bf97e6d45aac632837b39d258b2e21a89"
 ".config/tmux/aibox-powerkit-theme.sh" = "71eabb9a057dc71fb3b90f7263f58ecf1756319ab8c891260deba295476cf6df"
-".config/tmux/aibox-session.sh" = "5397e556ba0b4e4770e20fa5458ce8593f56cf3e1d81b5dae8eaf88e163d0daa"
-".config/tmux/layouts/ai.sh" = "fb8ab9deb1dae870b8fd6d5edad35f40b0b286861d17b8df5313b44b73c6b7d3"
-".config/tmux/layouts/cowork.sh" = "5212e3775fb56855d21d56d5115d80f1e439735c00093779a5a44705ce905de5"
-".config/tmux/layouts/dev.sh" = "b573a2814ae46db49ed1686adef8d3e029c4b8c9b6d3914c1bf8b60392b4b3b2"
-".config/tmux/layouts/focus.sh" = "164695a0054ebc592290de09144fe24aeef327b7a2bcfafc623a764535ea18d9"
-".config/tmux/tmux.conf" = "77e06242dd923f7850154d287ca77df2c6ce1bfe06c29fd8bf759727664ed64e"
+".config/tmux/aibox-session.sh" = "b722aab9fca7fe6ed02ff636404eaaed6ba284ff378698269615dea67bed88e8"
+".config/tmux/layouts/ai.sh" = "079f23d2ee4b4a6c79cd6400bfac57ca3c2136ed86c018c640e80a668497af1a"
+".config/tmux/layouts/cowork.sh" = "57cc4eef26d519565b61e9d00fe2d6084afd9b4e427c6a7557a431a3870210ae"
+".config/tmux/layouts/dev.sh" = "1a23432669a18d494b3228c5269e223b329ceadc7b67abb35d79e8a46414dfe4"
+".config/tmux/layouts/focus.sh" = "946a064f7031ce49ff5fda1c1b11ff2bf1f5600638c54ff4e730ba831ecfb4a9"
+".config/tmux/tmux.conf" = "3329faa873d87642bbeee4bcea5ad3a12e848b148e82c15da3216512a643618e"
 ".config/yazi/init.lua" = "eae04462c0b3bcbb486ee59aa9c2c9e9595680a0626997c942e5abb2ae5a48d7"
 ".config/yazi/keymap.toml" = "0b20be4e5f58d0af2ba72b8621e288ef2d6a7665a8a73c5fca5a172f83c6ebdd"
-".config/yazi/plugins/dir-preview.yazi/main.lua" = "1700f0400a0a8362d895d247b27bfae2478c1e76385d4b076846a6a7c16c74f4"
+".config/yazi/plugins/dir-preview.yazi/main.lua" = "333a25afe1dc850c344ff8c5844a27a9f16f2091eee0d7d1454b6e5129e1f175"
 ".config/yazi/plugins/eps.yazi/init.lua" = "edeaadeff1411fc9749eeae43c77754fd749db74790591ba75e9286ff36e94c5"
 ".config/yazi/plugins/git.yazi/main.lua" = "855f6bdf0ee33f503f575c2d75795c98ab1a9893c655940caf333d8fc87dc477"
 ".config/yazi/plugins/git.yazi/types.lua" = "16c54022dd327c35f533534f0b6995d800965e96d76f2e610b8b2fca0e5b4549"

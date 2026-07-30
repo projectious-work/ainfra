@@ -142,4 +142,4 @@ have been inspected.
 
 - [Strategy catalog](references/strategies.md)
 - `git-workflow` — naming, commits, pull requests, and merge methods
-- `release-semver` — changelog, tags, publishing, and release verification
+- `release-audit` — pre-release validation and readiness verification

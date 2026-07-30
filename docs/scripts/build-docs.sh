@@ -11,20 +11,38 @@ export HUGO_CACHEDIR
 
 BUILD_ARGS=("$@")
 VERSION_CONFIG=""
+VERSION_CONFIG_DIR=""
 cleanup() {
   if [[ -n "${VERSION_CONFIG}" ]]; then
     rm -f "${VERSION_CONFIG}"
   fi
+  if [[ -n "${VERSION_CONFIG_DIR}" ]]; then
+    rmdir "${VERSION_CONFIG_DIR}" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
+if [[ ! "${DOCS_VERSION}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "DOCS_VERSION contains unsupported characters." >&2
+  exit 1
+fi
+
 if [[ "${DOCS_VERSION}" != "main" ]]; then
-  VERSION_CONFIG="$(mktemp --suffix=.yaml)"
+  VERSION_CONFIG_DIR="$(
+    mktemp -d "${TMPDIR:-/tmp}/ainfra-docs-version.XXXXXX"
+  )"
+  VERSION_CONFIG="${VERSION_CONFIG_DIR}/version.yaml"
   {
     printf 'params:\n'
     printf '  version: "%s"\n' "${DOCS_VERSION}"
     printf '  archived_version: true\n'
     printf '  url_latest_version: "%s"\n' "${DOCS_LATEST_URL}"
+    printf '  banner:\n'
+    printf '    key: "archived-%s"\n' "${DOCS_VERSION}"
+    printf '    message: |\n'
+    printf '      **Version %s** is an archived snapshot. ' \
+      "${DOCS_VERSION}"
+    printf '[View the latest documentation](%s).\n' "${DOCS_LATEST_URL}"
   } >"${VERSION_CONFIG}"
   BUILD_ARGS+=(
     --config
@@ -55,17 +73,10 @@ command -v hugo >/dev/null 2>&1 || {
   echo "Hugo extended is required: https://gohugo.io/installation/" >&2
   exit 1
 }
-command -v npm >/dev/null 2>&1 || {
-  echo "Node.js and npm are required for Docsy assets." >&2
-  exit 1
-}
 
-if [[ ! -f "${ROOT_DIR}/themes/docsy/theme.toml" ]]; then
+if [[ ! -f "${ROOT_DIR}/themes/hextra/theme.toml" ]]; then
   git -C "${ROOT_DIR}/.." submodule update --init --recursive \
-    docs/themes/docsy
-fi
-if [[ ! -d "${ROOT_DIR}/node_modules" ]]; then
-  npm --prefix "${ROOT_DIR}" ci
+    docs/themes/hextra
 fi
 
 cd "${ROOT_DIR}"

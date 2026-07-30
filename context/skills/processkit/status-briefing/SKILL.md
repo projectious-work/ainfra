@@ -17,10 +17,8 @@ metadata:
         purpose: Pull current project state when generating the today's priorities section.
       - skill: workitem-management
         purpose: Query in-progress and next-up WorkItems for the today's priorities section.
-      - skill: migration-management
-        purpose: Reconcile the session-start migration queue.
-      - skill: pk-doctor
-        purpose: Check and repair repository health before briefing.
+      - skill: project-reconciliation
+        purpose: Reconcile the session-start migration and health queues and inventory repository collaboration state.
     commands:
       - name: pk-resume
         args: ""
