@@ -15,7 +15,7 @@ layout: hextra-home
 
 <div class="ainfra-hero">
 {{< hextra/hero-headline >}}
-  Infrastructure you can inspect, approve, and remove
+  Security-first infrastructure templates for containerized AI agents.
 {{< /hextra/hero-headline >}}
 
 {{< hextra/hero-subtitle >}}
