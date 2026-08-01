@@ -45,9 +45,14 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 _DOCTOR = _SCRIPTS_DIR / "doctor.py"
 _REPO_ROOT = next(
     p for p in Path(__file__).resolve().parents
-    if (p / "src" / "context" / "schemas").is_dir()
+    if (
+        (p / "src" / "context" / "schemas").is_dir()
+        or (p / "context" / "schemas").is_dir()
+    )
 )
 _SCHEMAS_SRC = _REPO_ROOT / "src" / "context" / "schemas"
+if not _SCHEMAS_SRC.is_dir():
+    _SCHEMAS_SRC = _REPO_ROOT / "context" / "schemas"
 
 PASS = "\033[32mPASS\033[0m"
 FAIL = "\033[31mFAIL\033[0m"
@@ -2606,6 +2611,16 @@ with tempfile.TemporaryDirectory() as tmp:
     check("21a: missing lockfile emits ERROR", "supply_chain.missing-lockfile" in ids)
     check("21b: missing policy emits WARN", "supply_chain.no-policy" in ids)
     check("21c: inventory summary is emitted", "supply_chain.inventory" in ids)
+
+with tempfile.TemporaryDirectory() as tmp:
+    root = Path(tmp)
+    (root / "go.mod").write_text(
+        "module example.test/site\n\ngo 1.21\n",
+        encoding="utf-8",
+    )
+    findings = _supply_chain_run({"repo_root": root, "since_files": None})
+    missing = [item for item in findings if item.id == "supply_chain.missing-lockfile"]
+    check("21d: dependency-free Go module needs no go.sum", not missing)
 
 with tempfile.TemporaryDirectory() as tmp:
     root = Path(tmp)
