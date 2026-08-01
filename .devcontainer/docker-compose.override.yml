@@ -15,7 +15,10 @@
 #       ports:
 #         - "5432:5432"
 #
-services: {}
+services:
+  ainfra:
+    ports:
+      - "127.0.0.1:1314:1314"
 #
 # Example — add depends_on to the main service:
 #
