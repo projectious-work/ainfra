@@ -43,6 +43,39 @@ plan, keeps secrets out of ordinary outputs, and makes teardown a first-class
 operation.
 </div>
 
+<section class="ainfra-workflow" aria-labelledby="workflow-title">
+  <div class="ainfra-section-heading">
+    <p class="ainfra-kicker">A reviewable path to production</p>
+    <h2 id="workflow-title">From contract to teardown</h2>
+    <p>
+      Every consequential step stays explicit, inspectable, and repeatable.
+      No hidden control plane stands between you and the underlying tools.
+    </p>
+  </div>
+  <ol class="ainfra-workflow__steps">
+    <li>
+      <span aria-hidden="true">01</span>
+      <strong>Validate</strong>
+      Reject unknown inputs before infrastructure can change.
+    </li>
+    <li>
+      <span aria-hidden="true">02</span>
+      <strong>Plan</strong>
+      Review the exact OpenTofu plan and its security boundaries.
+    </li>
+    <li>
+      <span aria-hidden="true">03</span>
+      <strong>Apply</strong>
+      Bind mutation to the reviewed plan, then configure with Ansible.
+    </li>
+    <li>
+      <span aria-hidden="true">04</span>
+      <strong>Destroy</strong>
+      Keep teardown tested and available from the first deployment.
+    </li>
+  </ol>
+</section>
+
 {{< hextra/feature-grid cols="3" >}}
   {{< hextra/feature-card
     title="Contract driven"

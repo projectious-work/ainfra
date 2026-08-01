@@ -179,10 +179,6 @@ def _iter_files(root: Path, names: set[str]) -> list[Path]:
         return found
 
     for dirpath, dirnames, filenames in os.walk(root):
-        current = Path(dirpath)
-        if current != root and (current / ".git").exists():
-            dirnames[:] = []
-            continue
         dirnames[:] = [
             d
             for d in dirnames
@@ -215,7 +211,12 @@ def _collect_inventory(
         for manifest_name in rule["manifests"]:
             for manifest in manifest_index.get(manifest_name, []):
                 counts[family] = counts.get(family, 0) + 1
-                if not any((manifest.parent / lock).exists() for lock in rule["lockfiles"]):
+                lock_required = not (
+                    family == "Go" and not _go_manifest_has_dependencies(manifest)
+                )
+                if lock_required and not any(
+                    (manifest.parent / lock).exists() for lock in rule["lockfiles"]
+                ):
                     missing.append((manifest, family))
 
     pyproject_paths = manifest_index.get("pyproject.toml", [])
@@ -228,6 +229,18 @@ def _collect_inventory(
     return counts, sorted(lockfiles), missing, dependency_present
 
 
+def _go_manifest_has_dependencies(manifest: Path) -> bool:
+    """Return whether a go.mod declares dependencies that need go.sum."""
+    try:
+        lines = manifest.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return True
+    return any(
+        line.strip() == "require (" or line.lstrip().startswith("require ")
+        for line in lines
+    )
+
+
 def _find_sbom_files(repo_root: Path) -> list[Path]:
     found: list[Path] = []
     seen: set[Path] = set()
@@ -237,10 +250,6 @@ def _find_sbom_files(repo_root: Path) -> list[Path]:
             found.append(path)
 
     for dirpath, dirnames, filenames in os.walk(repo_root):
-        current = Path(dirpath)
-        if current != repo_root and (current / ".git").exists():
-            dirnames[:] = []
-            continue
         dirnames[:] = [
             d
             for d in dirnames
