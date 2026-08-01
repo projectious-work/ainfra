@@ -24,6 +24,6 @@
 #         - postgres
 
 services:
-  ainfra:
+  ainfra-docs:
     ports:
-      - "127.0.0.1:1313:1313"
+      - "127.0.0.1:1314:1314"
