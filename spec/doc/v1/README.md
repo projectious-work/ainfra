@@ -39,8 +39,16 @@ Operators edit native `terraform.tfvars` and `ansible-vars.yaml` files.
 8. [Template authoring](08-template-authoring.md)
 9. [Documentation and AI agents](09-documentation-and-ai-agents.md)
 10. [Release engineering](10-release-engineering.md)
-11. [Acceptance, migration, and open decisions](11-acceptance-migration.md)
-12. [Implementation roadmap data](roadmap.yaml)
+11. [Acceptance, migration, and implementation
+    selections](11-acceptance-migration.md)
+12. [CLI configuration and logging](12-cli-configuration-and-logging.md)
+13. [Testing strategy](13-testing-strategy.md)
+14. [Go source conventions](14-go-source-conventions.md)
+15. [MCP server mode](15-mcp-server-mode.md)
+
+Roadmap data:
+
+- [Implementation roadmap](roadmap.yaml)
 
 Reference diagrams:
 

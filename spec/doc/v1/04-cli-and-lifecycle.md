@@ -3,12 +3,12 @@
 | Command | Purpose |
 |---|---|
 | `ainfra init` | Create a minimal deployment definition without overwriting existing files or creating infrastructure. |
-| `ainfra doctor` | Shorthand for `ainfra doctor all` against the nearest deployment. |
-| `ainfra doctor all [TARGET]` | Diagnose the applicable environment, deployment, resolved template, and latest-run contracts together. |
-| `ainfra doctor deployment [TARGET]` | Diagnose a selected deployment definition, native inputs, template lock, and referenced paths. |
-| `ainfra doctor template [TARGET]` | Diagnose a template layout, contract compatibility, documentation, fixtures, and available local child-tool checks. |
-| `ainfra doctor run [TARGET]` | Diagnose run evidence, saved-plan bindings, interruption state, and safe resumability. |
-| `ainfra doctor environment` | Diagnose operating-system, architecture, executable, version, and capability prerequisites required by ainfra. |
+| `ainfra doctor [--reconcile]` | Shorthand for `ainfra doctor all` against the nearest deployment. |
+| `ainfra doctor all [TARGET] [--reconcile]` | Diagnose the applicable environment, deployment, resolved template, and latest-run contracts together. |
+| `ainfra doctor deployment [TARGET] [--reconcile]` | Diagnose a selected deployment definition, native inputs, template lock, and referenced paths. |
+| `ainfra doctor template [TARGET] [--reconcile]` | Diagnose a template layout, contract compatibility, documentation, fixtures, and available local child-tool checks. |
+| `ainfra doctor run [TARGET] [--reconcile]` | Diagnose run evidence, saved-plan bindings, interruption state, and safe resumability. |
+| `ainfra doctor environment [--reconcile]` | Diagnose operating-system, architecture, executable, version, and capability prerequisites required by ainfra. |
 | `ainfra template lock` | Resolve the selected template source and record its immutable revision and content digest. |
 | `ainfra template update` | Resolve an explicitly requested newer template revision and update the lock after compatibility checks. |
 | `ainfra template migrate SOURCE --to VERSION [--write]` | Analyze a template-contract migration and optionally apply safe deterministic changes to a local working copy. |
@@ -36,6 +36,9 @@ or infer approval.
   contain diagnostics only.
 - **AINFRA-CLI-004:** `--non-interactive` MUST prevent prompts and fail when
   required confirmation or input is absent.
+- **AINFRA-CLI-007:** `--yes` MAY satisfy a documented confirmation only when
+  `--non-interactive` is also set; it MUST NOT bypass security refusals, plan
+  bindings, or destructive approval requirements.
 - **AINFRA-CLI-005:** cancellation signals MUST be forwarded to the active
   child process and recorded without claiming rollback.
 - **AINFRA-CLI-006:** ainfra MUST show the equivalent direct engine command in
@@ -90,11 +93,40 @@ operations is skipped with an explanation and a direct command the operator
 can run deliberately.
 
 Each check has a stable ID and emits exactly one of `pass`, `skip`, `warning`,
-or `fail`, plus concise evidence and remediation. `--format json` returns all
-findings even when failures exist, allowing editors, CI, and support tooling to
-consume the same contract. Text output SHOULD group failures first and include
-a reproducible rerun command. Doctor MUST distinguish an unavailable check
-from a passed check.
+or `fail`, plus concise evidence, remediation, and whether a safe automatic
+reconciler exists. `--format json` returns all findings even when failures
+exist, allowing editors, CI, and support tooling to consume the same contract.
+Text output SHOULD group failures first and include a reproducible rerun
+command. Doctor MUST distinguish an unavailable check from a passed check.
+
+### Reconciliation
+
+`--reconcile` asks doctor to correct findings with registered reconcilers. It
+does not broaden doctor's ownership boundary. A reconciler MUST be
+deterministic, idempotent, separately testable, and limited to ainfra-managed
+local derived or operational artifacts. Suitable fixes include creating
+ainfra runtime directories with safe permissions, tightening permissions on
+ainfra-owned operational files, removing contained stale temporary files, and
+regenerating inventory from already validated standardized output.
+
+Reconciliation MUST NOT:
+
+- edit `ainfra.yaml`, native tfvars, Ansible variables, backend configuration,
+  template source, or engine-native lock files;
+- install or upgrade executables, providers, modules, roles, or collections;
+- run mutating OpenTofu, Ansible, Git, SSH, provider, backend, host, or network
+  operations;
+- alter plans, state, immutable run events, credentials, firewall rules, or
+  remote infrastructure; or
+- guess a fix for an ambiguous finding.
+
+Before writing, doctor builds an ordered reconciliation plan containing check
+IDs, paths, intended changes, and rollback limitations. Interactive execution
+requires confirmation. Non-interactive execution requires both
+`--non-interactive` and `--yes`. Doctor rechecks preconditions immediately
+before each fix, records every attempted change, reruns affected checks, and
+reports `applied`, `failed`, or `still_failing`. It MUST NOT claim that the
+whole reconciliation was atomic when only individual file writes were atomic.
 
 `ainfra template migrate SOURCE --to VERSION` identifies the current ainfra
 template contract version, reports incompatible or deprecated constructs, and
@@ -111,7 +143,8 @@ operations and MUST NOT be performed by this command.
   from blockers for the selected command.
 - **AINFRA-DOCTOR-010:** diagnostics MUST contain a stable code, severity,
   affected path or component, explanation, and next action.
-- **AINFRA-DOCTOR-001:** every doctor command MUST be read-only.
+- **AINFRA-DOCTOR-001:** every doctor command MUST be read-only unless the user
+  explicitly supplies `--reconcile` and confirms the reconciliation plan.
 - **AINFRA-DOCTOR-002:** every check MUST declare its scope, child-process
   needs, prerequisites, and applicability rule.
 - **AINFRA-DOCTOR-003:** skipped and unavailable checks MUST include a reason
@@ -128,6 +161,14 @@ operations and MUST NOT be performed by this command.
   provider, topology, connectivity, or application-specific checks to ainfra.
 - **AINFRA-DOCTOR-011:** bare `doctor` and `doctor all` MUST select and execute
   the same checks for the same deployment target.
+- **AINFRA-RECON-001:** a check without a registered safe reconciler MUST
+  remain a manual finding when `--reconcile` is set.
+- **AINFRA-RECON-002:** reconciliation MUST acquire the same deployment-local
+  operation lock used to prevent conflicting ainfra writes.
+- **AINFRA-RECON-003:** a failed reconciliation MUST preserve its evidence and
+  continue only with fixes whose preconditions remain valid.
+- **AINFRA-RECON-004:** reconcilers MUST have fixtures proving idempotency,
+  containment, safe interruption, and redaction.
 - **AINFRA-MIGRATE-001:** migrations MUST be explicit source-version to target-
   version transformations and MUST be idempotent where automated.
 - **AINFRA-MIGRATE-002:** migration analysis and resulting patches MUST be

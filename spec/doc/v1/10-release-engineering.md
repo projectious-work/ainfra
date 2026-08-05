@@ -68,7 +68,8 @@ Dockerfile is source and is validated, not published as an image artifact.
 11. Cross-build all four supported targets.
 12. Smoke-test archives on representative Linux/macOS systems.
 13. Generate checksums and SBOMs; scan final artifacts.
-14. Verify changelog, migration notes, supported versions, and security docs.
+14. Verify changelog, migration notes, phase notes, supported versions, and
+    security docs against the implemented behavior.
 15. Run disposable live acceptance when provider/template behavior changed.
 16. Create signed tag and release from the exact validated commit.
 17. Download published artifacts and independently verify checksums,
@@ -88,6 +89,7 @@ Review and update when applicable:
 - optional Dockerfile usage;
 - reference template and live evidence;
 - compatibility/migration;
+- implementation phase notes and roadmap status;
 - specification status/version;
 - changelog and release notes.
 

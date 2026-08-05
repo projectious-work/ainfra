@@ -29,8 +29,21 @@
                 "summary": {"type": "string", "minLength": 1},
                 "status": {
                   "enum": ["planned", "in_progress", "shipped"]
+                },
+                "devNote": {
+                  "type": "string",
+                  "pattern": "^dev-notes/[a-z0-9][a-z0-9./-]*\\.md$"
                 }
-              }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {"status": {"const": "shipped"}},
+                    "required": ["status"]
+                  },
+                  "then": {"required": ["devNote"]}
+                }
+              ]
             }
           }
         }

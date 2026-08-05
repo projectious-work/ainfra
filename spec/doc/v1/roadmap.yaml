@@ -20,7 +20,7 @@ groups:
         summary: >-
           Discover deployments, parse manifests and native files, validate
           ainfra-owned contracts, and report stable text and JSON diagnostics
-          through one doctor surface.
+          plus safe local reconciliation through one doctor surface.
         status: planned
       - id: "3"
         title: Immutable template sources
@@ -54,23 +54,34 @@ groups:
           security fixtures.
         status: planned
 
+  - label: Template authoring
+    note: the v1 authoring promise
+    phases:
+      - id: "7"
+        title: Template authoring and conformance
+        summary: >-
+          Publish schemas, examples, conformance diagnostics, and human and AI
+          guidance, then prove through clean-room authoring that a new template
+          can be created without reading ainfra implementation source.
+        status: planned
+
   - label: Template coverage
     note: useful deployments out of the box
     phases:
-      - id: "7"
+      - id: "8"
         title: Initial production template
         summary: >-
           Ship and certify the first Kubernetes-ready template with private
           access, tunneled ingress, and temporary administrative access.
         status: planned
-      - id: "8"
+      - id: "9"
         title: Complete major-cloud templates
         summary: >-
           Add comparable certified templates for AWS, Microsoft Azure, and
           Google Cloud while preserving the same native-file and output
           contracts.
         status: planned
-      - id: "9"
+      - id: "10"
         title: Specialized compute templates
         summary: >-
           Add templates for Vast.ai and similar GPU or on-demand compute
@@ -80,28 +91,27 @@ groups:
   - label: Template ecosystem
     note: authoring, compatibility, and trust
     phases:
-      - id: "10"
-        title: Authoring and migration experience
+      - id: "11"
+        title: Compatibility and migration experience
         summary: >-
           Improve fixtures, compatibility diagnosis, deprecation reporting,
-          AI-oriented authoring guidance, and safe template-contract migration
-          previews.
+          and safe template-contract migration previews as contracts evolve.
         status: planned
-      - id: "11"
+      - id: "12"
         title: Catalog and trust metadata
         summary: >-
           Define interoperable discovery metadata for certified Git-hosted
           templates, including compatibility, publisher identity, signatures,
           attestations, and revocation.
         status: planned
-      - id: "12"
+      - id: "13"
         title: Operational evidence export
         summary: >-
           Export sanitized and attributable deployment evidence for audits and
           support without exporting plans, state, credentials, or sensitive
           output.
         status: planned
-      - id: "13"
+      - id: "14"
         title: Authoring and editor integration
         summary: >-
           Publish schema bundles, completions, and editor integrations that
@@ -109,10 +119,21 @@ groups:
           language.
         status: planned
 
+  - label: Automation interfaces
+    note: agent and editor integration
+    phases:
+      - id: "15"
+        title: Read-only MCP server mode
+        summary: >-
+          Serve doctor, inspection, status, schemas, and sanitized run results
+          over MCP stdio by adapting the same typed application use cases,
+          without exposing lifecycle mutations.
+        status: planned
+
   - label: Extended provisioning
     note: infrastructure-adjacent bootstrap
     phases:
-      - id: "14"
+      - id: "16"
         title: External cluster bootstrap
         summary: >-
           Invoke a dedicated external tool for initial k3s or comparable
@@ -123,20 +144,20 @@ groups:
   - label: Policy and coordination
     note: potential directions
     phases:
-      - id: "15"
+      - id: "17"
         title: External policy checks
         summary: >-
           Pass sanitized manifests or plan summaries to an external policy
           engine at explicit lifecycle gates and enforce its result without
           owning a policy language.
         status: planned
-      - id: "16"
+      - id: "18"
         title: Deployment-set coordination
         summary: >-
           Coordinate several independent deployments while preserving separate
           state, locks, reviewed plans, approvals, and failure boundaries.
         status: planned
-      - id: "17"
+      - id: "19"
         title: Remote execution protocol
         summary: >-
           Run the same CLI lifecycle in a controlled remote environment while

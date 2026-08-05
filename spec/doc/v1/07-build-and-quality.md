@@ -1,23 +1,31 @@
-## Reproducible developer interface
+## Direct developer interface
 
-The repository MUST expose these stable commands through a small Makefile or
-equivalent checked-in task surface:
+A Makefile or third-party task runner is not required. Go's native commands are
+the canonical developer interface and MUST remain independently runnable:
 
 ```text
-make build
-make fmt
-make lint
-make test
-make test-race
-make test-integration
-make security
-make docs
-make check
-make release-check
+go build ./cmd/ainfra
+gofmt -w .
+go tool goimports -w .
+go vet ./...
+go tool staticcheck ./...
+go tool golangci-lint run
+go test ./...
+go test -race ./...
+go test -coverprofile=coverage.out ./...
 ```
 
-The task surface aggregates visible native commands; it MUST NOT hide important
-behavior in downloaded scripts.
+Go-based development tools SHOULD be pinned with the `go.mod` tool mechanism
+and invoked with `go tool` where the selected Go version supports it. The aibox
+development environment pins non-Go tools. Tool configuration files are
+committed beside the source.
+
+A small checked-in script MAY sequence the complete release or integration
+check when several ecosystems are involved. Such a script is a transparent
+convenience, not a second build system: it prints each underlying command,
+stops on failure, accepts no hidden network bootstrap, and documents external
+prerequisites. Documentation and release checklists MUST name the native
+commands so contributors never need to reverse-engineer an alias.
 
 ## Toolchain
 
@@ -30,6 +38,9 @@ behavior in downloaded scripts.
 - unit tests MUST not require network, cloud credentials, OpenTofu, or Ansible;
 - integration tests explicitly declare external prerequisites.
 
+The suite design, isolation rules, regression policy, and release matrix are
+defined in the [testing strategy](13-testing-strategy.md).
+
 The aibox developer container SHOULD consume language-scoped add-ons requested
 in `projectious-work/aibox#337`, including Go infrastructure, supply-chain, and
 release groups.
@@ -40,10 +51,10 @@ release groups.
 
 ```text
 gofmt
-goimports
+go tool goimports
 go vet ./...
-staticcheck ./...
-golangci-lint run
+go tool staticcheck ./...
+go tool golangci-lint run
 ```
 
 The `golangci-lint` configuration MUST contain a curated low-noise set. A

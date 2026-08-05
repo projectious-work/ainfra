@@ -29,6 +29,15 @@
             ]
           },
           "status": {"enum": ["pass", "skip", "warning", "fail"]},
+          "reconciliation": {
+            "enum": [
+              "not_available",
+              "available",
+              "applied",
+              "failed",
+              "still_failing"
+            ]
+          },
           "component": {"type": "string"},
           "path": {"type": "string"},
           "message": {"type": "string", "minLength": 1},

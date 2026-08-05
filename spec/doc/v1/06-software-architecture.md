@@ -15,28 +15,32 @@ See [package-dependencies.svg](package-dependencies.svg).
 
 ## Proposed source layout
 
-```text
-cmd/
-└── ainfra/
-    └── main.go
-internal/
-├── app/
-├── command/
-├── project/
-├── template/
-├── source/
-├── lock/
-├── tofu/
-├── inventory/
-├── ansible/
-├── run/
-├── security/
-├── exec/
-├── diagnostic/
-└── output/
-schemas/
-testdata/
-```
+| Module or path | Purpose |
+|---|---|
+| `cmd/ainfra` | Compose the executable and map process startup and exit behavior. |
+| `internal/command` | Define commands, flags, help, input conversion, and renderer selection. |
+| `internal/app` | Coordinate use cases and transaction boundaries without implementing adapters. |
+| `internal/config` | Load, validate, merge, and explain typed CLI configuration. |
+| `internal/project` | Discover and validate deployment roots, manifests, and native input paths. |
+| `internal/template` | Validate template manifests, layouts, compatibility, and content digests. |
+| `internal/source` | Acquire contained local or Git template sources through immutable descriptors. |
+| `internal/lock` | Parse, compare, canonicalize, and atomically write template lock files. |
+| `internal/tofu` | Construct documented OpenTofu invocations and return typed outcomes. |
+| `internal/inventory` | Convert validated standardized output into deterministic Ansible inventory. |
+| `internal/ansible` | Invoke Ansible Runner and interpret structured configuration outcomes. |
+| `internal/run` | Store run metadata, append events, and enforce recovery state transitions. |
+| `internal/diagnostic` | Register doctor checks and define stable typed findings and reports. |
+| `internal/reconcile` | Plan and apply permitted local fixes, then verify their outcomes. |
+| `internal/migration` | Plan and apply explicit template-contract version transformations. |
+| `internal/security` | Enforce containment, file, environment, redaction, and output policies. |
+| `internal/exec` | Execute child processes without a shell under explicit IO and environment policy. |
+| `internal/logging` | Create redacted structured events and deliver them to configured sinks. |
+| `internal/output` | Render typed results as rich text, plain text, or versioned JSON. |
+| `schemas` | Embed published schemas required for offline contract validation. |
+| `testdata` | Hold non-secret fixtures and fake child executables shared by tests. |
+| `test/blackbox` | Exercise the compiled CLI and its observable process contract. |
+| `test/integration` | Exercise adapters against real local child tools. |
+| `test/e2e` | Exercise opt-in disposable certified-template lifecycles. |
 
 Production code MUST remain under `internal/` until an external Go API has a
 real consumer and separate stability commitment.
@@ -57,10 +61,16 @@ rendering selection. It calls `app` use cases and contains no engine calls.
 ### `app`
 
 Coordinates product use cases such as doctor, template migration, plan, deploy,
-and destroy. It
-owns sequencing and transaction boundaries but delegates parsing, persistence,
-security policy, and engines to focused packages. Files SHOULD be organized by
-use case rather than one large lifecycle file.
+and destroy. It owns sequencing and transaction boundaries but delegates
+parsing, persistence, security policy, and engines to focused packages. Files
+SHOULD be organized by use case rather than one large lifecycle file.
+
+### `config`
+
+Loads every configuration layer, validates the published schema, applies
+deterministic precedence, records value provenance, and returns one immutable
+effective configuration. It does not parse native deployment variables or
+child-tool credentials.
 
 ### `project`
 
@@ -77,12 +87,19 @@ provider-specific variables.
 ### `diagnostic`
 
 Defines the check registry, scopes, applicability rules, finding model, and
-deterministic report ordering used by doctor. Individual packages
-provide checks for the boundaries they own; `diagnostic` does not duplicate
-their parsing or engine logic. Checks receive explicit capabilities and cannot
-obtain network or process access implicitly. The registry accepts only
-ainfra-owned contract checks; it is not a provider or template-specific plugin
-system.
+deterministic report ordering used by doctor, including stable codes, severity,
+explanation, and next action. Individual packages provide checks for the
+boundaries they own; `diagnostic` does not duplicate their parsing or engine
+logic. Checks receive explicit capabilities and cannot obtain network or
+process access implicitly. The registry accepts only ainfra-owned contract
+checks; it is not a provider or template-specific plugin system.
+
+### `reconcile`
+
+Selects registered reconcilers for doctor findings, builds the confirmed change
+plan, rechecks preconditions, applies permitted local fixes, records partial
+failure, and requests verification. It cannot access provider, backend, state,
+credential, or remote-host operations.
 
 ### `migration`
 
@@ -140,25 +157,28 @@ array, cwd, allowed environment, IO policy, cancellation context, and sensitive
 values. It forwards signals, streams output, records sanitized evidence, and
 returns typed exit information. It never invokes a shell.
 
-### `diagnostic`
 
-Defines stable error/finding codes, severity, component, explanation, and next
-action. Concrete packages create typed diagnostics; this package contains no
-business policy.
+### `logging`
+
+Defines structured operational events, verbosity filtering, correlation, and
+stderr, rotating-file, and local-syslog sinks. It receives only values already
+processed by the security redaction boundary and does not persist run evidence.
 
 ### `output`
 
-Versioned human and JSON result envelopes. Rendering MUST be separate from use
-case execution so JSON mode never inherits incidental terminal prose.
+Owns semantic command results and rich, plain, and versioned JSON renderers.
+Rendering MUST be separate from use-case execution and operational logging so
+JSON mode never inherits terminal prose or log events.
 
 ## Dependency rules
 
-- `command` may depend on `app`, `diagnostic`, and `output`.
+- `command` may depend on `app`, `config`, `diagnostic`, `logging`, and
+  `output`.
 - `app` may depend on domain packages and consumer-defined interfaces.
 - domain packages may depend on `diagnostic` and narrowly on `security`.
 - engine/source adapters may depend on `exec`.
-- `exec`, `diagnostic`, and pure inventory conversion MUST NOT depend on `app`
-  or `command`.
+- `exec`, `config`, `diagnostic`, `logging`, `output`, and pure inventory
+  conversion MUST NOT depend on `app` or `command`.
 - adapters MUST NOT call each other; `app` owns sequencing.
 - cycles are forbidden and checked in the build gate.
 

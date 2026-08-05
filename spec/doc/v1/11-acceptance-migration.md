@@ -20,9 +20,11 @@ these journeys pass from a clean supported environment:
 13. complete machine JSON and exit-code compatibility fixtures;
 14. diagnose environment, deployment, template/source, and run fixtures with
     stable findings and correct pass/skip/warning/fail states;
-15. produce a dry-run template migration plan, apply a safe local migration,
+15. reconcile a safe local finding idempotently, reject an unsafe finding, and
+    preserve evidence for a partially failed reconciliation;
+16. produce a dry-run template migration plan, apply a safe local migration,
     validate it, and reject an ambiguous or stateful migration; and
-16. build Linux/macOS binaries and validate the optional Dockerfile.
+17. build Linux/macOS binaries and validate the optional Dockerfile.
 
 ## Security acceptance
 
@@ -40,17 +42,22 @@ Negative fixtures MUST prove rejection or redaction for:
 - malformed Ansible events and partial host recap;
 - corrupt or reordered run events;
 - poisoned cache entry;
-- unsafe Dockerfile changes.
+- unsafe Dockerfile changes;
+- reconciliation path escape, precondition race, partial failure, and attempts
+  to modify native inputs, plans, state, credentials, or remote resources.
 
 ## Template acceptance
 
-A certified template requires:
+A conforming or certified template requires:
 
-- schema/layout conformance;
+- successful validation of every ainfra-owned document against its declared
+  schema, with no unknown fields, plus layout conformance;
 - OpenTofu fmt/init/validate;
 - Ansible syntax and lint checks;
 - pinned dependencies;
 - complete native variable documentation;
+- standard variable-reference structure with documented required/default,
+  type, constraint, sensitivity, and cross-variable information;
 - standard output fixtures;
 - security policy tests;
 - cost-approved disposable plan/apply/configure/check/reapply/destroy;
@@ -79,19 +86,32 @@ The phased delivery sequence and potential future directions are maintained in
 the [implementation roadmap data](roadmap.yaml). Each phase ends in a usable
 vertical slice and MUST not reintroduce a meta-language.
 
-## Open decisions
+## Implementation-time selections
 
-These details remain intentionally open for implementation design review:
+The product specification does not preselect dependencies or external versions
+whose suitability depends on the implementation date. Each selection is made
+at the start of the phase that first needs it, after requirements are concrete:
 
-- exact Go CLI parsing library versus standard-library flag composition;
-- exact run-ID format;
-- canonical JSON/YAML libraries and schema validator;
-- whether OCI template sources enter v1.x after Git sources stabilize;
-- minimum supported OpenTofu and Ansible Runner versions at implementation
-  start;
-- release signing/attestation backend;
-- precise multi-environment support beyond the preferred one-state-boundary
-  deployment.
+| Selection | Decision point | Required criteria |
+|---|---|---|
+| CLI parser or standard `flag` composition | Go foundation | Prefer the standard library; add a library only when the specified hierarchy, help, completion, or error behavior would otherwise require substantial custom framework code. |
+| JSON, YAML, and JSON Schema implementations | Contracts and doctor | Standards compliance, strict unknown-field behavior, maintained security posture, deterministic output, low dependency weight, and required Go-version support. |
+| Minimum OpenTofu and Ansible Runner versions | First real-tool integration | Required CLI/event features, upstream support and security status, availability in the developer environment, and an affordable compatibility matrix. |
+| Release signing or attestation backend | Release packaging implementation | Public verification, identity and key-rotation model, automation without exported long-lived secrets, platform availability, and recovery documentation. |
 
-None of these may weaken the native-variable, process-boundary, source-locking,
-or reviewed-plan decisions.
+The phase note records candidates considered, selected versions, rationale,
+licenses, security review, and validation evidence before the dependency or
+backend becomes production-critical. A separate ADR is added when the choice
+creates a durable cross-package or release-infrastructure constraint.
+
+- **AINFRA-IMPL-001:** implementation-time selection MUST preserve every
+  behavioral and security requirement in this specification.
+- **AINFRA-IMPL-002:** standard-library functionality is preferred when it
+  remains clear and maintainable; avoiding all dependencies is not itself a
+  reason to build a private framework.
+- **AINFRA-IMPL-003:** selected child-tool minimums MUST be documented, tested,
+  and reported by `ainfra doctor environment` before mutating commands ship.
+
+Multi-environment coordination beyond one deployment and one state boundary is
+not part of v1. Introducing it requires a future product decision and MUST NOT
+shape the initial manifest or execution architecture prematurely.

@@ -61,6 +61,19 @@ spec:
 
 ## Native variables
 
+The contents of `terraform.tfvars` and `ansible-vars.yaml` are deliberately a
+loose, template-owned contract. A template MAY introduce any variables needed
+for its provider, topology, operating system, or application bootstrap. The
+deployment supplies the values required by that template through the native
+files. ainfra standardizes their location and lifecycle handling, not their
+domain model.
+
+The template defines its input API through native mechanisms: OpenTofu variable
+declarations, types, defaults, validation blocks, and descriptions; and Ansible
+playbooks, role defaults, role argument specifications where applicable, and
+documentation. Variable additions and breaking changes follow the template's
+version and migration policy.
+
 - **AINFRA-CONTRACT-020:** ainfra MUST call OpenTofu with
   `-var-file=<deployment tfvars>`.
 - **AINFRA-CONTRACT-021:** ainfra MUST NOT parse tfvars to implement
@@ -70,6 +83,21 @@ spec:
   `ansible-vars.yaml` as a native extra-vars file.
 - **AINFRA-CONTRACT-023:** reserved common names MUST be prefixed `ainfra_` and
   documented. Templates MUST NOT require a generated common-variable object.
+- **AINFRA-CONTRACT-024:** ainfra MUST treat native variable contents as opaque
+  bytes except for hashing, safe file handling, redaction, and delegation to the
+  owning engine; it MUST NOT implement template-specific semantic validation.
+- **AINFRA-CONTRACT-025:** ainfra MUST NOT merge, rename, default, generate, or
+  translate native variables between deployment, OpenTofu, and Ansible files.
+- **AINFRA-CONTRACT-026:** every required template variable MUST be declared and
+  documented through the owning engine's native mechanisms; the ainfra manifest
+  MUST NOT duplicate a variable schema.
+- **AINFRA-CONTRACT-027:** unknown, missing, mistyped, or invalid native values
+  are reported by OpenTofu or Ansible and surfaced by ainfra without claiming
+  independent semantic interpretation.
+
+This looseness ends at the cross-template boundary. ainfra-owned manifests,
+locks, machine results, and standardized OpenTofu output remain strict,
+versioned schemas so inventory generation and lifecycle safety are portable.
 
 ## Standard OpenTofu output
 
@@ -114,7 +142,8 @@ v1 MUST support:
 - `local:<relative-path>` for development;
 - `git::<https-or-ssh-url>//<subdirectory>` with an explicit `ref`.
 
-OCI template artifacts MAY be added later but are not required for v1.
+Additional source schemes are outside v1 and require a separate future product
+decision.
 
 - **AINFRA-SOURCE-001:** source strings MUST be parsed structurally, never by
   shell evaluation.

@@ -4,6 +4,12 @@ A competent infrastructure engineer or AI coding agent MUST be able to create a
 new template by following this specification and the template-authoring guide,
 without inspecting or modifying ainfra implementation source.
 
+Every authored template MUST validate all ainfra-owned documents against the
+schema declared by their `apiVersion`. Schema validity is necessary but not
+sufficient: the template MUST also satisfy applicable behavioral, security,
+documentation, engine, and lifecycle requirements before it can claim
+conformance or certification.
+
 ## Workflow
 
 1. Choose a provider, deployment outcome, and teardown ownership boundary.
@@ -15,15 +21,19 @@ without inspecting or modifying ainfra implementation source.
 7. Author native Ansible content with pinned collections and idempotent roles.
 8. Document prerequisites, credentials, costs, access, failure modes, and
    direct-tool commands.
-9. Add offline policy tests and local engine validation.
-10. Execute a cost-approved disposable lifecycle and retain redacted evidence.
+9. Validate every ainfra-owned document against its declared schema.
+10. Add offline policy tests and local engine validation.
+11. Execute a cost-approved disposable lifecycle and retain redacted evidence.
 
 ## Template requirements
 
+- **AINFRA-TPL-000:** a template MUST pass the published ainfra schemas for its
+  declared contract version; unknown fields or versions MUST fail conformance.
 - **AINFRA-TPL-001:** variables MUST be native OpenTofu variables documented in
-  `variables.tf` and the template README.
+  `variables.tf` and `docs/variables.md`.
 - **AINFRA-TPL-002:** host configuration variables MUST be native Ansible
-  variables documented with defaults and supported values.
+  variables documented in `docs/variables.md` with defaults and supported
+  values.
 - **AINFRA-TPL-003:** templates MUST NOT depend on ainfra generating provider-
   specific tfvars or Ansible variables.
 - **AINFRA-TPL-004:** provider versions and module sources MUST be pinned with a
@@ -40,6 +50,9 @@ without inspecting or modifying ainfra implementation source.
 - **AINFRA-TPL-009:** outputs MUST be minimized to stable, non-secret facts.
 - **AINFRA-TPL-010:** Ansible execution MUST be idempotent; a second check-mode
   pass after convergence reports zero change.
+- **AINFRA-TPL-011:** templates MAY define any provider- or deployment-specific
+  native variables, but MUST treat that variable surface as a documented,
+  versioned template API with migration guidance for breaking changes.
 
 ## Required README content
 
@@ -47,8 +60,7 @@ without inspecting or modifying ainfra implementation source.
 - provider/account prerequisites;
 - credentials and least-privilege guidance;
 - architecture diagram;
-- native tfvars reference with every supported value;
-- native Ansible variables reference;
+- link to the standard native-variable reference;
 - network and access model;
 - estimated cost categories and billable opt-ins;
 - state/backend requirements;
@@ -59,6 +71,59 @@ without inspecting or modifying ainfra implementation source.
 - template version and compatibility policy;
 - live validation status, date, and limitations.
 
+## Standard variable reference
+
+Every template MUST provide `docs/variables.md`. It documents the complete
+deployment-facing input API while leaving native OpenTofu and Ansible source as
+the authoritative executable contract. Internal role variables that a
+deployment is not expected to set need not be exposed.
+
+The file contains these H2 sections in order:
+
+1. `OpenTofu variables`;
+2. `Ansible variables`;
+3. `Cross-variable rules`; and
+4. `Examples`.
+
+Each engine section uses this table shape:
+
+| Name | Type or shape | Required | Default | Valid values and constraints | Sensitive | Description |
+|---|---|---|---|---|---|---|
+| `example_name` | `string` | yes | — | Non-empty; template-specific constraint | no | What the value controls and its operational effect. |
+
+Documentation rules are:
+
+- list every value the deployment may or must set, using its exact native name;
+- distinguish required values from values with native defaults;
+- reproduce defaults faithfully, using `—` only when no default exists;
+- state enumerations, ranges, formats, units, conditional requirements,
+  conflicts, and relationships in “Valid values and constraints”;
+- describe nested objects, lists, and maps field-by-field below the table when
+  one row cannot express the shape clearly;
+- mark sensitive inputs and name the supported external delivery mechanism,
+  never an example secret value;
+- explain infrastructure, access, cost, replacement, and teardown consequences
+  where changing a value can have them;
+- mark deprecations with the first deprecated version, replacement, and planned
+  removal version; and
+- keep examples minimal, non-secret, and valid against the documented version.
+
+`Cross-variable rules` documents conditions that span variables or engines,
+such as exactly-one-of constraints or an Ansible choice that depends on an
+OpenTofu-created capability. It explains the relationship but MUST NOT cause
+ainfra to translate or synchronize the values.
+
+- **AINFRA-TPL-012:** `docs/variables.md` MUST contain every deployment-facing
+  native variable in the standard form above.
+- **AINFRA-TPL-013:** native declaration type, required/default state,
+  validation, and sensitivity are authoritative; contradictory documentation
+  is a conformance failure.
+- **AINFRA-TPL-014:** template tests MUST detect undocumented public inputs and
+  stale documented names where the native engine exposes that information.
+- **AINFRA-TPL-015:** ainfra doctor MUST check the reference structure and MAY
+  delegate drift checking to pinned native documentation tools; it MUST NOT add
+  its own provider-variable schema.
+
 ## Provider example: temporary bastion and tunnel
 
 A Hetzner Kubernetes-ready template with Cloudflare Tunnel and temporary SSH
@@ -67,6 +132,13 @@ counts, Hetzner placement, Cloudflare identifiers/references, private networks,
 and temporary bastion ingress. Its Ansible variables would select host
 hardening and tunnel configuration. The template—not ainfra—defines how the
 bastion is created and removed.
+
+[kubeclaw](https://github.com/projectious-work/kubeclaw) is an early prototype
+for a comparable secure Kubernetes deployment and MAY inform the first
+template's architecture, threat model, and operational lessons. It is reference
+material, not ainfra source, a reusable template contract, an implementation
+dependency, or evidence of v1 conformance. The resulting template MUST be
+authored and accepted independently against the ainfra schemas and lifecycle.
 
 It MUST document and test:
 
