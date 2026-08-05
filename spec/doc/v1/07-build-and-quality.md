@@ -1,5 +1,3 @@
-# 7. Build and quality environment
-
 ## Reproducible developer interface
 
 The repository MUST expose these stable commands through a small Makefile or

@@ -1,5 +1,3 @@
-# 5. Security and trust
-
 ## Security posture
 
 ainfra executes third-party code with infrastructure credentials. A template,

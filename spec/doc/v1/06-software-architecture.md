@@ -1,5 +1,3 @@
-# 6. Software architecture
-
 ## Principles
 
 - small, cohesive, self-contained packages;

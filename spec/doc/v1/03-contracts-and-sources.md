@@ -1,5 +1,3 @@
-# 3. Contracts and template sources
-
 ## `ainfra.yaml`
 
 `ainfra.yaml` contains orchestration metadata only. It MUST NOT duplicate

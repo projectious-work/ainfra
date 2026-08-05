@@ -1,5 +1,3 @@
-# 2. Concepts and layouts
-
 ## Concepts
 
 ### Template

@@ -1,5 +1,3 @@
-# 8. Template authoring
-
 ## Authoring promise
 
 A competent infrastructure engineer or AI coding agent MUST be able to create a

@@ -40,7 +40,7 @@ Operators edit native `terraform.tfvars` and `ansible-vars.yaml` files.
 9. [Documentation and AI agents](09-documentation-and-ai-agents.md)
 10. [Release engineering](10-release-engineering.md)
 11. [Acceptance, migration, and open decisions](11-acceptance-migration.md)
-12. [Implementation roadmap](12-implementation-roadmap.md)
+12. [Implementation roadmap data](roadmap.yaml)
 
 Reference diagrams:
 
@@ -82,3 +82,20 @@ There are three independent conformance claims:
 
 The schemas validate document structure. They do not replace behavioral,
 security, or lifecycle requirements in this specification.
+
+## Publishing format
+
+The numbered chapter files are content fragments intended for both repository
+review and inclusion in a future Hugo site:
+
+- fragments contain no front matter and no page-level H1 heading;
+- the including Hugo page owns its title, metadata, navigation, and H1;
+- fragment headings begin at H2 and use portable Markdown/Goldmark syntax;
+- fragments contain no Hugo shortcodes or theme-specific HTML; and
+- the publishing project is responsible for mapping relative document and SVG
+  links into its output structure.
+
+A Hugo page can therefore read a chapter as a page resource or repository file
+and pass it through `markdownify` without stripping source-specific wrappers.
+The roadmap is YAML data rather than rendered Markdown so a future site can
+group and present it without parsing prose.

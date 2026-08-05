@@ -1,5 +1,3 @@
-# 11. Acceptance, migration, and open decisions
-
 ## Product acceptance
 
 ainfra v1 is ready only when all mandatory requirements are implemented and
@@ -78,8 +76,8 @@ The rewrite is intentionally not a port.
 ## Delivery roadmap
 
 The phased delivery sequence and potential future directions are maintained in
-the [implementation roadmap](12-implementation-roadmap.md). Each phase ends in
-a usable vertical slice and MUST not reintroduce a meta-language.
+the [implementation roadmap data](roadmap.yaml). Each phase ends in a usable
+vertical slice and MUST not reintroduce a meta-language.
 
 ## Open decisions
 

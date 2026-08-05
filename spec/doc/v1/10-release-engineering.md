@@ -1,5 +1,3 @@
-# 10. Release engineering
-
 ## Versioning
 
 ainfra uses Semantic Versioning. Contract versions evolve independently and

@@ -1,5 +1,3 @@
-# 4. CLI and lifecycle
-
 ## Command surface
 
 ```text

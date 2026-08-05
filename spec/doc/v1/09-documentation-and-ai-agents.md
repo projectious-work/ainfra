@@ -1,5 +1,3 @@
-# 9. Documentation and AI agents
-
 ## Documentation system
 
 The top-level `docs/` remains user-oriented product documentation. This

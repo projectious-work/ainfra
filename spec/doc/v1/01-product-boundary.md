@@ -1,5 +1,3 @@
-# 1. Product boundary
-
 ## Goals
 
 - **AINFRA-PROD-001:** ainfra MUST provide one understandable command surface
