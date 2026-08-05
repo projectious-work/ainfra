@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/v1/machine-output.schema.json",
+  "title": "ainfra v1 machine result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "command", "ok", "diagnostics"],
+  "properties": {
+    "apiVersion": {"const": "ainfra.result/v1"},
+    "command": {"type": "string", "minLength": 1},
+    "ok": {"type": "boolean"},
+    "result": {},
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "severity", "message"],
+        "properties": {
+          "code": {"type": "string", "pattern": "^AINFRA-E[0-9]{4}$"},
+          "severity": {"enum": ["info", "warning", "error"]},
+          "component": {"type": "string"},
+          "path": {"type": "string"},
+          "message": {"type": "string", "minLength": 1},
+          "nextAction": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

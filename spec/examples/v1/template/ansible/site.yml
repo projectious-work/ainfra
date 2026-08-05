@@ -1,0 +1,10 @@
+---
+- name: Validate the example inventory contract
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Require the standardized role variable
+      ansible.builtin.assert:
+        that:
+          - ainfra_role is defined
+        quiet: true

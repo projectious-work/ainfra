@@ -1,0 +1,15 @@
+apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: example
+  description: Example deployment using native OpenTofu and Ansible variables
+spec:
+  template:
+    source: local:../template
+  inputs:
+    tofu: terraform.tfvars
+    ansible: ansible-vars.yaml
+  state:
+    mode: local-disposable
+  ssh:
+    knownHosts: known_hosts

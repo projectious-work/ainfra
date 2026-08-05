@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/v1/lock.schema.json",
+  "title": "ainfra v1 template lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "template"],
+  "properties": {
+    "apiVersion": {"const": "ainfra.projectious.work/v1"},
+    "kind": {"const": "TemplateLock"},
+    "template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "resolved", "subdirectory", "version", "digest", "resolvedAt"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "requestedRef": {"type": "string", "minLength": 1},
+        "resolved": {"type": "string", "minLength": 7},
+        "subdirectory": {"type": "string"},
+        "version": {"type": "string", "minLength": 1},
+        "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "resolvedAt": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

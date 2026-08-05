@@ -1,0 +1,4 @@
+---
+ainfra_admin_user: ainfra
+ainfra_unattended_reboot: false
+ainfra_unattended_reboot_time: "03:30"
