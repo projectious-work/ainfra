@@ -3,14 +3,15 @@
 | Command | Purpose |
 |---|---|
 | `ainfra init` | Create a minimal deployment definition without overwriting existing files or creating infrastructure. |
-| `ainfra doctor` | Diagnose the nearest deployment and every applicable ainfra-owned contract. |
+| `ainfra doctor` | Shorthand for `ainfra doctor all` against the nearest deployment. |
+| `ainfra doctor all [TARGET]` | Diagnose the applicable environment, deployment, resolved template, and latest-run contracts together. |
 | `ainfra doctor deployment [TARGET]` | Diagnose a selected deployment definition, native inputs, template lock, and referenced paths. |
 | `ainfra doctor template [TARGET]` | Diagnose a template layout, contract compatibility, documentation, fixtures, and available local child-tool checks. |
 | `ainfra doctor run [TARGET]` | Diagnose run evidence, saved-plan bindings, interruption state, and safe resumability. |
 | `ainfra doctor environment` | Diagnose operating-system, architecture, executable, version, and capability prerequisites required by ainfra. |
-| `ainfra doctor template migrate SOURCE --to VERSION [--write]` | Analyze a template-contract migration and optionally apply safe deterministic changes to a local working copy. |
 | `ainfra template lock` | Resolve the selected template source and record its immutable revision and content digest. |
 | `ainfra template update` | Resolve an explicitly requested newer template revision and update the lock after compatibility checks. |
+| `ainfra template migrate SOURCE --to VERSION [--write]` | Analyze a template-contract migration and optionally apply safe deterministic changes to a local working copy. |
 | `ainfra plan [--destroy]` | Create a saved apply or destroy plan bound to the deployment, inputs, template, backend, and tool versions. |
 | `ainfra apply --plan RUN_ID` | Verify all bindings and apply the exact reviewed OpenTofu apply plan. |
 | `ainfra configure --run RUN_ID [--check]` | Run Ansible for an applied run, optionally in check mode, using generated inventory and native variables. |
@@ -53,9 +54,10 @@ select a source and create examples copied from the resolved template.
 
 ## Doctor
 
-`doctor` is the single command for validation, troubleshooting,
-compatibility, and migration readiness. With no subcommand it examines the
-nearest deployment and every applicable ainfra-owned artifact. Subcommands
+`doctor` is the single command for validation, troubleshooting, and
+compatibility. With no subcommand it behaves as `doctor all` against the nearest
+deployment. `doctor all [TARGET]` explicitly composes applicable environment,
+deployment, resolved-template, and latest-run checks. The other subcommands
 narrow the target when authoring a template, inspecting a run, or testing a
 development environment:
 
@@ -94,23 +96,22 @@ consume the same contract. Text output SHOULD group failures first and include
 a reproducible rerun command. Doctor MUST distinguish an unavailable check
 from a passed check.
 
-`ainfra doctor template migrate SOURCE --to VERSION` adds a migration analysis
-to the same report. It identifies the current ainfra template contract version,
-reports incompatible or deprecated constructs, and produces an ordered plan.
-`--write` MAY apply documented deterministic transformations to a local working
-copy only. It MUST produce a patch, create a backup or require a clean
-version-controlled worktree, never migrate remote or cached content in place,
-never rewrite native deployment variable values, and rerun doctor afterward.
-Provider, resource, backend, and state migration remain explicit
-template-specific operations and MUST NOT be performed by doctor.
+`ainfra template migrate SOURCE --to VERSION` identifies the current ainfra
+template contract version, reports incompatible or deprecated constructs, and
+produces an ordered migration plan. `--write` MAY apply documented
+deterministic transformations to a local working copy only. It MUST produce a
+patch, create a backup or require a clean version-controlled worktree, never
+migrate remote or cached content in place, never rewrite native deployment
+variable values, and rerun `ainfra doctor template` afterward. Provider,
+resource, backend, and state migration remain explicit template-specific
+operations and MUST NOT be performed by this command.
 
 - **AINFRA-DOCTOR-008:** doctor MUST not mutate provider infrastructure.
 - **AINFRA-DOCTOR-009:** missing optional prerequisites MUST be distinguished
   from blockers for the selected command.
 - **AINFRA-DOCTOR-010:** diagnostics MUST contain a stable code, severity,
   affected path or component, explanation, and next action.
-- **AINFRA-DOCTOR-001:** doctor MUST be read-only unless template migration is
-  explicitly requested with the `template migrate` subcommand and `--write`.
+- **AINFRA-DOCTOR-001:** every doctor command MUST be read-only.
 - **AINFRA-DOCTOR-002:** every check MUST declare its scope, child-process
   needs, prerequisites, and applicability rule.
 - **AINFRA-DOCTOR-003:** skipped and unavailable checks MUST include a reason
@@ -125,6 +126,8 @@ template-specific operations and MUST NOT be performed by doctor.
   MUST also populate `nextAction`.
 - **AINFRA-DOCTOR-007:** adding a certified template MUST NOT require adding
   provider, topology, connectivity, or application-specific checks to ainfra.
+- **AINFRA-DOCTOR-011:** bare `doctor` and `doctor all` MUST select and execute
+  the same checks for the same deployment target.
 - **AINFRA-MIGRATE-001:** migrations MUST be explicit source-version to target-
   version transformations and MUST be idempotent where automated.
 - **AINFRA-MIGRATE-002:** migration analysis and resulting patches MUST be

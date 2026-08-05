@@ -56,7 +56,8 @@ rendering selection. It calls `app` use cases and contains no engine calls.
 
 ### `app`
 
-Coordinates product use cases such as doctor, plan, deploy, and destroy. It
+Coordinates product use cases such as doctor, template migration, plan, deploy,
+and destroy. It
 owns sequencing and transaction boundaries but delegates parsing, persistence,
 security policy, and engines to focused packages. Files SHOULD be organized by
 use case rather than one large lifecycle file.
