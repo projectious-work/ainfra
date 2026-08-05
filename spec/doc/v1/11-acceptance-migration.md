@@ -20,7 +20,11 @@ these journeys pass from a clean supported environment:
 11. reject an apply plan for destroy and vice versa;
 12. apply an exact destroy plan and verify empty state;
 13. complete machine JSON and exit-code compatibility fixtures;
-14. build Linux/macOS binaries and validate the optional Dockerfile.
+14. diagnose environment, deployment, template, source, run, and connectivity
+    fixtures with stable findings and correct pass/skip/warning/fail states;
+15. produce a dry-run template migration plan, apply a safe local migration,
+    validate it, and reject an ambiguous or stateful migration; and
+16. build Linux/macOS binaries and validate the optional Dockerfile.
 
 ## Security acceptance
 
@@ -74,15 +78,17 @@ The rewrite is intentionally not a port.
 ## Delivery milestones
 
 1. **Contracts:** schemas, examples, parsing, validation, lockfile, diagnostics.
-2. **OpenTofu lifecycle:** init, validate, plan, binding, apply, output,
+2. **Diagnostics and migration:** scoped doctor checks, machine findings,
+   deprecated-contract detection, and explicit local template migrators.
+3. **OpenTofu lifecycle:** init, validate, plan, binding, apply, output,
    destroy, run evidence.
-3. **Ansible lifecycle:** inventory, Runner integration, SSH trust, check-mode
+4. **Ansible lifecycle:** inventory, Runner integration, SSH trust, check-mode
    verification, deploy composition.
-4. **Sources and hardening:** Git subdirectories, cache, redaction, security
+5. **Sources and hardening:** Git subdirectories, cache, redaction, security
    fixtures, recovery/status.
-5. **Template and documentation:** reference template, authoring/AI guide,
+6. **Template and documentation:** reference template, authoring/AI guide,
    clean-room conformance.
-6. **Release candidate:** all gates, Linux/macOS packaging, optional Dockerfile,
+7. **Release candidate:** all gates, Linux/macOS packaging, optional Dockerfile,
    migration guide, disposable acceptance.
 
 Each milestone ends in a usable vertical slice and MUST not reintroduce a

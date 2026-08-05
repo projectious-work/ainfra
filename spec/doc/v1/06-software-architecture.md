@@ -58,7 +58,8 @@ rendering selection. It calls `app` use cases and contains no engine calls.
 
 ### `app`
 
-Coordinates product use cases such as validate, plan, deploy, and destroy. It
+Coordinates product use cases such as validate, doctor, migrate, plan, deploy,
+and destroy. It
 owns sequencing and transaction boundaries but delegates parsing, persistence,
 security policy, and engines to focused packages. Files SHOULD be organized by
 use case rather than one large lifecycle file.
@@ -74,6 +75,21 @@ templates or execute tools.
 Parses the template manifest, validates layout and compatibility, computes the
 canonical template digest, and exposes an immutable template model. It knows no
 provider-specific variables.
+
+### `diagnostic`
+
+Defines the check registry, scopes, applicability rules, finding model, and
+deterministic report ordering used by validate and doctor. Individual packages
+provide checks for the boundaries they own; `diagnostic` does not duplicate
+their parsing or engine logic. Checks receive explicit capabilities and cannot
+obtain network or process access implicitly.
+
+### `migration`
+
+Plans explicit contract-version transitions and applies deterministic local
+source transformations through small version-to-version migrators. It produces
+a change set before writing, does not operate on provider state, and delegates
+post-migration conformance to `template` and `diagnostic`.
 
 ### `source`
 

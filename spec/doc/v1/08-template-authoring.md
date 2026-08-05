@@ -85,3 +85,15 @@ It MUST document and test:
 OpenTofu formatting/init/validate, Ansible syntax checks, dependency pin checks,
 secret scans, required-output checks using fixtures, and documentation presence
 checks. It MUST distinguish offline conformance from live provider validation.
+
+`ainfra doctor --scope template` complements conformance by explaining local
+tool incompatibilities, source/lock drift, deprecated contract features,
+missing migration steps, and checks that could not run. Template repositories
+SHOULD keep fixtures for every supported contract version so migration and
+diagnostic behavior can be reproduced without provider credentials.
+
+Every template contract release MUST publish machine-readable deprecations and
+a human migration guide. If a transformation is safe and deterministic, it MAY
+also provide a migration implemented by the ainfra `migration` package. A
+template-specific infrastructure or state migration belongs in template
+documentation and playbooks, not in the generic CLI migrator.
