@@ -58,8 +58,7 @@ rendering selection. It calls `app` use cases and contains no engine calls.
 
 ### `app`
 
-Coordinates product use cases such as validate, doctor, migrate, plan, deploy,
-and destroy. It
+Coordinates product use cases such as doctor, plan, deploy, and destroy. It
 owns sequencing and transaction boundaries but delegates parsing, persistence,
 security policy, and engines to focused packages. Files SHOULD be organized by
 use case rather than one large lifecycle file.
@@ -79,10 +78,12 @@ provider-specific variables.
 ### `diagnostic`
 
 Defines the check registry, scopes, applicability rules, finding model, and
-deterministic report ordering used by validate and doctor. Individual packages
+deterministic report ordering used by doctor. Individual packages
 provide checks for the boundaries they own; `diagnostic` does not duplicate
 their parsing or engine logic. Checks receive explicit capabilities and cannot
-obtain network or process access implicitly.
+obtain network or process access implicitly. The registry accepts only
+ainfra-owned contract checks; it is not a provider or template-specific plugin
+system.
 
 ### `migration`
 

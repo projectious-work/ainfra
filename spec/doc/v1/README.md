@@ -40,6 +40,7 @@ Operators edit native `terraform.tfvars` and `ansible-vars.yaml` files.
 9. [Documentation and AI agents](09-documentation-and-ai-agents.md)
 10. [Release engineering](10-release-engineering.md)
 11. [Acceptance, migration, and open decisions](11-acceptance-migration.md)
+12. [Implementation roadmap](12-implementation-roadmap.md)
 
 Reference diagrams:
 

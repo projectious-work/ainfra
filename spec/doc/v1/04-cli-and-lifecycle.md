@@ -4,11 +4,10 @@
 
 ```text
 ainfra init
-ainfra validate
-ainfra doctor [--scope SCOPE] [--online]
+ainfra doctor [deployment|template|run|environment] [TARGET]
+ainfra doctor template migrate SOURCE --to VERSION [--write]
 ainfra template lock
 ainfra template update
-ainfra template migrate <source> --to VERSION [--write]
 ainfra plan [--destroy]
 ainfra apply --plan RUN_ID
 ainfra configure --run RUN_ID [--check]
@@ -50,39 +49,41 @@ select a source and create examples copied from the resolved template.
 - **AINFRA-INIT-003:** init MUST NOT create credentials, private keys, backend
   resources, or infrastructure.
 
-## Validation, doctor, and migration
+## Doctor
 
-`validate` performs offline structure, containment, lock, manifest, and native
-file checks, then invokes `tofu fmt -check` and `tofu validate` in an isolated
-workspace where possible. It answers whether the selected deployment and
-template satisfy their declared contracts.
-
-`doctor` is the read-only troubleshooting and compatibility command. It
-answers why a deployment, template, run, or execution environment is not ready
-or no longer behaves as expected. It composes named checks in these scopes:
+`doctor` is the single command for validation, troubleshooting,
+compatibility, and migration readiness. With no subcommand it examines the
+nearest deployment and every applicable ainfra-owned artifact. Subcommands
+narrow the target when authoring a template, inspecting a run, or testing a
+development environment:
 
 - `environment`: operating system, architecture, executable discovery,
-  supported versions and capabilities, Git/SSH configuration, clock, and safe
-  credential presence checks;
+  supported versions, and capabilities required by ainfra;
 - `deployment`: manifest/schema version, native variable files, permissions,
   ignored sensitive paths, backend selection, and referenced file containment;
 - `template`: layout and manifest, version compatibility, dependency pins,
   documentation, OpenTofu and Ansible syntax, standardized outputs, fixtures,
   and deprecated contracts;
-- `source`: lock completeness, immutable revision, digest, cache containment,
-  and divergence between requested, locked, cached, and materialized content;
 - `run`: event-log integrity, saved-plan bindings, executable drift, interrupted
   stages, output/inventory provenance, and safe resumability advice;
-- `connectivity`: backend reachability, provider identity, DNS, SSH host-key
-  trust, bastion/tunnel prerequisites, and target reachability; and
-- `all`: every applicable offline scope plus connectivity when `--online` is
-  explicitly present.
+- source-lock completeness, immutable revision, digest, and cache containment
+  are checked as part of the deployment or template that owns the reference.
 
-Offline checks are the default. Checks that contact a backend, provider, Git
-remote, control plane, or host MUST require `--online`, state their target
-before execution, use non-mutating APIs, and never infer permission to repair.
-Absence of credentials is a finding; credential values MUST never be read into
-diagnostic output.
+Doctor's knowledge stops at ainfra's contracts. It MUST NOT contain
+provider-specific, resource-topology, network, DNS, bastion, tunnel, host, or
+application-health logic. It MUST NOT test provider credentials or backend and
+target connectivity. Those concerns belong to the template and to OpenTofu or
+Ansible.
+
+Doctor MAY invoke documented, non-mutating child-tool checks such as
+`tofu fmt -check`, `tofu validate`, and Ansible syntax checking. It passes
+native files through unchanged and reports the command, exit status, and
+sanitized diagnostics. It MUST NOT reproduce OpenTofu or Ansible validation,
+interpret provider/resource semantics, or convert localized console output
+into a stronger conclusion than the child tool provides. A check that requires
+plugins, credentials, backend access, inventory connectivity, or provider
+operations is skipped with an explanation and a direct command the operator
+can run deliberately.
 
 Each check has a stable ID and emits exactly one of `pass`, `skip`, `warning`,
 or `fail`, plus concise evidence and remediation. `--format json` returns all
@@ -91,35 +92,37 @@ consume the same contract. Text output SHOULD group failures first and include
 a reproducible rerun command. Doctor MUST distinguish an unavailable check
 from a passed check.
 
-`template migrate` assists movement between declared ainfra template contract
-versions. Its default mode is an analysis: resolve and lock the source, identify
-the current version, report incompatible or deprecated constructs, and produce
-an ordered migration plan. `--write` MAY apply documented deterministic file
-transformations to a local working copy only. It MUST produce a patch, create a
-backup or require a clean version-controlled worktree, never migrate remote or
-cached content in place, never rewrite native deployment variable values, and
-run template validation after transformation. Provider/state migration remains
-an explicit template-specific operation and MUST NOT be performed by this
-command.
+`ainfra doctor template migrate SOURCE --to VERSION` adds a migration analysis
+to the same report. It identifies the current ainfra template contract version,
+reports incompatible or deprecated constructs, and produces an ordered plan.
+`--write` MAY apply documented deterministic transformations to a local working
+copy only. It MUST produce a patch, create a backup or require a clean
+version-controlled worktree, never migrate remote or cached content in place,
+never rewrite native deployment variable values, and rerun doctor afterward.
+Provider, resource, backend, and state migration remain explicit
+template-specific operations and MUST NOT be performed by doctor.
 
-- **AINFRA-VALIDATE-001:** validation MUST not mutate provider infrastructure.
-- **AINFRA-VALIDATE-002:** missing optional prerequisites MUST be distinguished
+- **AINFRA-DOCTOR-008:** doctor MUST not mutate provider infrastructure.
+- **AINFRA-DOCTOR-009:** missing optional prerequisites MUST be distinguished
   from blockers for the selected command.
-- **AINFRA-VALIDATE-003:** diagnostics MUST contain a stable code, severity,
+- **AINFRA-DOCTOR-010:** diagnostics MUST contain a stable code, severity,
   affected path or component, explanation, and next action.
-- **AINFRA-DOCTOR-001:** doctor MUST be read-only locally and remotely.
-- **AINFRA-DOCTOR-002:** every check MUST declare its scope, online behavior,
-  prerequisites, and applicability rule.
+- **AINFRA-DOCTOR-001:** doctor MUST be read-only unless template migration is
+  explicitly requested with the `template migrate` subcommand and `--write`.
+- **AINFRA-DOCTOR-002:** every check MUST declare its scope, child-process
+  needs, prerequisites, and applicability rule.
 - **AINFRA-DOCTOR-003:** skipped and unavailable checks MUST include a reason
   and MUST NOT be counted as passes.
 - **AINFRA-DOCTOR-004:** diagnostic evidence MUST pass through the same
   redaction and output-scanning policy as child-process output.
-- **AINFRA-DOCTOR-005:** doctor SHOULD suggest a command or documentation URL;
-  it MUST NOT offer automatic credential, state, backend, firewall, or remote
-  infrastructure repair.
+- **AINFRA-DOCTOR-005:** doctor SHOULD suggest a direct child-tool command or
+  documentation URL; it MUST NOT offer automatic credential, state, backend,
+  firewall, connectivity, or remote infrastructure repair.
 - **AINFRA-DOCTOR-006:** every doctor JSON finding MUST populate `check`,
   `scope`, `status`, `code`, `severity`, and `message`; failed or skipped checks
   MUST also populate `nextAction`.
+- **AINFRA-DOCTOR-007:** adding a certified template MUST NOT require adding
+  provider, topology, connectivity, or application-specific checks to ainfra.
 - **AINFRA-MIGRATE-001:** migrations MUST be explicit source-version to target-
   version transformations and MUST be idempotent where automated.
 - **AINFRA-MIGRATE-002:** migration analysis and resulting patches MUST be

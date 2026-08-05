@@ -81,16 +81,19 @@ It MUST document and test:
 
 ## Conformance command
 
-`ainfra template validate <source>` SHOULD perform layout/schema checks,
-OpenTofu formatting/init/validate, Ansible syntax checks, dependency pin checks,
-secret scans, required-output checks using fixtures, and documentation presence
-checks. It MUST distinguish offline conformance from live provider validation.
+`ainfra doctor template <source>` SHOULD perform layout/schema checks,
+OpenTofu formatting and local validation when prerequisites are already
+available, Ansible syntax checks, dependency pin checks, secret scans,
+required-output checks using fixtures, and documentation presence checks.
+Child-tool checks MUST respect the doctor boundary: ainfra reports what
+OpenTofu or Ansible determines without interpreting provider, topology,
+connectivity, or application semantics.
 
-`ainfra doctor --scope template` complements conformance by explaining local
-tool incompatibilities, source/lock drift, deprecated contract features,
-missing migration steps, and checks that could not run. Template repositories
-SHOULD keep fixtures for every supported contract version so migration and
-diagnostic behavior can be reproduced without provider credentials.
+The same report explains local tool incompatibilities, source/lock drift,
+deprecated contract features, missing migration steps, and checks that could
+not run. Template repositories SHOULD keep fixtures for every supported
+contract version so migration and diagnostic behavior can be reproduced
+without provider credentials.
 
 Every template contract release MUST publish machine-readable deprecations and
 a human migration guide. If a transformation is safe and deterministic, it MAY
