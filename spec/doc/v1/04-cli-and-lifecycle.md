@@ -1,21 +1,25 @@
 ## Command surface
 
-```text
-ainfra init
-ainfra doctor [deployment|template|run|environment] [TARGET]
-ainfra doctor template migrate SOURCE --to VERSION [--write]
-ainfra template lock
-ainfra template update
-ainfra plan [--destroy]
-ainfra apply --plan RUN_ID
-ainfra configure --run RUN_ID [--check]
-ainfra deploy --plan RUN_ID
-ainfra output --run RUN_ID
-ainfra inventory --run RUN_ID
-ainfra status
-ainfra destroy --plan RUN_ID
-ainfra version
-```
+| Command | Purpose |
+|---|---|
+| `ainfra init` | Create a minimal deployment definition without overwriting existing files or creating infrastructure. |
+| `ainfra doctor` | Diagnose the nearest deployment and every applicable ainfra-owned contract. |
+| `ainfra doctor deployment [TARGET]` | Diagnose a selected deployment definition, native inputs, template lock, and referenced paths. |
+| `ainfra doctor template [TARGET]` | Diagnose a template layout, contract compatibility, documentation, fixtures, and available local child-tool checks. |
+| `ainfra doctor run [TARGET]` | Diagnose run evidence, saved-plan bindings, interruption state, and safe resumability. |
+| `ainfra doctor environment` | Diagnose operating-system, architecture, executable, version, and capability prerequisites required by ainfra. |
+| `ainfra doctor template migrate SOURCE --to VERSION [--write]` | Analyze a template-contract migration and optionally apply safe deterministic changes to a local working copy. |
+| `ainfra template lock` | Resolve the selected template source and record its immutable revision and content digest. |
+| `ainfra template update` | Resolve an explicitly requested newer template revision and update the lock after compatibility checks. |
+| `ainfra plan [--destroy]` | Create a saved apply or destroy plan bound to the deployment, inputs, template, backend, and tool versions. |
+| `ainfra apply --plan RUN_ID` | Verify all bindings and apply the exact reviewed OpenTofu apply plan. |
+| `ainfra configure --run RUN_ID [--check]` | Run Ansible for an applied run, optionally in check mode, using generated inventory and native variables. |
+| `ainfra deploy --plan RUN_ID` | Apply a reviewed plan, collect output, generate inventory, configure hosts, and verify convergence. |
+| `ainfra output --run RUN_ID` | Show the sanitized standardized infrastructure output recorded for a run. |
+| `ainfra inventory --run RUN_ID` | Show or regenerate deterministic Ansible inventory from a run's validated standardized output. |
+| `ainfra status` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
+| `ainfra destroy --plan RUN_ID` | Apply the exact reviewed destroy plan and verify the deployment's OpenTofu state is empty. |
+| `ainfra version` | Print the ainfra version and machine-readable build information. |
 
 `deploy` composes apply, output collection, inventory generation, Ansible
 configuration, and Ansible check-mode verification. It MUST NOT create a plan
