@@ -113,6 +113,7 @@ creates a durable cross-package or release-infrastructure constraint.
 - **AINFRA-IMPL-003:** selected child-tool minimums MUST be documented, tested,
   and reported by `ainfra doctor environment` before mutating commands ship.
 
-Multi-environment coordination beyond one deployment and one state boundary is
-not part of v1. Introducing it requires a future product decision and MUST NOT
-shape the initial manifest or execution architecture prematurely.
+Multi-deployment coordination is not part of v1. Each deployment directory is
+selected and operated independently. Introducing stack-wide selection,
+ordering, inheritance, or orchestration requires a future product decision and
+MUST NOT shape the initial manifest or execution architecture prematurely.

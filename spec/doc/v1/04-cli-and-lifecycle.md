@@ -2,24 +2,24 @@
 
 | Command | Purpose |
 |---|---|
-| `ainfra init` | Create a minimal deployment definition without overwriting existing files or creating infrastructure. |
+| `ainfra init [DEPLOYMENT]` | Create a minimal deployment definition at an explicit path without overwriting existing files or creating infrastructure. |
 | `ainfra doctor [--reconcile]` | Shorthand for `ainfra doctor all` against the nearest deployment. |
-| `ainfra doctor all [TARGET] [--reconcile]` | Diagnose the applicable environment, deployment, resolved template, and latest-run contracts together. |
+| `ainfra doctor all [TARGET] [--reconcile]` | Diagnose the applicable execution environment, deployment, resolved template, and latest-run contracts together. |
 | `ainfra doctor deployment [TARGET] [--reconcile]` | Diagnose a selected deployment definition, native inputs, template lock, and referenced paths. |
 | `ainfra doctor template [TARGET] [--reconcile]` | Diagnose a template layout, contract compatibility, documentation, fixtures, and available local child-tool checks. |
 | `ainfra doctor run [TARGET] [--reconcile]` | Diagnose run evidence, saved-plan bindings, interruption state, and safe resumability. |
 | `ainfra doctor environment [--reconcile]` | Diagnose operating-system, architecture, executable, version, and capability prerequisites required by ainfra. |
-| `ainfra template lock` | Resolve the selected template source and record its immutable revision and content digest. |
-| `ainfra template update` | Resolve an explicitly requested newer template revision and update the lock after compatibility checks. |
+| `ainfra template lock [DEPLOYMENT]` | Resolve the selected template source and record its immutable revision and content digest. |
+| `ainfra template update [DEPLOYMENT]` | Resolve an explicitly requested newer template revision and update the lock after compatibility checks. |
 | `ainfra template migrate SOURCE --to VERSION [--write]` | Analyze a template-contract migration and optionally apply safe deterministic changes to a local working copy. |
-| `ainfra plan [--destroy]` | Create a saved apply or destroy plan bound to the deployment, opaque native inputs, template, and tool versions. |
-| `ainfra apply --plan RUN_ID` | Verify all bindings and apply the exact reviewed OpenTofu apply plan. |
-| `ainfra configure --run RUN_ID [--check]` | Run Ansible for an applied run, optionally in check mode, using generated inventory and native variables. |
-| `ainfra deploy --plan RUN_ID` | Apply a reviewed plan, collect output, generate inventory, configure hosts, and verify convergence. |
-| `ainfra output --run RUN_ID` | Show the sanitized standardized infrastructure output recorded for a run. |
-| `ainfra inventory --run RUN_ID` | Show or regenerate deterministic Ansible inventory from a run's validated standardized output. |
-| `ainfra status` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
-| `ainfra destroy --plan RUN_ID` | Apply the exact reviewed OpenTofu destroy plan and record the engine result. |
+| `ainfra plan [DEPLOYMENT] [--destroy]` | Create a saved apply or destroy plan bound to the deployment, opaque native inputs, template, and tool versions. |
+| `ainfra apply [DEPLOYMENT] --plan RUN_ID` | Verify all bindings and apply the exact reviewed OpenTofu apply plan. |
+| `ainfra configure [DEPLOYMENT] --run RUN_ID [--check]` | Run Ansible for an applied run, optionally in check mode, using generated inventory and native variables. |
+| `ainfra deploy [DEPLOYMENT] --plan RUN_ID` | Apply a reviewed plan, collect output, generate inventory, configure hosts, and verify convergence. |
+| `ainfra output [DEPLOYMENT] --run RUN_ID` | Show the sanitized standardized infrastructure output recorded for a run. |
+| `ainfra inventory [DEPLOYMENT] --run RUN_ID` | Show or regenerate deterministic Ansible inventory from a run's validated standardized output. |
+| `ainfra status [DEPLOYMENT]` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
+| `ainfra destroy [DEPLOYMENT] --plan RUN_ID` | Apply the exact reviewed OpenTofu destroy plan and record the engine result. |
 | `ainfra version` | Print the ainfra version and machine-readable build information. |
 
 `deploy` composes apply, output collection, inventory generation, Ansible
@@ -28,8 +28,19 @@ or infer approval.
 
 ## Common behavior
 
-- **AINFRA-CLI-001:** commands MUST locate the nearest deployment by searching
-  ancestors for `ainfra.yaml`, unless `--project` selects an exact root.
+- **AINFRA-CLI-001:** a deployment-bound command MUST resolve its deployment in
+  this order: an explicit positional `DEPLOYMENT` path; `--project`;
+  `AINFRA_PROJECT`; or the nearest ancestor containing `ainfra.yaml`.
+- **AINFRA-CLI-008:** `DEPLOYMENT` is a filesystem path to a deployment
+  directory or its `ainfra.yaml`. Relative paths resolve from the current
+  working directory and are canonicalized before use. Thus `ainfra plan
+  development` selects `./development`, while `ainfra deploy
+  product-a/development --plan RUN_ID` selects that explicit nested path.
+- **AINFRA-CLI-009:** ainfra MUST NOT search configured root lists, match
+  deployment basenames globally, or interpret a path segment as an environment
+  name. A missing or ambiguous explicit path is an error. Supplying both a
+  positional deployment and `--project` is an error unless their canonical
+  targets are identical.
 - **AINFRA-CLI-002:** every command MUST support `--format text|json` where its
   result is meaningful to automation.
 - **AINFRA-CLI-003:** JSON output MUST use a versioned envelope and stderr MUST
@@ -59,8 +70,8 @@ select a source and create examples copied from the resolved template.
 
 `doctor` is the single command for validation, troubleshooting, and
 compatibility. With no subcommand it behaves as `doctor all` against the nearest
-deployment. `doctor all [TARGET]` explicitly composes applicable environment,
-deployment, resolved-template, and latest-run checks. The other subcommands
+deployment. `doctor all [TARGET]` explicitly composes applicable execution-
+environment, deployment, resolved-template, and latest-run checks. The other subcommands
 narrow the target when authoring a template, inspecting a run, or testing a
 development environment:
 

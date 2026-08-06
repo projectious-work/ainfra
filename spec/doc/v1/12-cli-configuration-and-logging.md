@@ -192,6 +192,11 @@ similarly overrides `AINFRA_PROJECT`. Maps merge by key, scalars replace lower
 values, and lists replace rather than append. This makes log destination order
 and removal deterministic. Conflicting mutually exclusive flags are errors.
 
+For deployment-bound commands, an explicit positional deployment path is
+evaluated before `--project` and `AINFRA_PROJECT` as specified by the CLI
+contract; a conflicting `--project` is an error. The positional argument is a
+path convenience, not a configuration layer or named environment selector.
+
 `ainfra doctor environment -v` shows the loaded file paths, origin of each
 effective non-sensitive value, and ignored absent layers. It MUST redact
 sensitive-looking path components and MUST never print environment values from

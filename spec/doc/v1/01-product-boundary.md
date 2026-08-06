@@ -10,7 +10,8 @@
 - **AINFRA-PROD-004:** a template author MUST be able to add a conforming
   provider or hosting-service template without changing ainfra source code.
 - **AINFRA-PROD-005:** every mutation MUST be attributable to an explicit
-  deployment, template version, environment, operation, and reviewed input.
+  canonical deployment root and identity, template version, operation, and
+  reviewed input.
 - **AINFRA-PROD-006:** direct engine commands MUST remain a documented recovery
   and diagnosis path.
 - **AINFRA-PROD-007:** Ansible owns host inspection, facts, fact caching, task

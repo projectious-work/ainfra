@@ -9,8 +9,10 @@ operator documentation.
 ### Deployment
 
 A deployment is a user-owned directory that selects one template and contains
-environment-specific native inputs. A deployment is the unit of planning,
-application, configuration, status, and destruction.
+one concrete set of native inputs. A deployment is the unit of planning,
+application, configuration, status, destruction, and local execution evidence.
+v1 has no separate environment entity or named input-set selector: one
+deployment directory represents one independently operated deployment.
 
 ### Run
 
@@ -19,12 +21,24 @@ template digest, native input bytes, engine versions, operation, and—where
 applicable—a saved OpenTofu plan. This is ainfra execution state, not
 infrastructure state.
 
-### Environment
+Names such as `development`, `staging`, and `production` MAY be deployment
+directory names or native template variable values. ainfra treats those names
+as paths or opaque engine input, never as a second execution identity. Teams
+that need several instances create several deployment directories:
 
-An environment is a named input set within a deployment. v1 SHOULD prefer one
-deployment directory per independently owned state boundary. Multiple named
-environments MAY share a deployment only when their state, credentials, and
-teardown ownership remain unambiguous.
+```text
+deployments/
+├── development/
+│   ├── ainfra.yaml
+│   └── .ainfra/
+├── staging/
+│   ├── ainfra.yaml
+│   └── .ainfra/
+└── product-a/
+    └── development/
+        ├── ainfra.yaml
+        └── .ainfra/
+```
 
 ## Deployment layout
 
@@ -55,6 +69,9 @@ my-deployment/
   caches, and run logs MUST NOT be committed by default.
 - **AINFRA-LAYOUT-006:** every native input pointer MUST be a relative path
   contained by the deployment root. The filenames are otherwise unrestricted.
+- **AINFRA-LAYOUT-007:** one deployment directory MUST contain exactly one
+  `ainfra.yaml` and one deployment-local `.ainfra/` execution-evidence tree.
+  Coordinating several deployment directories is outside v1.
 
 ## Template layout
 
