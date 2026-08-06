@@ -47,7 +47,7 @@
     // Between the search field and the GitHub link, matching the documentation
     // site's order. Falling back to the end of the bar keeps it reachable if
     // either neighbour is absent.
-    var github = nav.querySelector('a[href*="github.com"]');
+    var github = nav.querySelector('a[title="GitHub"]');
     var search = nav.querySelector(".hextra-search-wrapper");
     if (github) nav.insertBefore(slot, github);
     else if (search && search.nextSibling) nav.insertBefore(slot, search.nextSibling);
