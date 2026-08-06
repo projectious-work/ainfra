@@ -180,9 +180,10 @@ decision.
 
 ## Lockfile
 
-The lockfile records the requested source, resolved commit, selected
-subdirectory, template manifest version, complete template digest, and
-resolution time.
+The lockfile records the requested source, resolved immutable Git commit or
+normalized local-source identity, selected subdirectory, template manifest
+version, complete template digest, and resolution time. A local identity is not
+itself immutable; its digest provides the content binding.
 
 - **AINFRA-LOCK-001:** `ainfra template lock` and `template update` are the only
   commands that MAY rewrite the lockfile.
@@ -191,3 +192,15 @@ resolution time.
 - **AINFRA-LOCK-003:** apply and destroy MUST use the materialized template and
   digest bound into the reviewed plan record, not reacquire a mutable ref.
 - **AINFRA-LOCK-004:** lockfile comparison MUST use canonical serialization.
+- **AINFRA-LOCK-005:** a template tree digest MUST be SHA-256 over the
+  following byte stream: the ASCII bytes `ainfra-template-tree-v1` followed by
+  one NUL byte, then every included regular file sorted by its normalized
+  UTF-8 relative-path bytes. Each file contributes an unsigned 64-bit
+  big-endian path length, the path bytes using `/` separators, one byte that is
+  `1` when any executable bit is set and `0` otherwise, an unsigned 64-bit
+  big-endian content length, and the unmodified content bytes.
+- **AINFRA-LOCK-006:** digest paths MUST be valid UTF-8 in Unicode NFC form,
+  relative, traversal-free, and contain no empty segment. `.git/`, `.ainfra/`,
+  and engine runtime artifacts are not template content: `.git/` is excluded,
+  while the others are rejected. Symlinks and special files are rejected
+  rather than hashed.

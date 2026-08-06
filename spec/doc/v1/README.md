@@ -48,6 +48,7 @@ backend behavior.
 13. [Testing strategy](13-testing-strategy.md)
 14. [Go source conventions](14-go-source-conventions.md)
 15. [MCP server mode](15-mcp-server-mode.md)
+16. [Market positioning](16-market-positioning.md)
 
 Roadmap data:
 

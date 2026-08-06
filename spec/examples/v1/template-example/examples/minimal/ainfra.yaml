@@ -1,16 +1,15 @@
 apiVersion: ainfra.projectious.work/v1
 kind: Deployment
 metadata:
-  name: example
-  description: Provider-free deployment of the conforming template example
+  name: template-example-minimal
+  description: Minimal provider-free deployment of template-example
 spec:
   template:
-    source: local:../template-example
+    source: local:../..
   inputs:
     tofu:
       variableFiles:
         - terraform.tfvars
-      backendConfigFiles: []
     ansible:
       variableFiles:
         - ansible-vars.yaml

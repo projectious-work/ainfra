@@ -1,9 +1,9 @@
 apiVersion: ainfra.projectious.work/v1
 kind: TemplateLock
 template:
-  source: local:../template
-  resolved: local-example
+  source: local:../template-example
+  resolved: local:../template-example
   subdirectory: ""
   version: 1.0.0
-  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-  resolvedAt: "2026-08-05T00:00:00Z"
+  digest: sha256:febade3be7bce001fbae56f4c58b37ad4c7116110b7102d47187d4f8dfd8575c
+  resolvedAt: "2026-08-06T00:00:00Z"

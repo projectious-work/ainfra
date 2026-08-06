@@ -1,9 +1,9 @@
 apiVersion: ainfra.projectious.work/v1
 kind: Template
 metadata:
-  name: example-template
+  name: template-example
   version: 1.0.0
-  description: Minimal structural example for the ainfra v1 specification
+  description: Provider-free localhost conformance example for ainfra v1
 spec:
   engines:
     tofu:

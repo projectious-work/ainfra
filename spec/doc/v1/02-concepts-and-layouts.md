@@ -120,6 +120,8 @@ template-name/
 
 ## Reference example
 
-The normative structural example is under
-[`../../examples/v1/`](../../examples/v1/). Example provider values are
-illustrative; the directory and handoff contracts are normative.
+The minimal conforming, provider-free reference template is
+[`../../examples/v1/template-example/`](../../examples/v1/template-example/).
+It exercises the complete localhost lifecycle without claiming certified cloud
+provider support. The adjacent deployment is a second invocation example of
+the same template contract.
