@@ -30,7 +30,19 @@ Promotions MUST preserve commit identity. An approved source tip advances the
 next branch only by a fast-forward equivalent to `git merge --ff-only`:
 
 ```text
-v1.x-dev -> v1.x-pre-release -> v1.x-release -> main
+stable baseline on main
+        │
+        ├── v1.x-dev ── feat/* and fix/* integration
+        │       │
+        │       └── fast-forward ──> v1.x-pre-release
+        │                                  │
+        │                                  └── alpha / beta tags
+        │                                           │
+        │                       fast-forward ──> v1.x-release
+        │                                                   │
+        │                                                   └── rc / final tags
+        │                                                           │
+        └────────── fast-forward final commit into main <───────────┘
 ```
 
 Squash, rebase, and merge commits are prohibited during promotion. If a
