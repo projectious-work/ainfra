@@ -1,7 +1,0 @@
----
-# This initial Debian 13 baseline uses ansible.builtin only.
-# Add every future collection here with an exact version, for example:
-# collections:
-#   - name: ansible.posix
-#     version: 2.1.0
-collections: []
