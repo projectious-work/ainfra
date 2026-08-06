@@ -54,6 +54,11 @@ Roadmap data:
 
 - [Implementation roadmap](roadmap.yaml)
 
+Roadmap status has commitment semantics: `planned` means intended work with an
+accepted place in the delivery sequence; `idea` is deliberately non-committal
+and may be promoted, reshaped, or removed after validation. `in_progress` and
+`shipped` describe implementation evidence rather than aspiration.
+
 Reference diagrams:
 
 - [Product execution flow](architecture-overview.svg)

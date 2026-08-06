@@ -80,13 +80,13 @@ groups:
           Add comparable certified templates for AWS, Microsoft Azure, and
           Google Cloud while preserving the same native-file and output
           contracts.
-        status: planned
+        status: idea
       - id: "10"
         title: Specialized compute templates
         summary: >-
           Add templates for Vast.ai and similar GPU or on-demand compute
           providers, with explicit lifecycle and teardown limitations.
-        status: planned
+        status: idea
 
   - label: Template ecosystem
     note: authoring, compatibility, and trust
@@ -96,28 +96,28 @@ groups:
         summary: >-
           Improve fixtures, compatibility diagnosis, deprecation reporting,
           and safe template-contract migration previews as contracts evolve.
-        status: planned
+        status: idea
       - id: "12"
         title: Catalog and trust metadata
         summary: >-
           Define interoperable discovery metadata for certified Git-hosted
           templates, including compatibility, publisher identity, signatures,
           attestations, and revocation.
-        status: planned
+        status: idea
       - id: "13"
         title: Operational evidence export
         summary: >-
           Export sanitized and attributable deployment evidence for audits and
           support without exporting plans, state, credentials, or sensitive
           output.
-        status: planned
+        status: idea
       - id: "14"
         title: Authoring and editor integration
         summary: >-
           Publish schema bundles, completions, and editor integrations that
           consume doctor JSON without introducing another configuration
           language.
-        status: planned
+        status: idea
 
   - label: Automation interfaces
     note: agent and editor integration
@@ -128,7 +128,7 @@ groups:
           Serve doctor, inspection, status, schemas, and sanitized run results
           over MCP stdio by adapting the same typed application use cases,
           without exposing lifecycle mutations.
-        status: planned
+        status: idea
 
   - label: Extended provisioning
     note: infrastructure-adjacent bootstrap
@@ -139,7 +139,7 @@ groups:
           Invoke a dedicated external tool for initial k3s or comparable
           Kubernetes installation through a bounded child-process contract,
           like OpenTofu and Ansible, without taking on cluster maintenance.
-        status: planned
+        status: idea
 
   - label: Policy and coordination
     note: potential directions
@@ -150,17 +150,29 @@ groups:
           Pass sanitized manifests or plan summaries to an external policy
           engine at explicit lifecycle gates and enforce its result without
           owning a policy language.
-        status: planned
+        status: idea
       - id: "18"
         title: Deployment-set coordination
         summary: >-
           Coordinate several independent deployments while preserving separate
           state, locks, reviewed plans, approvals, and failure boundaries.
-        status: planned
+        status: idea
       - id: "19"
         title: Remote execution protocol
         summary: >-
           Run the same CLI lifecycle in a controlled remote environment while
           preserving explicit credentials, reviewed plans, child-tool
           boundaries, and auditable results.
-        status: planned
+        status: idea
+
+  - label: Engine evolution
+    note: deliberately distant architectural options
+    phases:
+      - id: "20"
+        title: Exchangeable infrastructure engine
+        summary: >-
+          Evaluate a versioned provisioning-engine contract that could support
+          alternatives to OpenTofu, including configuration-led or
+          Ansible-only templates, without weakening native inputs, reviewed
+          change approval, teardown semantics, recovery, or audit evidence.
+        status: idea

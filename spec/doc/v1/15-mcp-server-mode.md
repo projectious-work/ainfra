@@ -1,6 +1,6 @@
 ## Status and objective
 
-MCP server mode is a planned post-foundation capability, not part of the
+MCP server mode is a post-foundation roadmap idea, not part of the
 minimum v1 execution path. When implemented, it makes ainfra directly usable by
 MCP-capable agents and editors without wrapping shell commands or parsing
 terminal prose.
