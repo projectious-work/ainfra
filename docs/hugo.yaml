@@ -15,7 +15,7 @@ outputs:
   term: [HTML]
 
 params:
-  description: End-user documentation for ainfra.
+  description: Infrastructure for containerized AI.
   navbar:
     displayTitle: true
     displayLogo: true
@@ -63,4 +63,4 @@ markup:
     noClasses: false
   goldmark:
     renderer:
-      unsafe: false
+      unsafe: true

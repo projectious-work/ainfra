@@ -217,6 +217,23 @@ a.not-prose[class*="rounded-full"]:focus-visible {
   background: var(--pj-action-hover) !important;
 }
 
+.ainfra-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.ainfra-hero-action-secondary a.not-prose[class*="rounded-full"] {
+  background: transparent !important;
+  border: 1px solid var(--pj-border-strong);
+  color: var(--pj-heading) !important;
+}
+
+.ainfra-hero-action-secondary a.not-prose[class*="rounded-full"]:hover,
+.ainfra-hero-action-secondary a.not-prose[class*="rounded-full"]:focus-visible {
+  background: var(--pj-surface-hover) !important;
+}
+
 .content,
 .content p,
 .content li { color: var(--pj-text); }
