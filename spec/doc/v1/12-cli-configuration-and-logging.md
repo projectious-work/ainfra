@@ -228,8 +228,8 @@ supported environment variable, or flag.
 ## Relationship to `ainfra configure`
 
 `ainfra configure --run RUN_ID` is a deployment lifecycle command: it invokes
-Ansible against generated inventory using native `ansible-vars.yaml`. It does
-not create, edit, reconcile, or display CLI configuration files.
+Ansible against generated inventory using the declared native variable files.
+It does not create, edit, reconcile, or display CLI configuration files.
 
 Like every command, `configure` consumes the already resolved CLI configuration
 for logging, presentation, executable discovery, cache, and run locations. CLI

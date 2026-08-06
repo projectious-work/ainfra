@@ -13,10 +13,14 @@ spec:
     source: git::https://github.com/company/templates.git//hetzner/kubernetes
     ref: v2.3.1
   inputs:
-    tofu: terraform.tfvars
-    ansible: ansible-vars.yaml
-  state:
-    backendConfig: backend.hcl
+    tofu:
+      variableFiles:
+        - terraform.tfvars
+      backendConfigFiles:
+        - backend.hcl
+    ansible:
+      variableFiles:
+        - ansible-vars.yaml
 ```
 
 - **AINFRA-CONTRACT-001:** unknown fields in ainfra-owned documents MUST fail
@@ -59,14 +63,22 @@ spec:
 - **AINFRA-CONTRACT-013:** required Ansible collections MUST be declared in
   the template's native `requirements.yml`, not duplicated in the manifest.
 
-## Native variables
+## Native engine inputs
 
-The contents of `terraform.tfvars` and `ansible-vars.yaml` are deliberately a
-loose, template-owned contract. A template MAY introduce any variables needed
-for its provider, topology, operating system, or application bootstrap. The
-deployment supplies the values required by that template through the native
-files. ainfra standardizes their location and lifecycle handling, not their
-domain model.
+The input entries in `ainfra.yaml` are ordered lists of pointers to native
+engine files. `tofu.variableFiles` maps to repeated OpenTofu `-var-file`
+arguments during planning, `tofu.backendConfigFiles` maps to repeated
+`-backend-config` arguments during initialization, and
+`ansible.variableFiles` maps to native Ansible extra-vars files. Missing lists
+are equivalent to empty lists. List order is preserved because the owning
+engine may use it for precedence.
+
+The contents of these files are deliberately a loose, template-owned contract.
+A template MAY introduce any variables or backend configuration needed for its
+provider, topology, operating system, or application bootstrap. It MAY also
+integrate configuration directly and require no corresponding deployment file.
+The template documents which files and values are mandatory or optional.
+ainfra standardizes pointer handling and execution, not the domain model.
 
 The template defines its input API through native mechanisms: OpenTofu variable
 declarations, types, defaults, validation blocks, and descriptions; and Ansible
@@ -74,13 +86,13 @@ playbooks, role defaults, role argument specifications where applicable, and
 documentation. Variable additions and breaking changes follow the template's
 version and migration policy.
 
-- **AINFRA-CONTRACT-020:** ainfra MUST call OpenTofu with
-  `-var-file=<deployment tfvars>`.
+- **AINFRA-CONTRACT-020:** ainfra MUST pass every declared OpenTofu variable
+  file as `-var-file=<path>`, once and in declaration order, during planning.
 - **AINFRA-CONTRACT-021:** ainfra MUST NOT parse tfvars to implement
   provider-specific validation. It MAY hash the bytes and run OpenTofu
   validation.
-- **AINFRA-CONTRACT-022:** ainfra MUST call Ansible Runner with the deployment
-  `ansible-vars.yaml` as a native extra-vars file.
+- **AINFRA-CONTRACT-022:** ainfra MUST pass every declared Ansible variable
+  file as a native extra-vars file, once and in declaration order.
 - **AINFRA-CONTRACT-023:** reserved common names MUST be prefixed `ainfra_` and
   documented. Templates MUST NOT require a generated common-variable object.
 - **AINFRA-CONTRACT-024:** ainfra MUST treat native variable contents as opaque
@@ -94,6 +106,13 @@ version and migration policy.
 - **AINFRA-CONTRACT-027:** unknown, missing, mistyped, or invalid native values
   are reported by OpenTofu or Ansible and surfaced by ainfra without claiming
   independent semantic interpretation.
+- **AINFRA-CONTRACT-028:** ainfra MUST pass every declared backend
+  configuration file to `tofu init` as `-backend-config=<path>`, once and in
+  declaration order. It MUST treat its contents as opaque and MUST NOT infer or
+  enforce backend type, state location, locking, durability, or lifecycle.
+- **AINFRA-CONTRACT-029:** native input lists MAY be empty or omitted. Whether a
+  template requires a file or value is part of the template's documented
+  contract and is ultimately validated by the owning engine.
 
 This looseness ends at the cross-template boundary. ainfra-owned manifests,
 locks, machine results, and standardized OpenTofu output remain strict,

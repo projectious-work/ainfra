@@ -15,8 +15,9 @@ application, configuration, status, and destruction.
 ### Run
 
 A run is one locally recorded lifecycle attempt bound to a deployment,
-template digest, inputs, engine versions, operation, and—where applicable—a
-saved OpenTofu plan.
+template digest, native input bytes, engine versions, operation, and—where
+applicable—a saved OpenTofu plan. This is ainfra execution state, not
+infrastructure state.
 
 ### Environment
 
@@ -33,7 +34,7 @@ my-deployment/
 ├── ainfra.lock
 ├── terraform.tfvars
 ├── ansible-vars.yaml
-├── backend.hcl                 # optional; normally ignored when secret
+├── backend.hcl                 # optional native OpenTofu input
 ├── known_hosts                 # optional; normally ignored
 └── .ainfra/                    # ignored local operational state
     ├── cache/
@@ -42,16 +43,18 @@ my-deployment/
 
 - **AINFRA-LAYOUT-001:** `ainfra.yaml` MUST be a regular, non-symlink file in
   the deployment root.
-- **AINFRA-LAYOUT-002:** `terraform.tfvars` MUST be passed to OpenTofu without
-  semantic transformation.
-- **AINFRA-LAYOUT-003:** `ansible-vars.yaml` MUST be passed to Ansible as a
-  native extra-vars file without semantic transformation.
+- **AINFRA-LAYOUT-002:** files listed under `inputs.tofu.variableFiles` and
+  `inputs.tofu.backendConfigFiles` MUST be passed to OpenTofu without semantic
+  transformation.
+- **AINFRA-LAYOUT-003:** files listed under `inputs.ansible.variableFiles` MUST
+  be passed to Ansible as native extra-vars files without semantic
+  transformation.
 - **AINFRA-LAYOUT-004:** `ainfra.lock` MUST contain immutable resolved template
   identity and MUST be committed for a committed deployment.
 - **AINFRA-LAYOUT-005:** `.ainfra/`, plans, state, generated inventory, engine
   caches, and run logs MUST NOT be committed by default.
-- **AINFRA-LAYOUT-006:** custom filenames MAY be declared in `ainfra.yaml`, but
-  all paths MUST remain relative to and contained by the deployment root.
+- **AINFRA-LAYOUT-006:** every native input pointer MUST be a relative path
+  contained by the deployment root. The filenames are otherwise unrestricted.
 
 ## Template layout
 
@@ -85,7 +88,8 @@ template-name/
   secret-free example.
 - **AINFRA-LAYOUT-013:** a template MUST document direct OpenTofu and Ansible
   commands equivalent to ainfra execution.
-- **AINFRA-LAYOUT-014:** runtime state MUST NOT be part of template source.
+- **AINFRA-LAYOUT-014:** infrastructure state and ainfra execution state MUST
+  NOT be part of template source.
 
 ## Run layout
 

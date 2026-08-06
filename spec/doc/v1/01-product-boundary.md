@@ -63,7 +63,7 @@ provider knowledge.
 |---|---|
 | ainfra CLI | Source acquisition, locking, validation, lifecycle sequencing, safe subprocess execution, plan binding, inventory generation, run evidence, diagnostics, redaction, teardown guards |
 | Template | Provider resources, OpenTofu variables and outputs, Ansible content, supported topology, provider-specific security, template documentation |
-| Deployment | Template selection, environment-specific tfvars, Ansible variables, backend choice, credential references, approvals |
+| Deployment | Template selection, pointers to native engine input files, credential references, approvals |
 | OpenTofu | Infrastructure dependency graph, provider execution, plan, apply, state, locking |
 | Ansible Runner/Core | Host configuration execution, events, facts, check mode, collection behavior |
 | Operator | Credentials, plan review, cost approval, SSH trust, destructive approval, independent provider verification |

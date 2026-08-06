@@ -74,15 +74,17 @@ The v1 threat model includes:
 - **AINFRA-SEC-025:** permissions for local operational directories and files
   MUST default to owner-only where supported.
 
-## State and destructive safety
+## Engine state and destructive safety
 
-- **AINFRA-SEC-030:** non-disposable environments SHOULD use a remote backend
-  with encryption, locking, authenticated transport, access control, and
-  recovery/versioning.
-- **AINFRA-SEC-031:** local state MUST require an explicit disposable marker in
-  deployment metadata.
-- **AINFRA-SEC-032:** backend configuration bytes and non-secret backend
-  identity MUST be bound to the reviewed plan.
+- **AINFRA-SEC-030:** infrastructure state lifecycle, storage, locking,
+  migration, and recovery belong entirely to OpenTofu and the selected
+  backend. ainfra MUST NOT impose a local/remote or disposable/durable policy.
+- **AINFRA-SEC-031:** ainfra MUST NOT parse, modify, migrate, copy, or directly
+  inspect OpenTofu state. Security and recovery recommendations belong in
+  template and operator documentation and remain engine-native policy.
+- **AINFRA-SEC-032:** the ordered native input pointers and file bytes,
+  including backend configuration files, MUST be bound to the reviewed plan as
+  opaque execution inputs.
 - **AINFRA-SEC-033:** ainfra MUST never implement unreviewed `tofu destroy` as a
   shortcut.
 - **AINFRA-SEC-034:** ownership tags or labels MUST be defined by templates and

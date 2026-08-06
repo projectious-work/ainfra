@@ -12,14 +12,14 @@
 | `ainfra template lock` | Resolve the selected template source and record its immutable revision and content digest. |
 | `ainfra template update` | Resolve an explicitly requested newer template revision and update the lock after compatibility checks. |
 | `ainfra template migrate SOURCE --to VERSION [--write]` | Analyze a template-contract migration and optionally apply safe deterministic changes to a local working copy. |
-| `ainfra plan [--destroy]` | Create a saved apply or destroy plan bound to the deployment, inputs, template, backend, and tool versions. |
+| `ainfra plan [--destroy]` | Create a saved apply or destroy plan bound to the deployment, opaque native inputs, template, and tool versions. |
 | `ainfra apply --plan RUN_ID` | Verify all bindings and apply the exact reviewed OpenTofu apply plan. |
 | `ainfra configure --run RUN_ID [--check]` | Run Ansible for an applied run, optionally in check mode, using generated inventory and native variables. |
 | `ainfra deploy --plan RUN_ID` | Apply a reviewed plan, collect output, generate inventory, configure hosts, and verify convergence. |
 | `ainfra output --run RUN_ID` | Show the sanitized standardized infrastructure output recorded for a run. |
 | `ainfra inventory --run RUN_ID` | Show or regenerate deterministic Ansible inventory from a run's validated standardized output. |
 | `ainfra status` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
-| `ainfra destroy --plan RUN_ID` | Apply the exact reviewed destroy plan and verify the deployment's OpenTofu state is empty. |
+| `ainfra destroy --plan RUN_ID` | Apply the exact reviewed OpenTofu destroy plan and record the engine result. |
 | `ainfra version` | Print the ainfra version and machine-readable build information. |
 
 `deploy` composes apply, output collection, inventory generation, Ansible
@@ -67,7 +67,8 @@ development environment:
 - `environment`: operating system, architecture, executable discovery,
   supported versions, and capabilities required by ainfra;
 - `deployment`: manifest/schema version, native variable files, permissions,
-  ignored sensitive paths, backend selection, and referenced file containment;
+  ignored sensitive paths, native input pointers, and referenced file
+  containment;
 - `template`: layout and manifest, version compatibility, dependency pins,
   documentation, OpenTofu and Ansible syntax, standardized outputs, fixtures,
   and deprecated contracts;
@@ -134,9 +135,10 @@ produces an ordered migration plan. `--write` MAY apply documented
 deterministic transformations to a local working copy only. It MUST produce a
 patch, create a backup or require a clean version-controlled worktree, never
 migrate remote or cached content in place, never rewrite native deployment
-variable values, and rerun `ainfra doctor template` afterward. Provider,
-resource, backend, and state migration remain explicit template-specific
-operations and MUST NOT be performed by this command.
+variable values, and rerun `ainfra doctor template` afterward. Provider and
+resource migration remain explicit template-specific operations. Backend and
+infrastructure-state migration remain OpenTofu-owned operations. None of them
+may be performed by this command.
 
 - **AINFRA-DOCTOR-008:** doctor MUST not mutate provider infrastructure.
 - **AINFRA-DOCTOR-009:** missing optional prerequisites MUST be distinguished
@@ -180,10 +182,12 @@ operations and MUST NOT be performed by this command.
 
 1. Load and validate deployment and lock.
 2. Materialize the locked template into a new run workspace.
-3. Hash deployment metadata, native input files, backend config, template, and
+3. Hash deployment metadata, all declared native input files, template, and
    relevant executable versions.
-4. Run `tofu init` with an explicit backend configuration.
-5. Run `tofu plan -out=plan.tfplan -var-file=<native tfvars>`; add `-destroy`
+4. Run `tofu init`, adding each declared backend configuration file as a
+   repeated `-backend-config=<path>` argument in declaration order.
+5. Run `tofu plan -out=plan.tfplan`, adding each declared variable file as a
+   repeated `-var-file=<path>` argument in declaration order; add `-destroy`
    for a destroy plan.
 6. Create a sanitized structural plan summary and immutable plan record.
 
@@ -192,8 +196,7 @@ operations and MUST NOT be performed by this command.
 - **AINFRA-PLAN-002:** saved binary plans and raw plan JSON MUST be treated as
   sensitive.
 - **AINFRA-PLAN-003:** plan output MUST clearly state apply versus destroy,
-  deployment, template source/digest, state backend identity where non-secret,
-  and next command.
+  deployment, template source/digest, native input digests, and next command.
 - **AINFRA-PLAN-004:** a destroy plan MUST never authorize apply, and an apply
   plan MUST never authorize destroy.
 
@@ -223,9 +226,9 @@ without reading provider state directly.
 ## Configure and verify
 
 `configure` invokes Ansible Runner with the materialized template project,
-generated inventory, and native deployment `ansible-vars.yaml`. `--check`
-enables check/diff behavior. `deploy` MUST run a normal configuration followed
-by a separate check-mode verification.
+generated inventory, and every declared native Ansible variable file in
+declaration order. `--check` enables check/diff behavior. `deploy` MUST run a
+normal configuration followed by a separate check-mode verification.
 
 - **AINFRA-ANS-001:** SSH host-key checking MUST be enabled.
 - **AINFRA-ANS-002:** an independently populated `known_hosts` file MUST be
@@ -243,11 +246,10 @@ by a separate check-mode verification.
 Destroy uses the same reviewed-plan boundary as apply.
 
 - **AINFRA-DESTROY-001:** destroy MUST require a saved destroy plan ID.
-- **AINFRA-DESTROY-002:** destroy MUST verify deployment, template, input,
-  backend, plan, and operation bindings before execution.
-- **AINFRA-DESTROY-003:** successful `tofu apply <destroy-plan>` MUST be
-  followed by an empty-state verification for the same backend before
-  reporting the deployment destroyed.
+- **AINFRA-DESTROY-002:** destroy MUST verify deployment, template, opaque
+  native-input, plan, and operation bindings before execution.
+- **AINFRA-DESTROY-003:** ainfra MUST report the result of `tofu apply
+  <destroy-plan>` without independently reading or interpreting OpenTofu state.
 - **AINFRA-DESTROY-004:** provider-side independent verification MUST be
   documented for every certified template.
 

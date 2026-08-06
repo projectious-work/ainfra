@@ -20,7 +20,7 @@
     "spec": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["template", "inputs", "state"],
+      "required": ["template"],
       "properties": {
         "template": {
           "type": "object",
@@ -34,26 +34,23 @@
         "inputs": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["tofu", "ansible"],
           "properties": {
-            "tofu": {"$ref": "#/$defs/relativePath"},
-            "ansible": {"$ref": "#/$defs/relativePath"}
-          }
-        },
-        "state": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["mode"],
-          "properties": {
-            "mode": {"enum": ["remote", "local-disposable"]},
-            "backendConfig": {"$ref": "#/$defs/relativePath"}
-          },
-          "allOf": [
-            {
-              "if": {"properties": {"mode": {"const": "remote"}}},
-              "then": {"required": ["backendConfig"]}
+            "tofu": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "variableFiles": {"$ref": "#/$defs/relativePaths"},
+                "backendConfigFiles": {"$ref": "#/$defs/relativePaths"}
+              }
+            },
+            "ansible": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "variableFiles": {"$ref": "#/$defs/relativePaths"}
+              }
             }
-          ]
+          }
         },
         "ssh": {
           "type": "object",
@@ -70,6 +67,11 @@
       "type": "string",
       "minLength": 1,
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "relativePaths": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/relativePath"},
+      "uniqueItems": true
     }
   }
 }

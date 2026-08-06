@@ -63,7 +63,7 @@ conformance or certification.
 - link to the standard native-variable reference;
 - network and access model;
 - estimated cost categories and billable opt-ins;
-- state/backend requirements;
+- native backend-configuration requirements and engine-owned state guidance;
 - plan/apply/configure/destroy walkthrough;
 - direct OpenTofu and Ansible equivalents;
 - failure and recovery guidance;

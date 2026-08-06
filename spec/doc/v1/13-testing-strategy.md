@@ -114,7 +114,7 @@ Every certified template has an opt-in test that performs:
 4. standardized output and inventory generation;
 5. Ansible configuration and zero-change verification;
 6. repeat-plan/idempotency inspection;
-7. reviewed destroy and empty-state verification; and
+7. reviewed destroy-plan execution and engine-result recording; and
 8. independent provider-side teardown verification.
 
 Live tests require an explicit enable flag, isolated credentials, budget and

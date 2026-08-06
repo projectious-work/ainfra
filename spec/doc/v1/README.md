@@ -25,7 +25,10 @@ Ansible inventory, invokes Ansible Runner, preserves review boundaries, and
 provides explicit, safe teardown.
 
 ainfra does not define an infrastructure language above OpenTofu or Ansible.
-Operators edit native `terraform.tfvars` and `ansible-vars.yaml` files.
+Operators edit whatever native OpenTofu and Ansible input files their selected
+template documents, then list those files in `ainfra.yaml`. ainfra owns
+execution state and audit evidence; OpenTofu owns infrastructure state and
+backend behavior.
 
 ## Specification map
 

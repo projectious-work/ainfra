@@ -7,9 +7,12 @@ spec:
   template:
     source: local:../template
   inputs:
-    tofu: terraform.tfvars
-    ansible: ansible-vars.yaml
-  state:
-    mode: local-disposable
+    tofu:
+      variableFiles:
+        - terraform.tfvars
+      backendConfigFiles: []
+    ansible:
+      variableFiles:
+        - ansible-vars.yaml
   ssh:
     knownHosts: known_hosts
