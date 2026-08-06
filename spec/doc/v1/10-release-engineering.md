@@ -8,6 +8,54 @@ appear in their `apiVersion` or schema-version fields.
 - major: breaking CLI or contract behavior;
 - prerelease: `v1.0.0-alpha.1`, `-beta.1`, and `-rc.1`.
 
+## Branching and promotion
+
+ainfra follows the projectious.work branching and release-promotion standard.
+While the v1 rewrite proceeds beside the stable product, its long-lived
+branches are:
+
+| Branch | Purpose |
+|---|---|
+| `v1.x-dev` | Reviewed integration of short-lived `feat/*` and `fix/*` branches. |
+| `v1.x-pre-release` | Exact alpha/beta staging pointer. |
+| `v1.x-release` | Exact release-candidate and final-release pointer. |
+| `main` | Published stable history. |
+
+The three v1 branches begin at the same stable `main` commit. Topic branches
+merge only into `v1.x-dev`, using the repository's normal reviewed integration
+policy. The pre-release and release branches receive no direct commits and no
+topic-branch merges.
+
+Promotions MUST preserve commit identity. An approved source tip advances the
+next branch only by a fast-forward equivalent to `git merge --ff-only`:
+
+```text
+v1.x-dev -> v1.x-pre-release -> v1.x-release -> main
+```
+
+Squash, rebase, and merge commits are prohibited during promotion. If a
+fast-forward is impossible, the release stops; divergence is reconciled on
+`v1.x-dev` and the affected validation is repeated. Force-pushing a long-lived
+branch or moving a published tag is prohibited.
+
+The first alpha/beta promotion starts feature freeze for that release train.
+Until the final commit reaches `main`, `v1.x-dev` accepts only approved release-
+scope fixes, tests, documentation, and release preparation. A stabilization
+fix branches from `v1.x-dev`, returns there through review, and is re-promoted
+through every applicable stage.
+
+Alpha and beta tags are created on validated `v1.x-pre-release` commits. RC and
+stable tags are created on validated `v1.x-release` commits. If tracked content
+changes after an RC, the result receives a higher RC and repeats validation.
+The stable tag, `v1.x-release`, and `main` MUST resolve to the same final commit.
+
+For an incident in the current stable major, `fix/<topic>` starts from the
+affected stable tag, not from development. After the patch reaches `main`,
+`main` is merged into the same-major development line to retain ancestry, and
+the fix is separately forward-ported to affected newer majors. A
+`vX.x-maintenance` branch is created from the latest stable vX tag only when a
+newer major is stable and major X remains explicitly supported.
+
 ## Changelog
 
 `CHANGELOG.md` follows Keep a Changelog structure:
@@ -105,3 +153,10 @@ Review and update when applicable:
   redacted acceptance evidence.
 - **AINFRA-REL-006:** security fixes MUST use the changelog Security section and
   coordinated disclosure where appropriate.
+- **AINFRA-REL-007:** promotion branches MUST be exact fast-forward pointers
+  and MUST NOT contain unique commits.
+- **AINFRA-REL-008:** release tags MUST be annotated, SHOULD be signed, and
+  MUST NOT be moved or reused after publication.
+- **AINFRA-REL-009:** agents MUST identify the active version line, source,
+  target, intended version, and operation type before changing branches or
+  opening a pull request.
