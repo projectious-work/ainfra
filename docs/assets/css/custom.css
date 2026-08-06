@@ -520,9 +520,8 @@ select,
 }
 
 /* The colour-mode control, moved into the navbar by assets/js/navbar-theme.js
-   so the header matches the documentation site's: search, then theme, then the
-   GitHub link. Icon only — the bar has no room for a word, and every other
-   control in it is an icon or a field. */
+   so the header order is search, theme, then GitHub. Keep Hextra's active-mode
+   label visible so the control reads explicitly as Light or Dark. */
 .pj-navbar-theme {
   display: flex;
   align-items: center;
@@ -536,10 +535,6 @@ select,
 .pj-navbar-theme .hextra-theme-toggle:focus-visible {
   background: var(--pj-surface-hover);
   color: var(--pj-heading);
-}
-/* Hextra's sidebar instance renders a "Light"/"Dark" label beside the glyph. */
-.pj-navbar-theme .hextra-theme-toggle span {
-  display: none;
 }
 
 /* The sidebar strip the toggle came out of. Hidden rather than left empty —
