@@ -28,6 +28,6 @@ layout: hextra-home
   {{< hextra/hero-button text="Get started" link="docs/" >}}
   </div>
   <div class="ainfra-hero-action-secondary">
-  {{< hextra/hero-button text="Create template" link="https://github.com/projectious-work/ainfra" >}}
+  {{< hextra/hero-button text="Tutorials" link="docs/" >}}
   </div>
 </div>
