@@ -1,0 +1,11 @@
+{
+  "event": "playbook_on_stats",
+  "event_data": {
+    "changed": {},
+    "dark": {},
+    "failures": {},
+    "ok": {"localhost": 2},
+    "processed": {"localhost": 1},
+    "skipped": {}
+  }
+}

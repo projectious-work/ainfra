@@ -1,0 +1,15 @@
+# Schema example for a template that provisions infrastructure without hosts
+# managed by Ansible. A complete template also contains the declared tofu dir.
+apiVersion: ainfra.projectious.work/v1
+kind: Template
+metadata:
+  name: infrastructure-only-example
+  version: 1.0.0
+  description: Minimal manifest shape without an Ansible engine
+spec:
+  engines:
+    tofu:
+      directory: tofu
+      version: ">=1.10.0 <2.0.0"
+  outputs:
+    inventory: none

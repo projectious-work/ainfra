@@ -1,0 +1,24 @@
+apiVersion: ainfra.projectious.work/v1
+kind: EngineEvidenceProfile
+metadata:
+  name: ansible-runner-events
+spec:
+  engine: ansible-runner
+  protocol:
+    name: ansible-runner-events
+    compatibility: adapter-version-matrix
+  framing: runner-event-files
+  fields:
+    type: /event
+    message: /stdout
+    timestamp: /created
+  classifications:
+    - category: failed
+      pointer: /event
+      values: [runner_on_failed, runner_on_async_failed]
+    - category: unreachable
+      pointer: /event
+      values: [runner_on_unreachable]
+    - category: summary
+      pointer: /event
+      values: [playbook_on_stats]

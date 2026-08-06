@@ -1,0 +1,13 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "version",
+  "ok": true,
+  "result": {
+    "version": "1.0.0",
+    "commit": "0123456789abcdef",
+    "builtAt": "yesterday",
+    "goVersion": "go1.25.0",
+    "platform": "linux/amd64"
+  },
+  "diagnostics": []
+}

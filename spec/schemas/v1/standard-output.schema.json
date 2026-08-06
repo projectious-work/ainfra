@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/v1/standard-output.schema.json",
+  "title": "ainfra v1 standardized OpenTofu output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "hosts"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "hosts": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 10000,
+      "propertyNames": {"$ref": "#/$defs/inventoryName"},
+      "additionalProperties": {"$ref": "#/$defs/host"}
+    }
+  },
+  "$defs": {
+    "inventoryName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groups", "connection"],
+      "properties": {
+        "groups": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/inventoryName"}
+        },
+        "connection": {
+          "oneOf": [
+            {"$ref": "#/$defs/localConnection"},
+            {"$ref": "#/$defs/sshConnection"}
+          ]
+        }
+      }
+    },
+    "localConnection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {"type": {"const": "local"}}
+    },
+    "sshConnection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "address", "user", "port"],
+      "properties": {
+        "type": {"const": "ssh"},
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[^-\\s][^\\s]*$"
+        },
+        "user": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$"
+        },
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    }
+  }
+}

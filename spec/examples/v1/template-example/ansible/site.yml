@@ -1,0 +1,21 @@
+---
+- name: Verify the ainfra localhost conformance handoff
+  hosts: all
+  gather_facts: false
+  vars:
+    emit_summary: true
+  tasks:
+    - name: Validate inventory and deployment variables
+      ansible.builtin.assert:
+        that:
+          - deployment_label is defined
+          - deployment_label | length > 0
+          - message is defined
+          - message | length > 0
+          - emit_summary is boolean
+        quiet: true
+
+    - name: Report the non-secret conformance message
+      ansible.builtin.debug:
+        msg: "{{ deployment_label }}: {{ message }}"
+      when: emit_summary

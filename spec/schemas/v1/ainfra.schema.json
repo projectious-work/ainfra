@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/v1/ainfra.schema.json",
+  "title": "ainfra v1 deployment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "ainfra.projectious.work/v1"},
+    "kind": {"const": "Deployment"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$"},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template"],
+      "properties": {
+        "template": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": {"type": "string", "minLength": 1},
+            "ref": {"type": "string", "minLength": 1}
+          }
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tofu": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "variableFiles": {"$ref": "#/$defs/relativePaths"},
+                "backendConfigFiles": {"$ref": "#/$defs/relativePaths"}
+              }
+            },
+            "ansible": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "variableFiles": {"$ref": "#/$defs/relativePaths"}
+              }
+            }
+          }
+        },
+        "ssh": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "knownHosts": {"$ref": "#/$defs/relativePath"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "relativePaths": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/relativePath"},
+      "uniqueItems": true
+    }
+  }
+}

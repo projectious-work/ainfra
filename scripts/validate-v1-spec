@@ -1,0 +1,60 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+check_schema() {
+  schema=$1
+  shift
+  uv run --frozen --offline check-jsonschema \
+    --schemafile "$schema" \
+    "$@"
+}
+
+expect_invalid() {
+  schema=$1
+  instance=$2
+  if uv run --frozen --offline check-jsonschema \
+    --schemafile "$schema" \
+    "$instance" >/dev/null 2>&1
+  then
+    echo "expected schema validation to fail: $instance" >&2
+    exit 1
+  fi
+}
+
+uv run --frozen --offline check-jsonschema \
+  --check-metaschema \
+  spec/schemas/v1/*.json
+
+check_schema spec/schemas/v1/ainfra.schema.json \
+  spec/examples/v1/deployment/ainfra.yaml \
+  spec/examples/v1/template-example/examples/minimal/ainfra.yaml
+check_schema spec/schemas/v1/config.schema.json \
+  spec/examples/v1/config.yaml \
+  spec/examples/v1/project-config.yaml
+check_schema spec/schemas/v1/engine-evidence-profile.schema.json \
+  spec/examples/v1/evidence-profiles/*.yaml
+uv run --frozen --offline check-jsonschema \
+  --schemafile spec/schemas/v1/lock.schema.json \
+  --force-filetype yaml \
+  spec/examples/v1/deployment/ainfra.lock
+check_schema spec/schemas/v1/machine-output.schema.json \
+  spec/examples/v1/machine-output/*.json
+check_schema spec/schemas/v1/roadmap.schema.json \
+  spec/doc/v1/roadmap.yaml
+check_schema spec/schemas/v1/standard-output.schema.json \
+  spec/examples/v1/template-example/tests/fixtures/output.json
+check_schema spec/schemas/v1/template-manifest.schema.json \
+  spec/examples/v1/manifest-infrastructure-only.yaml \
+  spec/examples/v1/template-example/ainfra-template.yaml
+
+for invalid_fixture in spec/tests/v1/machine-output/invalid-*.json
+do
+  expect_invalid \
+    spec/schemas/v1/machine-output.schema.json \
+    "$invalid_fixture"
+done
+
+echo "ainfra v1 schemas, examples, and negative format fixtures are valid"

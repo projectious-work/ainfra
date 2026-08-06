@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+if [ -d .github/workflows ]; then
+  echo "GitHub Actions and workflow files are prohibited." >&2
+  exit 1
+fi
+
+scripts/validate-v1-spec
+
+cargo fmt --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-targets --all-features
+cargo audit
+
+uv run --frozen ruff format --check src tests
+uv run --frozen ruff check src tests
+uv run --frozen pytest
+scripts/test-ansible
+scripts/security-all

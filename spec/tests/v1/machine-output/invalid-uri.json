@@ -1,0 +1,14 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "doctor.template",
+  "ok": false,
+  "result": null,
+  "diagnostics": [
+    {
+      "code": "AINFRA-E1000",
+      "severity": "error",
+      "message": "Example format failure.",
+      "documentationUrl": "not a URI"
+    }
+  ]
+}

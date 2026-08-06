@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="820" viewBox="0 0 1300 820" role="img" aria-labelledby="title desc">
+  <title id="title">ainfra Go package dependency direction</title>
+  <desc id="desc">The command package depends on application use cases. Application use cases coordinate cohesive domain packages. Configuration, security, execution, logging, engine evidence, diagnostics, and output form focused shared boundaries.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#475569"/>
+    </marker>
+    <style>
+      .box { fill:#f8fafc; stroke:#475569; stroke-width:2; rx:10; }
+      .top { fill:#e0f2fe; stroke:#0369a1; stroke-width:2; rx:10; }
+      .base { fill:#ecfdf5; stroke:#047857; stroke-width:2; rx:10; }
+      .text { font-family:system-ui,sans-serif; font-size:17px; fill:#0f172a; text-anchor:middle; }
+      .small { font-family:system-ui,sans-serif; font-size:13px; fill:#475569; text-anchor:middle; }
+      .line { stroke:#475569; stroke-width:1.8; fill:none; marker-end:url(#arrow); }
+      .direct { stroke:#0284c7; stroke-width:1.8; stroke-dasharray:6 5; fill:none; marker-end:url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1300" height="820" fill="white"/>
+  <text x="650" y="38" class="text" style="font-size:26px;font-weight:700">Go package dependency direction</text>
+  <rect x="525" y="70" width="250" height="70" class="top"/>
+  <text x="650" y="105" class="text">cmd/ainfra</text>
+  <text x="650" y="127" class="small">composition only</text>
+  <rect x="525" y="180" width="250" height="70" class="top"/>
+  <text x="650" y="215" class="text">command</text>
+  <text x="650" y="237" class="small">syntax and rendering selection</text>
+  <rect x="525" y="290" width="250" height="82" class="top"/>
+  <text x="650" y="325" class="text">app</text>
+  <text x="650" y="348" class="small">use-case sequencing</text>
+  <path d="M650 140 V180" class="line"/>
+  <path d="M650 250 V290" class="line"/>
+  <path d="M775 205 C1040 205 1080 420 905 530" class="direct"/>
+  <path d="M775 220 C1160 265 1010 610 705 660" class="direct"/>
+  <path d="M775 235 C1240 300 1150 610 955 660" class="direct"/>
+  <g>
+    <rect x="20" y="425" width="120" height="62" class="box"/><text x="80" y="461" class="text">project</text>
+    <rect x="155" y="425" width="120" height="62" class="box"/><text x="215" y="461" class="text">template</text>
+    <rect x="290" y="425" width="120" height="62" class="box"/><text x="350" y="461" class="text">source</text>
+    <rect x="425" y="425" width="120" height="62" class="box"/><text x="485" y="461" class="text">lock</text>
+    <rect x="560" y="425" width="120" height="62" class="box"/><text x="620" y="461" class="text">tofu</text>
+    <rect x="695" y="425" width="120" height="62" class="box"/><text x="755" y="461" class="text">inventory</text>
+    <rect x="830" y="425" width="120" height="62" class="box"/><text x="890" y="461" class="text">ansible</text>
+    <rect x="965" y="425" width="120" height="62" class="box"/><text x="1025" y="461" class="text">run</text>
+    <rect x="1100" y="425" width="180" height="62" class="box"/><text x="1190" y="461" class="text">migration</text>
+  </g>
+  <path d="M650 372 L80 425" class="line"/><path d="M650 372 L215 425" class="line"/>
+  <path d="M650 372 L350 425" class="line"/><path d="M650 372 L485 425" class="line"/>
+  <path d="M650 372 L620 425" class="line"/><path d="M650 372 L755 425" class="line"/>
+  <path d="M650 372 L890 425" class="line"/><path d="M650 372 L1025 425" class="line"/>
+  <path d="M650 372 L1190 425" class="line"/>
+  <rect x="300" y="530" width="190" height="62" class="box"/>
+  <text x="395" y="566" class="text">diagnostic</text>
+  <rect x="555" y="530" width="190" height="62" class="box"/>
+  <text x="650" y="566" class="text">reconcile</text>
+  <rect x="810" y="530" width="190" height="62" class="box"/>
+  <text x="905" y="566" class="text">config</text>
+  <path d="M650 372 L395 530" class="line"/><path d="M650 372 V530" class="line"/>
+  <path d="M650 372 L905 530" class="line"/>
+  <rect x="170" y="660" width="190" height="68" class="base"/>
+  <text x="265" y="695" class="text">security</text><text x="265" y="717" class="small">focused policies</text>
+  <rect x="390" y="660" width="190" height="68" class="base"/>
+  <text x="485" y="695" class="text">exec</text><text x="485" y="717" class="small">only process boundary</text>
+  <rect x="610" y="660" width="190" height="68" class="base"/>
+  <text x="705" y="695" class="text">logging</text><text x="705" y="717" class="small">structured sinks</text>
+  <rect x="830" y="660" width="250" height="68" class="base"/>
+  <text x="955" y="695" class="text">output</text><text x="955" y="717" class="small">rich, plain, and JSON</text>
+  <rect x="1100" y="660" width="165" height="68" class="base"/>
+  <text x="1182" y="695" class="text">evidence</text><text x="1182" y="717" class="small">engine records</text>
+  <path d="M350 487 L475 660" class="line"/><path d="M620 487 L485 660" class="line"/>
+  <path d="M890 487 L495 660" class="line"/><path d="M395 592 L265 660" class="line"/>
+  <path d="M650 592 L285 660" class="line"/><path d="M905 592 L705 660" class="line"/>
+  <path d="M620 487 L1160 660" class="line"/><path d="M890 487 L1182 660" class="line"/>
+  <text x="1065" y="635" class="small" style="fill:#0284c7">dashed: direct command dependencies</text>
+  <text x="650" y="785" class="small">Adapters never call each other; app owns sequencing. Dependency cycles are forbidden.</text>
+</svg>

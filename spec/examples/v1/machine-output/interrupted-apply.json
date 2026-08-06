@@ -1,0 +1,38 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "apply",
+  "ok": false,
+  "result": {
+    "deployment": {"name": "development", "root": "/work/development"},
+    "runId": "example-apply-run",
+    "operation": "apply",
+    "executionOutcome": "interrupted",
+    "engineReports": [
+      {
+        "engine": "opentofu",
+        "status": "interrupted",
+        "exitCode": null,
+        "protocol": {"name": "opentofu-json-ui", "version": "1.2"}
+      }
+    ],
+    "evidence": [
+      {"kind": "engine-events", "engine": "opentofu", "path": "engine/opentofu/events.jsonl", "sensitive": true},
+      {"kind": "sanitized-log", "engine": "opentofu", "path": "engine/opentofu/console.log", "sensitive": false}
+    ],
+    "recovery": {
+      "automaticRetryAllowed": false,
+      "inspectionRequired": true,
+      "nextCommands": ["ainfra logs development --run example-apply-run --errors", "ainfra doctor run development"]
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "AINFRA-E0006",
+      "severity": "error",
+      "scope": "run",
+      "component": "opentofu",
+      "message": "OpenTofu execution was interrupted; infrastructure state is unknown to ainfra.",
+      "nextAction": "Inspect engine evidence and OpenTofu using its native commands before deciding how to continue."
+    }
+  ]
+}

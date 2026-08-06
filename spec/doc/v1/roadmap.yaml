@@ -1,0 +1,178 @@
+groups:
+  - label: Foundation
+    note: the product contract
+    phases:
+      - id: "0"
+        title: Product specification
+        summary: >-
+          Finalize the v1 boundary, native-file contracts, security model, Go
+          architecture, schemas, examples, and acceptance journeys.
+        status: in_progress
+      - id: "1"
+        title: Go project foundation
+        summary: >-
+          Establish the Go module, command shell, typed results, process and
+          filesystem boundaries, test fixtures, developer tools, and
+          Linux/macOS builds.
+        status: planned
+      - id: "2"
+        title: Contracts and doctor
+        summary: >-
+          Discover deployments, parse manifests and native files, validate
+          ainfra-owned contracts, and report stable text and JSON diagnostics
+          plus safe local reconciliation through one doctor surface.
+        status: planned
+      - id: "3"
+        title: Immutable template sources
+        summary: >-
+          Resolve local and Git-subdirectory sources, lock revisions and
+          digests, materialize contained workspaces, and detect source or cache
+          drift.
+        status: planned
+
+  - label: Infrastructure lifecycle
+    note: opentofu and ansible orchestration
+    phases:
+      - id: "4"
+        title: Reviewed OpenTofu plans
+        summary: >-
+          Initialize native OpenTofu configuration, create bound saved plans,
+          apply only the reviewed plan, and record durable run evidence.
+        status: planned
+      - id: "5"
+        title: Output, inventory, and Ansible
+        summary: >-
+          Validate standardized non-secret output, generate deterministic
+          inventory, run Ansible with native variables, and verify zero-change
+          convergence.
+        status: planned
+      - id: "6"
+        title: Destruction, recovery, and hardening
+        summary: >-
+          Add reviewed destroy plans, teardown verification, interruption
+          recovery, redaction, binding checks, cache defenses, and negative
+          security fixtures.
+        status: planned
+
+  - label: Template authoring
+    note: the v1 authoring promise
+    phases:
+      - id: "7"
+        title: Template authoring and conformance
+        summary: >-
+          Publish schemas, examples, conformance diagnostics, and human and AI
+          guidance, then prove through clean-room authoring that a new template
+          can be created without reading ainfra implementation source.
+        status: planned
+
+  - label: Template coverage
+    note: useful deployments out of the box
+    phases:
+      - id: "8"
+        title: Initial production template
+        summary: >-
+          Ship and certify the first Kubernetes-ready template with private
+          access, tunneled ingress, and temporary administrative access.
+        status: planned
+      - id: "9"
+        title: Complete major-cloud templates
+        summary: >-
+          Add comparable certified templates for AWS, Microsoft Azure, and
+          Google Cloud while preserving the same native-file and output
+          contracts.
+        status: idea
+      - id: "10"
+        title: Specialized compute templates
+        summary: >-
+          Add templates for Vast.ai and similar GPU or on-demand compute
+          providers, with explicit lifecycle and teardown limitations.
+        status: idea
+
+  - label: Template ecosystem
+    note: authoring, compatibility, and trust
+    phases:
+      - id: "11"
+        title: Compatibility and migration experience
+        summary: >-
+          Improve fixtures, compatibility diagnosis, deprecation reporting,
+          and safe template-contract migration previews as contracts evolve.
+        status: idea
+      - id: "12"
+        title: Catalog and trust metadata
+        summary: >-
+          Define interoperable discovery metadata for certified Git-hosted
+          templates, including compatibility, publisher identity, signatures,
+          attestations, and revocation.
+        status: idea
+      - id: "13"
+        title: Operational evidence export
+        summary: >-
+          Export sanitized and attributable deployment evidence for audits and
+          support without exporting plans, state, credentials, or sensitive
+          output.
+        status: idea
+      - id: "14"
+        title: Authoring and editor integration
+        summary: >-
+          Publish schema bundles, completions, and editor integrations that
+          consume doctor JSON without introducing another configuration
+          language.
+        status: idea
+
+  - label: Automation interfaces
+    note: agent and editor integration
+    phases:
+      - id: "15"
+        title: Read-only MCP server mode
+        summary: >-
+          Serve doctor, inspection, status, schemas, and sanitized run results
+          over MCP stdio by adapting the same typed application use cases,
+          without exposing lifecycle mutations.
+        status: idea
+
+  - label: Extended provisioning
+    note: infrastructure-adjacent bootstrap
+    phases:
+      - id: "16"
+        title: External cluster bootstrap
+        summary: >-
+          Invoke a dedicated external tool for initial k3s or comparable
+          Kubernetes installation through a bounded child-process contract,
+          like OpenTofu and Ansible, without taking on cluster maintenance.
+        status: idea
+
+  - label: Policy and coordination
+    note: potential directions
+    phases:
+      - id: "17"
+        title: External policy checks
+        summary: >-
+          Pass sanitized manifests or plan summaries to an external policy
+          engine at explicit lifecycle gates and enforce its result without
+          owning a policy language.
+        status: idea
+      - id: "18"
+        title: Deployment-set coordination
+        summary: >-
+          Coordinate several independent deployments while preserving separate
+          state, locks, reviewed plans, approvals, and failure boundaries.
+        status: idea
+      - id: "19"
+        title: Remote execution protocol
+        summary: >-
+          Run the same CLI lifecycle in a controlled remote environment while
+          preserving explicit credentials, reviewed plans, child-tool
+          boundaries, and auditable results.
+        status: idea
+
+  - label: Engine evolution
+    note: deliberately distant architectural options
+    phases:
+      - id: "20"
+        title: Exchangeable infrastructure engine
+        summary: >-
+          Evaluate a versioned provisioning-engine contract that could support
+          alternatives to OpenTofu, including configuration-led or
+          Ansible-only templates, without weakening native inputs, reviewed
+          change approval, teardown semantics, recovery, or audit evidence.
+        status: idea
