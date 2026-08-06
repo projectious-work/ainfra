@@ -54,10 +54,21 @@ groups:
           security fixtures.
         status: planned
 
+  - label: Automation interface
+    note: read-only agent integration for v1
+    phases:
+      - id: "7"
+        title: Read-only MCP server mode
+        summary: >-
+          Serve doctor, inspection, status, schemas, and sanitized run results
+          over MCP stdio by adapting the same typed application use cases,
+          without exposing lifecycle mutations.
+        status: planned
+
   - label: Template authoring
     note: the v1 authoring promise
     phases:
-      - id: "7"
+      - id: "8"
         title: Template authoring and conformance
         summary: >-
           Publish schemas, examples, conformance diagnostics, and human and AI
@@ -68,20 +79,20 @@ groups:
   - label: Template coverage
     note: useful deployments out of the box
     phases:
-      - id: "8"
+      - id: "9"
         title: Initial production template
         summary: >-
           Ship and certify the first Kubernetes-ready template with private
           access, tunneled ingress, and temporary administrative access.
         status: planned
-      - id: "9"
+      - id: "10"
         title: Complete major-cloud templates
         summary: >-
           Add comparable certified templates for AWS, Microsoft Azure, and
           Google Cloud while preserving the same native-file and output
           contracts.
         status: idea
-      - id: "10"
+      - id: "11"
         title: Specialized compute templates
         summary: >-
           Add templates for Vast.ai and similar GPU or on-demand compute
@@ -91,43 +102,32 @@ groups:
   - label: Template ecosystem
     note: authoring, compatibility, and trust
     phases:
-      - id: "11"
+      - id: "12"
         title: Compatibility and migration experience
         summary: >-
           Improve fixtures, compatibility diagnosis, deprecation reporting,
           and safe template-contract migration previews as contracts evolve.
         status: idea
-      - id: "12"
+      - id: "13"
         title: Catalog and trust metadata
         summary: >-
           Define interoperable discovery metadata for certified Git-hosted
           templates, including compatibility, publisher identity, signatures,
           attestations, and revocation.
         status: idea
-      - id: "13"
+      - id: "14"
         title: Operational evidence export
         summary: >-
           Export sanitized and attributable deployment evidence for audits and
           support without exporting plans, state, credentials, or sensitive
           output.
         status: idea
-      - id: "14"
+      - id: "15"
         title: Authoring and editor integration
         summary: >-
           Publish schema bundles, completions, and editor integrations that
           consume doctor JSON without introducing another configuration
           language.
-        status: idea
-
-  - label: Automation interfaces
-    note: agent and editor integration
-    phases:
-      - id: "15"
-        title: Read-only MCP server mode
-        summary: >-
-          Serve doctor, inspection, status, schemas, and sanitized run results
-          over MCP stdio by adapting the same typed application use cases,
-          without exposing lifecycle mutations.
         status: idea
 
   - label: Extended provisioning

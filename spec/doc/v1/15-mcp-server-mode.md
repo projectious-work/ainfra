@@ -1,9 +1,10 @@
 ## Status and objective
 
-MCP server mode is a post-foundation roadmap idea, not part of the
-minimum v1 execution path. When implemented, it makes ainfra directly usable by
-MCP-capable agents and editors without wrapping shell commands or parsing
-terminal prose.
+MCP server mode is planned for v1 after the core infrastructure lifecycle and
+hardening phases. It makes ainfra directly usable by MCP-capable agents and
+editors without wrapping shell commands or parsing terminal prose. It remains
+an adapter over stable typed application use cases and is not a second
+execution path.
 
 The implementation follows the current [MCP specification][mcp-spec] selected
 at phase start. Protocol dependencies and version support are an
