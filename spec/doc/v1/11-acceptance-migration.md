@@ -23,8 +23,10 @@ these journeys pass from a clean supported environment:
 15. reconcile a safe local finding idempotently, reject an unsafe finding, and
     preserve evidence for a partially failed reconciliation;
 16. produce a dry-run template migration plan, apply a safe local migration,
-    validate it, and reject an ambiguous or stateful migration; and
-17. build Linux/macOS binaries and validate the optional Dockerfile.
+    validate it, and reject an ambiguous or stateful migration;
+17. reject a parent directory containing multiple deployment children without
+    invoking any child engine, while suggesting explicit child paths; and
+18. build Linux/macOS binaries and validate the optional Dockerfile.
 
 ## Security acceptance
 

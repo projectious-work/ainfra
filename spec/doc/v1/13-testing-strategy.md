@@ -80,6 +80,8 @@ The suite covers:
 
 - help, version, invalid syntax, and every documented exit code;
 - project discovery and complete config/env/flag precedence permutations;
+- explicit deployment paths, nested paths, missing manifests, and fail-closed
+  parent directories containing one or more deployment children;
 - `-v`, `-vv`, `-vvv`, log formats, rotation, and a fake local syslog endpoint;
 - rich, plain, no-color, narrow-width, non-TTY, and JSON output;
 - doctor scopes, `doctor all`, reconciliation confirmation, partial failure,

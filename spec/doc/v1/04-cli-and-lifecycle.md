@@ -41,6 +41,13 @@ or infer approval.
   name. A missing or ambiguous explicit path is an error. Supplying both a
   positional deployment and `--project` is an error unless their canonical
   targets are identical.
+- **AINFRA-CLI-010:** when an explicit target directory contains no
+  `ainfra.yaml`, every deployment-bound command MUST fail before invoking a
+  child engine, even when descendant directories are valid deployments. It
+  MUST NOT reinterpret the target as “all deployments.” The diagnostic MAY
+  inspect non-symlink immediate child directories only to list valid deployment
+  paths and exact rerun commands; those suggestions MUST NOT change the
+  selected target or perform an operation.
 - **AINFRA-CLI-002:** every command MUST support `--format text|json` where its
   result is meaningful to automation.
 - **AINFRA-CLI-003:** JSON output MUST use a versioned envelope and stderr MUST
