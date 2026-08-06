@@ -119,9 +119,16 @@ template-name/
 ├── output.json                # standardized non-secret output
 ├── inventory.yaml             # generated
 ├── engine/
-│   ├── tofu.stdout.log
-│   ├── tofu.stderr.log
-│   └── ansible-artifacts/
+│   ├── opentofu/
+│   │   ├── console.log        # sanitized rendered evidence
+│   │   ├── stdout.raw         # exact retained bytes; sensitive
+│   │   ├── stderr.raw         # exact retained bytes; sensitive
+│   │   └── events.jsonl       # native JSON UI when available; sensitive
+│   └── ansible-runner/
+│       ├── console.log        # sanitized rendered evidence
+│       ├── stdout.raw         # exact retained bytes; sensitive
+│       ├── stderr.raw         # exact retained bytes; sensitive
+│       └── artifacts/         # native Runner events; sensitive
 └── workspace/                 # immutable materialized template
 ```
 
@@ -134,6 +141,9 @@ template-name/
   ainfra applies redaction.
 - **AINFRA-LAYOUT-024:** an interrupted or ambiguous mutation MUST require
   inspection before automatic continuation.
+- **AINFRA-LAYOUT-025:** native structured evidence MUST be retained separately
+  from sanitized console evidence and MUST remain attributable to its engine
+  and protocol version.
 
 ## Reference example
 

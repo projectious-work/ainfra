@@ -57,6 +57,38 @@ where possible and MUST never contaminate JSON stdout.
 - **AINFRA-OUTPUT-006:** verbosity changes logs, not the schema or meaning of
   command results.
 
+## Versioned machine-result contract
+
+`--format json` is a versioned command interface, not a serialization of the
+text renderer. Every invocation emits exactly one object conforming to
+[`../../schemas/v1/machine-output.schema.json`](../../schemas/v1/machine-output.schema.json).
+The envelope has the closed fields `apiVersion`, canonical `command`, `ok`,
+command-specific `result`, and `diagnostics`. Command identifiers and every
+result shape are discriminated by the schema; unknown fields are errors.
+
+Successful commands MUST return a non-null result. A command that fails before
+producing a meaningful result returns `result: null`; a later failure MAY
+return a schema-valid partial result and at least one diagnostic. Engine facts
+are nested in explicitly attributed `engineReport` objects. Their status,
+exit code, protocol version, and reported Ansible statistics describe only what
+the child process reported. They MUST NOT be presented as independently
+observed OpenTofu state, infrastructure existence, host state, drift,
+application health, or policy compliance.
+
+Interrupted mutations return `executionOutcome: interrupted`, evidence
+references, and recovery data with `automaticRetryAllowed: false` and
+`inspectionRequired: true`. Evidence references contain paths and sensitivity
+classification, never raw engine bytes. `ainfra logs --raw` is intentionally
+outside the JSON result interface.
+
+- **AINFRA-OUTPUT-010:** every shipped machine result fixture MUST validate
+  against the published schema, and every command/exit path MUST have a
+  black-box schema assertion.
+- **AINFRA-OUTPUT-011:** changing or removing a field, command identifier, enum
+  meaning, or required invariant requires a new machine-result API version.
+- **AINFRA-OUTPUT-012:** engine-attributed reports MUST remain distinguishable
+  from ainfra execution facts in every renderer.
+
 ## Logging and verbosity
 
 Logging uses structured events internally. The default level is `warn` so

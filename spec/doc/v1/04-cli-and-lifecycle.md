@@ -18,6 +18,7 @@
 | `ainfra deploy [DEPLOYMENT] --plan RUN_ID` | Apply a reviewed plan, collect output, generate inventory, configure hosts, and verify convergence. |
 | `ainfra output [DEPLOYMENT] --run RUN_ID` | Show the sanitized standardized infrastructure output recorded for a run. |
 | `ainfra inventory [DEPLOYMENT] --run RUN_ID` | Show or regenerate deterministic Ansible inventory from a run's validated standardized output. |
+| `ainfra logs [DEPLOYMENT] --run RUN_ID [--engine ENGINE] [--errors\|--raw --stream STREAM]` | Display the sanitized execution timeline, structured engine failures, or explicitly selected sensitive raw evidence for a run. |
 | `ainfra status [DEPLOYMENT]` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
 | `ainfra destroy [DEPLOYMENT] --plan RUN_ID` | Apply the exact reviewed OpenTofu destroy plan and record the engine result. |
 | `ainfra version` | Print the ainfra version and machine-readable build information. |
@@ -240,6 +241,45 @@ without reading provider state directly.
   function of validated output.
 - **AINFRA-INV-002:** output and inventory MUST be written atomically.
 - **AINFRA-INV-003:** generated inventory MUST not contain deployment secrets.
+
+## Run logs and engine evidence
+
+`ainfra logs` reads retained run evidence; it never reruns an engine. Its
+default view is a sanitized, chronological execution timeline. `--engine
+opentofu|ansible-runner` limits the view to one child engine. `--errors` limits
+the result to native structured records classified as errors, failures, or
+unreachable outcomes, plus child exit, timeout, cancellation, interruption,
+and ainfra diagnostics. It MUST NOT search localized prose for words such as
+"error" or infer infrastructure, host, or application state.
+
+`--raw` displays sensitive engine-native evidence without redaction and is
+mutually exclusive with `--errors`, `--format json`, and configured log sinks.
+It requires `--engine`, an explicit `--stream stdout|stderr|events`, and an
+interactive confirmation; automation requires both `--non-interactive` and
+`--yes`. Raw bytes go only to stdout and a warning goes to stderr. They MUST
+NOT be copied into the machine-result envelope, operational logs, syslog, or
+MCP responses.
+
+ainfra requests native structured evidence when the child protocol supports
+it. OpenTofu plan and apply operations use its versioned machine-readable JSON
+UI; Ansible execution uses Ansible Runner job-event artifacts. Commands without
+a supported structured protocol retain separated raw stdout/stderr and a
+sanitized console view. In that case `--errors` reports
+`structuredFiltering: unavailable` and points to the sanitized evidence instead
+of guessing from prose. Unsupported OpenTofu UI protocol majors and unsupported
+Ansible Runner versions fail closed; additive unknown fields and event types
+are preserved but not reclassified.
+
+- **AINFRA-LOGS-001:** engine evidence classification MUST use version-checked
+  structured fields, child-process facts, or ainfra diagnostics only.
+- **AINFRA-LOGS-002:** OpenTofu state and state-oriented JSON MUST NOT be read
+  to implement `logs` or enrich its result.
+- **AINFRA-LOGS-003:** `--errors` MUST distinguish `available`, `partial`, and
+  `unavailable` structured filtering.
+- **AINFRA-LOGS-004:** `--raw` MUST preserve the selected retained stream and
+  MUST NOT pass through normal renderers or logging sinks.
+- **AINFRA-LOGS-005:** engine-reported counts MUST retain their attribution and
+  MUST NOT be restated as ainfra-observed infrastructure convergence.
 
 ## Configure and verify
 

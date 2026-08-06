@@ -1,0 +1,21 @@
+apiVersion: ainfra.projectious.work/v1
+kind: EngineEvidenceProfile
+metadata:
+  name: opentofu-json-ui
+spec:
+  engine: opentofu
+  protocol:
+    name: opentofu-json-ui
+    compatibility: message-major
+    versionPointer: /ui
+    supportedMajor: 1
+  framing: json-lines
+  fields:
+    type: /type
+    level: /@level
+    message: /@message
+    timestamp: /@timestamp
+  classifications:
+    - category: error
+      pointer: /@level
+      values: [error]

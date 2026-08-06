@@ -1,0 +1,25 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "plan",
+  "ok": true,
+  "result": {
+    "deployment": {"name": "development", "root": "/work/development"},
+    "runId": "example-plan-run",
+    "intent": "apply",
+    "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "templateDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "inputDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "engineReport": {
+      "engine": "opentofu",
+      "status": "succeeded",
+      "exitCode": 0,
+      "protocol": {"name": "opentofu-json-ui", "version": "1.2"}
+    },
+    "evidence": [
+      {"kind": "plan-summary", "path": "plan.json", "sensitive": false},
+      {"kind": "engine-events", "engine": "opentofu", "path": "engine/opentofu/events.jsonl", "sensitive": true}
+    ],
+    "nextCommands": ["ainfra apply development --plan example-plan-run"]
+  },
+  "diagnostics": []
+}

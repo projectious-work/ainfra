@@ -73,6 +73,12 @@ The v1 threat model includes:
   credential shapes. Redaction MUST be tested across chunk boundaries.
 - **AINFRA-SEC-025:** permissions for local operational directories and files
   MUST default to owner-only where supported.
+- **AINFRA-SEC-026:** structured engine events are potentially sensitive and
+  MUST undergo the same containment, permission, retention, and explicit raw-
+  access controls as stdout, stderr, plans, and Runner artifacts.
+- **AINFRA-SEC-027:** engine evidence profiles MUST be embedded, reviewed
+  ainfra assets in v1; templates and deployments MUST NOT supply or override
+  parsing, classification, or redaction rules.
 
 ## Engine state and destructive safety
 

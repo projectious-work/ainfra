@@ -27,7 +27,10 @@ See [package-dependencies.svg](package-dependencies.svg).
 | `internal/lock` | Parse, compare, canonicalize, and atomically write template lock files. |
 | `internal/tofu` | Construct documented OpenTofu invocations and return typed outcomes. |
 | `internal/inventory` | Convert validated standardized output into deterministic Ansible inventory. |
-| `internal/ansible` | Invoke Ansible Runner and interpret structured configuration outcomes. |
+| `internal/ansible` | Construct Ansible Runner invocations and return its attributed engine outcomes. |
+| `internal/evidence` | Normalize, classify, redact, retain, and render child-engine evidence without interpreting deployment state. |
+| `internal/evidence/opentofu` | Decode and version-check OpenTofu machine-readable UI records. |
+| `internal/evidence/ansible` | Decode and version-check Ansible Runner job events and reported statistics. |
 | `internal/run` | Store run metadata, append events, and enforce recovery state transitions. |
 | `internal/diagnostic` | Register doctor checks and define stable typed findings and reports. |
 | `internal/reconcile` | Plan and apply permitted local fixes, then verify their outcomes. |
@@ -133,12 +136,31 @@ core conversion function.
 
 ### `ansible`
 
-Owns Ansible Runner invocation, runner input-directory construction, event
-interpretation, expected-host verification, and check-mode outcomes. It does
+Owns Ansible Runner invocation, runner input-directory construction,
+expected-host verification, and check-mode outcomes. It does
 not provision infrastructure, acquire templates, parse fact caches, or model
-desired or current host state. Event interpretation is limited to the
-documented Runner result contract and cannot make a stronger convergence claim
-than Ansible reports.
+desired or current host state. Check-mode outcome evaluation consumes
+normalized Runner evidence and cannot make a stronger convergence claim than
+Ansible reports.
+
+### `evidence`
+
+Owns the common normalized event model, error-only selection, redaction,
+retention references, and human rendering for child-engine evidence. Framing,
+OpenTofu protocol-version negotiation, Ansible Runner compatibility checks,
+structural validation, resource limits, path safety, and sensitive-field
+handling remain typed Go adapter code. Built-in,
+schema-validated profiles MAY declare stable field pointers and classification
+mappings for each supported protocol. Profiles are embedded ainfra assets,
+not template or deployment inputs, and cannot execute expressions or override
+security policy. Unknown event types remain attributed, unclassified evidence.
+
+The profile contract is
+[`../../schemas/v1/engine-evidence-profile.schema.json`](../../schemas/v1/engine-evidence-profile.schema.json),
+with maintained OpenTofu and Ansible Runner examples under
+[`../../examples/v1/evidence-profiles/`](../../examples/v1/evidence-profiles/).
+Adding a future engine requires an explicit adapter and reviewed profile; a
+YAML file alone cannot make an arbitrary executable trusted or supported.
 
 ### `run`
 
@@ -179,9 +201,10 @@ JSON mode never inherits terminal prose or log events.
   `output`.
 - `app` may depend on domain packages and consumer-defined interfaces.
 - domain packages may depend on `diagnostic` and narrowly on `security`.
-- engine/source adapters may depend on `exec`.
-- `exec`, `config`, `diagnostic`, `logging`, `output`, and pure inventory
-  conversion MUST NOT depend on `app` or `command`.
+- engine/source adapters may depend on `exec`; engine adapters may emit native
+  records to `evidence` but MUST NOT depend on a renderer.
+- `exec`, `config`, `diagnostic`, `evidence`, `logging`, `output`, and pure
+  inventory conversion MUST NOT depend on `app` or `command`.
 - adapters MUST NOT call each other; `app` owns sequencing.
 - cycles are forbidden and checked in the build gate.
 

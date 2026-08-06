@@ -43,6 +43,10 @@ Direct unit coverage is required for:
 - output validation and deterministic inventory conversion;
 - redaction across chunks and secret-shaped output detection; and
 - rich, plain, JSON, and structured-log event construction before IO.
+- engine evidence framing, protocol-version negotiation, declarative profile
+  validation, unknown-event behavior, and error-only classification;
+- every command-discriminated machine-result shape, including partial failure
+  and interrupted recovery results.
 
 Table-driven tests SHOULD cover equivalent valid and invalid cases. Time, IDs,
 environment, filesystem-sensitive decisions, and randomness use injected
@@ -84,6 +88,8 @@ The suite covers:
   parent directories containing one or more deployment children;
 - `-v`, `-vv`, `-vvv`, log formats, rotation, and a fake local syslog endpoint;
 - rich, plain, no-color, narrow-width, non-TTY, and JSON output;
+- default, engine-filtered, `--errors`, and guarded `--raw` log views, including
+  refusal to guess from unstructured prose;
 - doctor scopes, `doctor all`, reconciliation confirmation, partial failure,
   and post-reconciliation checks;
 - lock, plan, apply, configure, deploy, status, and destroy behavior using fake
@@ -101,8 +107,9 @@ version plus the current preferred version. They use local fixtures, disabled
 OpenTofu backends where supported, Ansible localhost/check mode, and temporary
 homes and caches.
 
-They verify argv, initialization assumptions, native variables, output JSON,
-Ansible Runner events, check-mode interpretation, and unsupported versions. A
+They verify argv, initialization assumptions, OpenTofu JSON UI framing and
+version records, native variables, output JSON, Ansible Runner events,
+check-mode interpretation, and unsupported protocol versions. A
 missing selected tool produces an explicit skip locally; release gates treat a
 required-version skip as failure.
 

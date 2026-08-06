@@ -4,47 +4,184 @@
   "title": "ainfra v1 machine result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["apiVersion", "command", "ok", "diagnostics"],
+  "required": ["apiVersion", "command", "ok", "result", "diagnostics"],
   "properties": {
     "apiVersion": {"const": "ainfra.result/v1"},
-    "command": {"type": "string", "minLength": 1},
+    "command": {
+      "enum": [
+        "init", "doctor.all", "doctor.deployment", "doctor.template",
+        "doctor.run", "doctor.environment", "template.lock",
+        "template.update", "template.migrate", "plan", "apply",
+        "configure", "deploy", "output", "inventory", "logs", "status",
+        "destroy", "version"
+      ]
+    },
     "ok": {"type": "boolean"},
     "result": {},
     "diagnostics": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["code", "severity", "message"],
-        "properties": {
-          "code": {"type": "string", "pattern": "^AINFRA-E[0-9]{4}$"},
-          "severity": {"enum": ["info", "warning", "error"]},
-          "check": {"type": "string", "pattern": "^[a-z][a-z0-9.-]+$"},
-          "scope": {
-            "enum": [
-              "environment",
-              "deployment",
-              "template",
-              "run"
-            ]
-          },
-          "status": {"enum": ["pass", "skip", "warning", "fail"]},
-          "reconciliation": {
-            "enum": [
-              "not_available",
-              "available",
-              "applied",
-              "failed",
-              "still_failing"
-            ]
-          },
-          "component": {"type": "string"},
-          "path": {"type": "string"},
-          "message": {"type": "string", "minLength": 1},
-          "evidence": {"type": "string", "minLength": 1},
-          "nextAction": {"type": "string", "minLength": 1},
-          "documentationUrl": {"type": "string", "format": "uri"}
+      "items": {"$ref": "#/$defs/diagnostic"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"ok": {"const": true}}},
+      "then": {"properties": {"result": {"type": "object"}}}
+    },
+    {
+      "if": {"properties": {"ok": {"const": false}}},
+      "then": {"properties": {"diagnostics": {"minItems": 1}}}
+    }
+  ],
+  "oneOf": [
+    {"$ref": "#/$defs/initEnvelope"},
+    {"$ref": "#/$defs/doctorEnvelope"},
+    {"$ref": "#/$defs/templateEnvelope"},
+    {"$ref": "#/$defs/planEnvelope"},
+    {"$ref": "#/$defs/executionEnvelope"},
+    {"$ref": "#/$defs/artifactEnvelope"},
+    {"$ref": "#/$defs/logsEnvelope"},
+    {"$ref": "#/$defs/statusEnvelope"},
+    {"$ref": "#/$defs/versionEnvelope"}
+  ],
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^AINFRA-E[0-9]{4}$"},
+        "severity": {"enum": ["info", "warning", "error"]},
+        "check": {"type": "string", "pattern": "^[a-z][a-z0-9.-]+$"},
+        "scope": {"enum": ["environment", "deployment", "template", "run"]},
+        "status": {"enum": ["pass", "skip", "warning", "fail"]},
+        "reconciliation": {"enum": ["not_available", "available", "applied", "failed", "still_failing"]},
+        "component": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1},
+        "nextAction": {"type": "string", "minLength": 1},
+        "documentationUrl": {"type": "string", "format": "uri"}
+      }
+    },
+    "deployment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "root"],
+      "properties": {"name": {"type": "string", "minLength": 1}, "root": {"type": "string", "minLength": 1}}
+    },
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "path", "sensitive"],
+      "properties": {
+        "kind": {"enum": ["run-events", "sanitized-log", "raw-stream", "engine-events", "runner-artifacts", "plan-summary", "standard-output", "inventory", "migration-patch"]},
+        "engine": {"enum": ["opentofu", "ansible-runner"]},
+        "path": {"type": "string", "minLength": 1},
+        "sensitive": {"type": "boolean"}
+      }
+    },
+    "engineReport": {
+      "type": "object", "additionalProperties": false,
+      "required": ["engine", "status", "exitCode", "protocol"],
+      "properties": {
+        "engine": {"enum": ["opentofu", "ansible-runner"]},
+        "status": {"enum": ["succeeded", "failed", "cancelled", "interrupted", "timed_out", "unavailable"]},
+        "exitCode": {"type": ["integer", "null"]},
+        "protocol": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {"name": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}}
+        },
+        "reportedStats": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "processed": {"type": "integer", "minimum": 0},
+            "changed": {"type": "integer", "minimum": 0},
+            "failed": {"type": "integer", "minimum": 0},
+            "unreachable": {"type": "integer", "minimum": 0}
+          }
         }
+      }
+    },
+    "recovery": {
+      "type": "object", "additionalProperties": false,
+      "required": ["automaticRetryAllowed", "inspectionRequired", "nextCommands"],
+      "properties": {
+        "automaticRetryAllowed": {"type": "boolean"},
+        "inspectionRequired": {"type": "boolean"},
+        "nextCommands": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "initEnvelope": {
+      "properties": {
+        "command": {"const": "init"},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "createdPaths"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "createdPaths": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}}}]}
+      }
+    },
+    "doctorEnvelope": {
+      "properties": {
+        "command": {"enum": ["doctor.all", "doctor.deployment", "doctor.template", "doctor.run", "doctor.environment"]},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["scope", "summary", "findings"], "properties": {"scope": {"enum": ["all", "deployment", "template", "run", "environment"]}, "summary": {"type": "object", "additionalProperties": false, "required": ["pass", "skip", "warning", "fail"], "properties": {"pass": {"type": "integer", "minimum": 0}, "skip": {"type": "integer", "minimum": 0}, "warning": {"type": "integer", "minimum": 0}, "fail": {"type": "integer", "minimum": 0}}}, "findings": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}}}]}
+      }
+    },
+    "templateEnvelope": {
+      "properties": {
+        "command": {"enum": ["template.lock", "template.update", "template.migrate"]},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["source", "resolvedRevision", "contentDigest", "changed"], "properties": {"source": {"type": "string", "minLength": 1}, "resolvedRevision": {"type": "string", "minLength": 1}, "contentDigest": {"$ref": "#/$defs/digest"}, "changed": {"type": "boolean"}, "targetContractVersion": {"type": "string", "minLength": 1}, "changeCount": {"type": "integer", "minimum": 0}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}}}]}
+      }
+    },
+    "planEnvelope": {
+      "properties": {
+        "command": {"const": "plan"},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "intent", "planDigest", "templateDigest", "inputDigest", "engineReport", "evidence", "nextCommands"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "intent": {"enum": ["apply", "destroy"]}, "planDigest": {"$ref": "#/$defs/digest"}, "templateDigest": {"$ref": "#/$defs/digest"}, "inputDigest": {"$ref": "#/$defs/digest"}, "engineReport": {"$ref": "#/$defs/engineReport"}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}, "nextCommands": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}}}]}
+      }
+    },
+    "executionEnvelope": {
+      "allOf": [
+        {
+          "if": {"properties": {"command": {"const": "apply"}}},
+          "then": {"properties": {"result": {"properties": {"operation": {"const": "apply"}}}}}
+        },
+        {
+          "if": {"properties": {"command": {"const": "configure"}}},
+          "then": {"properties": {"result": {"properties": {"operation": {"enum": ["configure", "configure-check"]}}}}}
+        },
+        {
+          "if": {"properties": {"command": {"const": "deploy"}}},
+          "then": {"properties": {"result": {"properties": {"operation": {"const": "deploy"}}}}}
+        },
+        {
+          "if": {"properties": {"command": {"const": "destroy"}}},
+          "then": {"properties": {"result": {"properties": {"operation": {"const": "destroy"}}}}}
+        }
+      ],
+      "properties": {
+        "command": {"enum": ["apply", "configure", "deploy", "destroy"]},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "operation", "executionOutcome", "engineReports", "evidence", "recovery"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "operation": {"enum": ["apply", "configure", "configure-check", "deploy", "destroy"]}, "executionOutcome": {"enum": ["succeeded", "failed", "cancelled", "interrupted", "blocked"]}, "engineReports": {"type": "array", "items": {"$ref": "#/$defs/engineReport"}, "minItems": 1}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}, "recovery": {"$ref": "#/$defs/recovery"}}}]}
+      }
+    },
+    "artifactEnvelope": {
+      "properties": {
+        "command": {"enum": ["output", "inventory"]},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "artifact", "contentDigest"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "artifact": {"$ref": "#/$defs/evidence"}, "contentDigest": {"$ref": "#/$defs/digest"}}}]}
+      }
+    },
+    "logsEnvelope": {
+      "properties": {
+        "command": {"const": "logs"},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "view", "structuredFiltering", "displayedRecords", "evidence"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "view": {"enum": ["timeline", "errors"]}, "engine": {"enum": ["opentofu", "ansible-runner"]}, "structuredFiltering": {"enum": ["available", "partial", "unavailable"]}, "displayedRecords": {"type": "integer", "minimum": 0}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}}}]}
+      }
+    },
+    "statusEnvelope": {
+      "properties": {
+        "command": {"const": "status"},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runs"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runs": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["runId", "operation", "executionOutcome", "startedAt"], "properties": {"runId": {"type": "string", "minLength": 1}, "operation": {"enum": ["plan", "apply", "configure", "configure-check", "deploy", "destroy"]}, "executionOutcome": {"enum": ["succeeded", "failed", "cancelled", "interrupted", "blocked", "running"]}, "startedAt": {"type": "string", "format": "date-time"}, "finishedAt": {"type": "string", "format": "date-time"}, "recovery": {"$ref": "#/$defs/recovery"}}}}}}]}
+      }
+    },
+    "versionEnvelope": {
+      "properties": {
+        "command": {"const": "version"},
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["version", "commit", "builtAt", "goVersion", "platform"], "properties": {"version": {"type": "string", "minLength": 1}, "commit": {"type": "string", "minLength": 1}, "builtAt": {"type": "string", "format": "date-time"}, "goVersion": {"type": "string", "minLength": 1}, "platform": {"type": "string", "pattern": "^(linux|darwin)/(amd64|arm64)$"}}}]}
       }
     }
   }

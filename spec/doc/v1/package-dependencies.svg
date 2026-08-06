@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1300" height="820" viewBox="0 0 1300 820" role="img" aria-labelledby="title desc">
   <title id="title">ainfra Go package dependency direction</title>
-  <desc id="desc">The command package depends on application use cases. Application use cases coordinate cohesive domain packages. Configuration, security, execution, logging, diagnostics, and output form focused shared boundaries.</desc>
+  <desc id="desc">The command package depends on application use cases. Application use cases coordinate cohesive domain packages. Configuration, security, execution, logging, engine evidence, diagnostics, and output form focused shared boundaries.</desc>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
       <path d="M0,0 L0,6 L9,3 z" fill="#475569"/>
@@ -57,8 +57,11 @@
   <text x="705" y="695" class="text">logging</text><text x="705" y="717" class="small">structured sinks</text>
   <rect x="830" y="660" width="250" height="68" class="base"/>
   <text x="955" y="695" class="text">output</text><text x="955" y="717" class="small">rich, plain, and JSON</text>
+  <rect x="1100" y="660" width="165" height="68" class="base"/>
+  <text x="1182" y="695" class="text">evidence</text><text x="1182" y="717" class="small">engine records</text>
   <path d="M412 487 L475 660" class="line"/><path d="M567 487 L485 660" class="line"/>
   <path d="M877 487 L495 660" class="line"/><path d="M395 592 L265 660" class="line"/>
   <path d="M650 592 L285 660" class="line"/><path d="M905 592 L705 660" class="line"/>
+  <path d="M567 487 L1160 660" class="line"/><path d="M877 487 L1182 660" class="line"/>
   <text x="650" y="785" class="small">Adapters never call each other; app owns sequencing. Dependency cycles are forbidden.</text>
 </svg>

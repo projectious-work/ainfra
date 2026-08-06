@@ -1,0 +1,17 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "logs",
+  "ok": true,
+  "result": {
+    "deployment": {"name": "development", "root": "/work/development"},
+    "runId": "example-apply-run",
+    "view": "errors",
+    "engine": "opentofu",
+    "structuredFiltering": "available",
+    "displayedRecords": 1,
+    "evidence": [
+      {"kind": "engine-events", "engine": "opentofu", "path": "engine/opentofu/events.jsonl", "sensitive": true}
+    ]
+  },
+  "diagnostics": []
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/v1/engine-evidence-profile.schema.json",
+  "title": "ainfra v1 built-in engine evidence profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "ainfra.projectious.work/v1"},
+    "kind": {"const": "EngineEvidenceProfile"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "protocol", "framing", "fields", "classifications"],
+      "properties": {
+        "engine": {"enum": ["opentofu", "ansible-runner"]},
+        "protocol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "compatibility"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "compatibility": {"enum": ["message-major", "adapter-version-matrix"]},
+            "versionPointer": {"$ref": "#/$defs/jsonPointer"},
+            "supportedMajor": {"type": "integer", "minimum": 1}
+          }
+        },
+        "framing": {"enum": ["json-lines", "runner-event-files"]},
+        "fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "message", "timestamp"],
+          "properties": {
+            "type": {"$ref": "#/$defs/jsonPointer"},
+            "level": {"$ref": "#/$defs/jsonPointer"},
+            "message": {"$ref": "#/$defs/jsonPointer"},
+            "timestamp": {"$ref": "#/$defs/jsonPointer"}
+          }
+        },
+        "classifications": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "pointer", "values"],
+            "properties": {
+              "category": {"enum": ["error", "failed", "unreachable", "cancelled", "summary"]},
+              "pointer": {"$ref": "#/$defs/jsonPointer"},
+              "values": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"protocol": {"properties": {"compatibility": {"const": "message-major"}}}}},
+          "then": {"properties": {"protocol": {"required": ["versionPointer", "supportedMajor"]}}}
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "jsonPointer": {"type": "string", "pattern": "^(|/(?:[^~/]|~[01])*)+$"}
+  }
+}
