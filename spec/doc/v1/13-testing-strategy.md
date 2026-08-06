@@ -163,6 +163,12 @@ documents, malformed encodings, argument injection, poisoned caches, reordered
 events, split secrets, log rotation races, reconciliation races, and corrupt
 plans or run records. Minimized failures are committed only after secret scans.
 
+- **AINFRA-TEST-014:** fuzz targets MUST cover YAML/JSON documents, source
+  references, archive/path handling, redaction chunking, standardized OpenTofu
+  output, and Ansible event parsing.
+- **AINFRA-TEST-015:** release fuzz smoke runs MUST use a documented bounded
+  budget; longer campaigns MAY run separately and MUST preserve regressions.
+
 ## Concurrency and race testing
 
 `go test -race ./...` is mandatory on Linux for release candidates and changes
@@ -173,6 +179,9 @@ operation-lock contention.
 Tests use deadlines and observable synchronization, not arbitrary sleeps. A
 flaky test is a defect: fix it or quarantine it with an owner, issue, scope, and
 expiry. Silently retrying until green is prohibited.
+
+- **AINFRA-TEST-016:** race testing MUST cover all supported Go packages on
+  Linux in the release gate.
 
 ## Fixtures and isolation
 
@@ -193,6 +202,10 @@ execution require direct positive and negative tests.
 Benchmarks cover large inventories, event streams, redaction, hashing, and
 template materialization. Thresholds follow a representative baseline.
 Correctness, containment, and redaction MUST NOT be weakened for a benchmark.
+
+- **AINFRA-TEST-017:** coverage is a change-risk signal, not a required global
+  percentage. Security, parsers, locks, inventory, run transitions, and child-
+  process boundaries require direct positive and negative tests.
 
 ## Developer and release gates
 

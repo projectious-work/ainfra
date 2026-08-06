@@ -12,6 +12,7 @@
       .text { font-family:system-ui,sans-serif; font-size:17px; fill:#0f172a; text-anchor:middle; }
       .small { font-family:system-ui,sans-serif; font-size:13px; fill:#475569; text-anchor:middle; }
       .line { stroke:#475569; stroke-width:1.8; fill:none; marker-end:url(#arrow); }
+      .direct { stroke:#0284c7; stroke-width:1.8; stroke-dasharray:6 5; fill:none; marker-end:url(#arrow); }
     </style>
   </defs>
   <rect width="1300" height="820" fill="white"/>
@@ -27,20 +28,25 @@
   <text x="650" y="348" class="small">use-case sequencing</text>
   <path d="M650 140 V180" class="line"/>
   <path d="M650 250 V290" class="line"/>
+  <path d="M775 205 C1040 205 1080 420 905 530" class="direct"/>
+  <path d="M775 220 C1160 265 1010 610 705 660" class="direct"/>
+  <path d="M775 235 C1240 300 1150 610 955 660" class="direct"/>
   <g>
-    <rect x="35" y="425" width="135" height="62" class="box"/><text x="102" y="461" class="text">project</text>
-    <rect x="190" y="425" width="135" height="62" class="box"/><text x="257" y="461" class="text">template</text>
-    <rect x="345" y="425" width="135" height="62" class="box"/><text x="412" y="461" class="text">source + lock</text>
-    <rect x="500" y="425" width="135" height="62" class="box"/><text x="567" y="461" class="text">tofu</text>
-    <rect x="655" y="425" width="135" height="62" class="box"/><text x="722" y="461" class="text">inventory</text>
-    <rect x="810" y="425" width="135" height="62" class="box"/><text x="877" y="461" class="text">ansible</text>
-    <rect x="965" y="425" width="135" height="62" class="box"/><text x="1032" y="461" class="text">run</text>
-    <rect x="1120" y="425" width="135" height="62" class="box"/><text x="1187" y="461" class="text">migration</text>
+    <rect x="20" y="425" width="120" height="62" class="box"/><text x="80" y="461" class="text">project</text>
+    <rect x="155" y="425" width="120" height="62" class="box"/><text x="215" y="461" class="text">template</text>
+    <rect x="290" y="425" width="120" height="62" class="box"/><text x="350" y="461" class="text">source</text>
+    <rect x="425" y="425" width="120" height="62" class="box"/><text x="485" y="461" class="text">lock</text>
+    <rect x="560" y="425" width="120" height="62" class="box"/><text x="620" y="461" class="text">tofu</text>
+    <rect x="695" y="425" width="120" height="62" class="box"/><text x="755" y="461" class="text">inventory</text>
+    <rect x="830" y="425" width="120" height="62" class="box"/><text x="890" y="461" class="text">ansible</text>
+    <rect x="965" y="425" width="120" height="62" class="box"/><text x="1025" y="461" class="text">run</text>
+    <rect x="1100" y="425" width="180" height="62" class="box"/><text x="1190" y="461" class="text">migration</text>
   </g>
-  <path d="M650 372 L102 425" class="line"/><path d="M650 372 L257 425" class="line"/>
-  <path d="M650 372 L412 425" class="line"/><path d="M650 372 L567 425" class="line"/>
-  <path d="M650 372 L722 425" class="line"/><path d="M650 372 L877 425" class="line"/>
-  <path d="M650 372 L1032 425" class="line"/><path d="M650 372 L1187 425" class="line"/>
+  <path d="M650 372 L80 425" class="line"/><path d="M650 372 L215 425" class="line"/>
+  <path d="M650 372 L350 425" class="line"/><path d="M650 372 L485 425" class="line"/>
+  <path d="M650 372 L620 425" class="line"/><path d="M650 372 L755 425" class="line"/>
+  <path d="M650 372 L890 425" class="line"/><path d="M650 372 L1025 425" class="line"/>
+  <path d="M650 372 L1190 425" class="line"/>
   <rect x="300" y="530" width="190" height="62" class="box"/>
   <text x="395" y="566" class="text">diagnostic</text>
   <rect x="555" y="530" width="190" height="62" class="box"/>
@@ -59,9 +65,10 @@
   <text x="955" y="695" class="text">output</text><text x="955" y="717" class="small">rich, plain, and JSON</text>
   <rect x="1100" y="660" width="165" height="68" class="base"/>
   <text x="1182" y="695" class="text">evidence</text><text x="1182" y="717" class="small">engine records</text>
-  <path d="M412 487 L475 660" class="line"/><path d="M567 487 L485 660" class="line"/>
-  <path d="M877 487 L495 660" class="line"/><path d="M395 592 L265 660" class="line"/>
+  <path d="M350 487 L475 660" class="line"/><path d="M620 487 L485 660" class="line"/>
+  <path d="M890 487 L495 660" class="line"/><path d="M395 592 L265 660" class="line"/>
   <path d="M650 592 L285 660" class="line"/><path d="M905 592 L705 660" class="line"/>
-  <path d="M567 487 L1160 660" class="line"/><path d="M877 487 L1182 660" class="line"/>
+  <path d="M620 487 L1160 660" class="line"/><path d="M890 487 L1182 660" class="line"/>
+  <text x="1065" y="635" class="small" style="fill:#0284c7">dashed: direct command dependencies</text>
   <text x="650" y="785" class="small">Adapters never call each other; app owns sequencing. Dependency cycles are forbidden.</text>
 </svg>

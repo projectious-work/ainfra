@@ -76,28 +76,10 @@ go test -race ./...
 go test -coverprofile=coverage.out ./...
 ```
 
-- **AINFRA-BUILD-001:** race testing MUST cover all supported packages on
-  Linux in the development/release gate.
-- **AINFRA-BUILD-002:** coverage is a change-risk signal, not a gameable global
-  percentage. Security, parsers, locks, inventory, run transitions, and exec
-  boundaries require direct tests.
-- **AINFRA-BUILD-003:** fuzz targets MUST cover YAML/JSON documents, source
-  references, archive/path handling, redaction chunking, OpenTofu output, and
-  Ansible event parsing.
-- **AINFRA-BUILD-004:** fuzz smoke runs use a bounded release budget; longer
-  campaigns may run separately.
-
-### Integration tiers
-
-1. **Unit:** no external executables or network.
-2. **Process contract:** fake `tofu`, `git`, and `ansible-runner` executables
-   assert argv, cwd, environment, cancellation, and redaction.
-3. **Local engine:** real OpenTofu with `-backend=false` fixtures and real
-   Ansible Runner local/check-mode fixtures; no cloud mutation.
-4. **Disposable live:** explicit credentials and cost approval; template-owned
-   provision, configure, idempotence, destroy, and independent verification.
-
-Tier 4 MUST never run as an incidental default check.
+Suite ownership, required coverage, integration dependencies, isolation, and
+release applicability are defined only in the
+[testing strategy](13-testing-strategy.md). This chapter defines how to invoke
+the Go tools, not a second test taxonomy.
 
 ## Security and dependency tools
 

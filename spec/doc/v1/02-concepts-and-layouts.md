@@ -86,22 +86,29 @@ my-deployment/
 template-name/
 ├── ainfra-template.yaml
 ├── README.md
+├── docs/
+│   └── variables.md            # mandatory native input reference
 ├── tofu/
 │   ├── versions.tf
 │   ├── providers.tf
+│   ├── .terraform.lock.hcl     # required when provider selections exist
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── ...
 ├── ansible/                    # required only with configurable hosts
 │   ├── ansible.cfg
-│   ├── requirements.yml
+│   ├── requirements.yml        # pinned external collections and roles
 │   ├── site.yml
 │   └── roles/
 ├── examples/
 │   └── minimal/
+│       ├── ainfra.yaml
 │       ├── terraform.tfvars
-│       └── ansible-vars.yaml
+│       └── ansible-vars.yaml   # only when Ansible is declared
 └── tests/
+    ├── fixtures/
+    ├── README.md
+    └── validate.sh
 ```
 
 - **AINFRA-LAYOUT-010:** the directory basename and manifest template name MUST
@@ -114,6 +121,13 @@ template-name/
   commands equivalent to ainfra execution.
 - **AINFRA-LAYOUT-014:** infrastructure state and ainfra execution state MUST
   NOT be part of template source.
+- **AINFRA-LAYOUT-015:** `docs/variables.md` is mandatory. A provider dependency
+  selection MUST include the native `.terraform.lock.hcl`; templates using
+  only built-in OpenTofu functionality MAY omit it because OpenTofu produces no
+  provider selection to lock.
+- **AINFRA-LAYOUT-016:** `requirements.yml` and `ansible-vars.yaml` are
+  applicable only when Ansible is declared. External collections and roles
+  MUST be pinned through native Ansible dependency declarations.
 
 ## Run layout
 

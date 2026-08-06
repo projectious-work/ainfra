@@ -36,8 +36,11 @@ conformance or certification.
   values.
 - **AINFRA-TPL-003:** templates MUST NOT depend on ainfra generating provider-
   specific tfvars or Ansible variables.
-- **AINFRA-TPL-004:** provider versions and module sources MUST be pinned with a
-  committed OpenTofu lockfile where applicable.
+- **AINFRA-TPL-004:** provider versions MUST be constrained and every resulting
+  `.terraform.lock.hcl` provider selection MUST be committed. Module sources
+  MUST use immutable native versions or revisions. A template using only
+  built-in OpenTofu functionality MAY omit a lockfile when OpenTofu generates
+  none.
 - **AINFRA-TPL-005:** Ansible collections and external roles MUST be pinned.
 - **AINFRA-TPL-006:** private keys and passwords MUST NOT be generated unless a
   template-specific security review explicitly justifies an ephemeral value
