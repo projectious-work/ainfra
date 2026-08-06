@@ -539,6 +539,10 @@ select,
 .pj-navbar-theme .hextra-theme-toggle span {
   display: none;
 }
+.pj-navbar-theme .hextra-theme-toggle svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
 
 /* The sidebar strip the toggle came out of. Hidden rather than left empty —
    without this it renders as a bare white bar pinned to the bottom of the
