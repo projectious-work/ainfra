@@ -26,7 +26,7 @@
         "engines": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["tofu", "ansible"],
+          "required": ["tofu"],
           "properties": {
             "tofu": {
               "type": "object",
@@ -57,12 +57,39 @@
             "inventory": {
               "oneOf": [
                 {"const": "none"},
-                {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+                {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "not": {"const": "none"}
+                }
               ]
             }
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outputs": {
+                "properties": {"inventory": {"const": "none"}},
+                "required": ["inventory"]
+              }
+            },
+            "required": ["outputs"]
+          },
+          "then": {
+            "properties": {
+              "engines": {"not": {"required": ["ansible"]}}
+            }
+          },
+          "else": {
+            "properties": {
+              "engines": {"required": ["ansible"]}
+            }
+          }
+        }
+      ]
     }
   },
   "$defs": {

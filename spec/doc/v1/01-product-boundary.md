@@ -20,6 +20,12 @@
   contents, or independently determine host convergence. It MAY retain
   sanitized Ansible Runner events and summarize only outcomes reported by
   Ansible as ainfra execution evidence.
+- **AINFRA-PROD-008:** OpenTofu is the mandatory provisioning and reviewed
+  plan/apply/destroy engine in v1; Ansible is conditional. An Ansible-only mode
+  is outside v1 because it would require a new trusted-inventory input,
+  different command applicability, and provisioning/teardown semantics not
+  present in the current lifecycle contract. It MUST NOT be simulated with an
+  empty OpenTofu root module.
 
 ## Target users
 
@@ -39,7 +45,8 @@ provider knowledge.
 3. Update a deployment to a newly reviewed template revision.
 4. Plan and apply infrastructure through OpenTofu.
 5. Generate inventory from declared non-secret OpenTofu outputs.
-6. Configure and verify hosts through Ansible Runner.
+6. When the template declares configurable hosts, configure and verify them
+   through Ansible Runner.
 7. Destroy exactly the infrastructure covered by a reviewed destroy plan.
 8. Author and validate a new template for a provider or hosting service.
 9. Reproduce operations inside a user-built container when desired.

@@ -175,7 +175,7 @@ ainfra reads these optional files from lowest to highest precedence:
 |---|---|---|
 | System | `/etc/ainfra/config.yaml` | `/Library/Application Support/ainfra/config.yaml` |
 | User | `${XDG_CONFIG_HOME:-$HOME/.config}/ainfra/config.yaml` | `$HOME/Library/Application Support/ainfra/config.yaml` |
-| Project | `<deployment-root>/.ainfra/config.yaml` | `<deployment-root>/.ainfra/config.yaml` |
+| Project | `<deployment-root>/ainfra.config.yaml` | `<deployment-root>/ainfra.config.yaml` |
 | Explicit | `--config PATH` or `AINFRA_CONFIG` | `--config PATH` or `AINFRA_CONFIG` |
 
 The explicit file is an additional highest-precedence file layer; it does not
@@ -187,6 +187,11 @@ Relative paths in system, user, and explicit files resolve from that file's
 directory. Relative paths in project configuration resolve from the deployment
 root. Environment path overrides MUST be absolute. Paths still undergo normal
 containment, file-type, ownership, and permission checks.
+
+ainfra MUST NOT search for a generic `config.yaml`, `.ainfra.yaml`, or other
+configuration file in the current working directory. The project layer is
+loaded only after resolving a deployment root through the deployment-selection
+contract. A command with no applicable deployment has no project layer.
 
 ## Environment variables
 
@@ -241,10 +246,15 @@ evaluated before `--project` and `AINFRA_PROJECT` as specified by the CLI
 contract; a conflicting `--project` is an error. The positional argument is a
 path convenience, not a configuration layer or named environment selector.
 
-`ainfra doctor environment -v` shows the loaded file paths, origin of each
-effective non-sensitive value, and ignored absent layers. It MUST redact
-sensitive-looking path components and MUST never print environment values from
-outside the supported set.
+`ainfra doctor environment` shows the loaded file paths, origin of every
+effective non-sensitive value, overridden layers, ignored absent layers, and
+rejected project settings. This is command-result data, not verbose operational
+logging, so `-v` is not required and does not alter its semantics. Text output
+uses a provenance table; JSON output places the same data in the typed
+`effectiveConfiguration` result defined by
+[`../../schemas/v1/machine-output.schema.json`](../../schemas/v1/machine-output.schema.json).
+It MUST redact sensitive-looking path components and MUST never print
+environment values from outside the supported set.
 
 Configuration that affects executable selection, cache materialization, run
 location, or execution behavior is recorded and bound where required by the
@@ -255,6 +265,12 @@ project layer MAY set only `ui` fields and `logging.level`. Executable paths,
 storage paths, log destinations, and syslog settings from a project file are
 rejected. Those settings require a system, user, explicitly selected file,
 supported environment variable, or flag.
+
+A lifecycle command encountering a prohibited project setting MUST fail before
+invoking a child tool; it MUST NOT silently ignore the setting and continue.
+`doctor environment` reports the rejected keys and computes its diagnostic
+effective configuration without applying them so the operator can see both the
+safe result and the cause of refusal.
 
 - **AINFRA-CONFIG-001:** effective configuration MUST be represented as a
   typed immutable value before command execution.
@@ -273,6 +289,14 @@ supported environment variable, or flag.
   maintained example.
 - **AINFRA-CONFIG-007:** a project configuration file MUST NOT select an
   executable, redirect storage or logs, or enable a new output destination.
+- **AINFRA-CONFIG-008:** `.ainfra/` MUST NOT contain an auto-discovered
+  configuration layer; it is local operational state, not committed policy.
+- **AINFRA-CONFIG-009:** `doctor environment` machine output MUST include the
+  redacted effective value and winning source for every supported key, loaded
+  and absent file layers, overridden sources, and rejected project settings.
+- **AINFRA-CONFIG-010:** effective-configuration entries MUST be sorted by key,
+  contain each key exactly once, and use display-safe values. Source details
+  and file paths MUST undergo the normal redaction policy.
 
 ## Relationship to `ainfra configure`
 

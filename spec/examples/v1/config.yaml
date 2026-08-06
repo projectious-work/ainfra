@@ -1,4 +1,5 @@
-# Example user or explicitly selected CLI configuration.
+# Example user or explicitly selected CLI configuration. Absolute paths are
+# illustrative and should be adapted to the local account.
 apiVersion: ainfra.projectious.work/v1
 kind: CLIConfig
 ui:
@@ -12,7 +13,7 @@ logging:
     - type: stderr
       format: text
     - type: file
-      path: .ainfra/logs/ainfra.jsonl
+      path: /home/example/.local/state/ainfra/ainfra.jsonl
       format: json
       rotation:
         maxSizeMiB: 10
@@ -20,5 +21,5 @@ logging:
         maxAgeDays: 7
         compress: true
 paths:
-  cache: .ainfra/cache
-  runs: .ainfra/runs
+  cache: /home/example/.cache/ainfra
+  runs: /home/example/.local/state/ainfra/runs

@@ -11,7 +11,8 @@ these journeys pass from a clean supported environment:
 6. apply the exact saved plan;
 7. validate standard non-secret output and deterministically generate
    inventory;
-8. run Ansible Runner with all declared native Ansible variable files in order;
+8. when the template declares configurable hosts, run Ansible Runner with all
+   declared native Ansible variable files in order;
 9. prove a zero-change check-mode verification;
 10. report meaningful status after success, failure, cancellation, and an
     ambiguous interrupted event;

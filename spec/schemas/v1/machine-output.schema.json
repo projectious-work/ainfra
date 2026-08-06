@@ -112,6 +112,82 @@
         "nextCommands": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
       }
     },
+    "configurationSource": {
+      "enum": ["compiled-default", "system-file", "user-file", "project-file", "explicit-file", "environment", "command-line", "discovered"]
+    },
+    "effectiveConfigurationValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["displayValue", "source", "overriddenSources"],
+      "properties": {
+        "displayValue": {"type": "string"},
+        "source": {"$ref": "#/$defs/configurationSource"},
+        "sourceDetail": {"type": "string", "minLength": 1},
+        "overriddenSources": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/configurationSource"},
+          "uniqueItems": true
+        }
+      }
+    },
+    "effectiveConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values", "files", "rejectedProjectSettings"],
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ui.format", "ui.outputStyle", "ui.color", "ui.nonInteractive",
+            "logging.level", "logging.destinations", "paths.cache", "paths.runs",
+            "executables.tofu", "executables.ansibleRunner", "executables.git",
+            "executables.ssh"
+          ],
+          "properties": {
+            "ui.format": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "ui.outputStyle": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "ui.color": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "ui.nonInteractive": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "logging.level": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "logging.destinations": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "paths.cache": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "paths.runs": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "executables.tofu": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "executables.ansibleRunner": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "executables.git": {"$ref": "#/$defs/effectiveConfigurationValue"},
+            "executables.ssh": {"$ref": "#/$defs/effectiveConfigurationValue"}
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["layer", "path", "status"],
+            "properties": {
+              "layer": {"enum": ["system-file", "user-file", "project-file", "explicit-file"]},
+              "path": {"type": "string", "minLength": 1},
+              "status": {"enum": ["loaded", "absent", "rejected"]}
+            }
+          }
+        },
+        "rejectedProjectSettings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "path", "code", "message"],
+            "properties": {
+              "key": {"type": "string", "minLength": 1},
+              "path": {"type": "string", "minLength": 1},
+              "code": {"type": "string", "pattern": "^AINFRA-E[0-9]{4}$"},
+              "message": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
     "initEnvelope": {
       "properties": {
         "command": {"const": "init"},
@@ -119,9 +195,15 @@
       }
     },
     "doctorEnvelope": {
+      "allOf": [
+        {
+          "if": {"properties": {"command": {"const": "doctor.environment"}, "result": {"type": "object"}}},
+          "then": {"properties": {"result": {"required": ["effectiveConfiguration"]}}}
+        }
+      ],
       "properties": {
         "command": {"enum": ["doctor.all", "doctor.deployment", "doctor.template", "doctor.run", "doctor.environment"]},
-        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["scope", "summary", "findings"], "properties": {"scope": {"enum": ["all", "deployment", "template", "run", "environment"]}, "summary": {"type": "object", "additionalProperties": false, "required": ["pass", "skip", "warning", "fail"], "properties": {"pass": {"type": "integer", "minimum": 0}, "skip": {"type": "integer", "minimum": 0}, "warning": {"type": "integer", "minimum": 0}, "fail": {"type": "integer", "minimum": 0}}}, "findings": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}}}]}
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["scope", "summary", "findings"], "properties": {"scope": {"enum": ["all", "deployment", "template", "run", "environment"]}, "summary": {"type": "object", "additionalProperties": false, "required": ["pass", "skip", "warning", "fail"], "properties": {"pass": {"type": "integer", "minimum": 0}, "skip": {"type": "integer", "minimum": 0}, "warning": {"type": "integer", "minimum": 0}, "fail": {"type": "integer", "minimum": 0}}}, "findings": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}, "effectiveConfiguration": {"$ref": "#/$defs/effectiveConfiguration"}}}]}
       }
     },
     "templateEnvelope": {

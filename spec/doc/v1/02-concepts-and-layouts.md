@@ -30,13 +30,16 @@ that need several instances create several deployment directories:
 deployments/
 ├── development/
 │   ├── ainfra.yaml
+│   ├── ainfra.config.yaml      # optional committed CLI policy
 │   └── .ainfra/
 ├── staging/
 │   ├── ainfra.yaml
+│   ├── ainfra.config.yaml      # optional committed CLI policy
 │   └── .ainfra/
 └── product-a/
     └── development/
         ├── ainfra.yaml
+        ├── ainfra.config.yaml  # optional committed CLI policy
         └── .ainfra/
 ```
 
@@ -45,6 +48,7 @@ deployments/
 ```text
 my-deployment/
 ├── ainfra.yaml
+├── ainfra.config.yaml          # optional committed safe CLI policy
 ├── ainfra.lock
 ├── terraform.tfvars
 ├── ansible-vars.yaml
@@ -72,6 +76,9 @@ my-deployment/
 - **AINFRA-LAYOUT-007:** one deployment directory MUST contain exactly one
   `ainfra.yaml` and one deployment-local `.ainfra/` execution-evidence tree.
   Coordinating several deployment directories is outside v1.
+- **AINFRA-LAYOUT-008:** optional `ainfra.config.yaml` is repository-controlled
+  project policy in the deployment root. It MUST NOT be stored under or copied
+  into `.ainfra/`; `.ainfra/` remains ignored local operational state only.
 
 ## Template layout
 
@@ -85,7 +92,7 @@ template-name/
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── ...
-├── ansible/
+├── ansible/                    # required only with configurable hosts
 │   ├── ansible.cfg
 │   ├── requirements.yml
 │   ├── site.yml

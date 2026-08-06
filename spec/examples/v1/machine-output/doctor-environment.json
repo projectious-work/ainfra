@@ -1,0 +1,33 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "doctor.environment",
+  "ok": true,
+  "result": {
+    "scope": "environment",
+    "summary": {"pass": 3, "skip": 0, "warning": 0, "fail": 0},
+    "findings": [],
+    "effectiveConfiguration": {
+      "values": {
+        "executables.ansibleRunner": {"displayValue": "/usr/local/bin/ansible-runner", "source": "discovered", "overriddenSources": []},
+        "executables.git": {"displayValue": "/usr/bin/git", "source": "discovered", "overriddenSources": []},
+        "executables.ssh": {"displayValue": "/usr/bin/ssh", "source": "discovered", "overriddenSources": []},
+        "executables.tofu": {"displayValue": "/usr/local/bin/tofu", "source": "discovered", "overriddenSources": []},
+        "logging.destinations": {"displayValue": "stderr:text", "source": "compiled-default", "overriddenSources": []},
+        "logging.level": {"displayValue": "info", "source": "environment", "sourceDetail": "AINFRA_LOG_LEVEL", "overriddenSources": ["compiled-default", "project-file"]},
+        "paths.cache": {"displayValue": "/home/example/.cache/ainfra", "source": "user-file", "overriddenSources": ["compiled-default"]},
+        "paths.runs": {"displayValue": "/home/example/.local/state/ainfra/runs", "source": "user-file", "overriddenSources": ["compiled-default"]},
+        "ui.color": {"displayValue": "never", "source": "command-line", "sourceDetail": "--color", "overriddenSources": ["compiled-default", "user-file"]},
+        "ui.format": {"displayValue": "text", "source": "compiled-default", "overriddenSources": []},
+        "ui.nonInteractive": {"displayValue": "false", "source": "compiled-default", "overriddenSources": []},
+        "ui.outputStyle": {"displayValue": "plain", "source": "user-file", "overriddenSources": ["compiled-default"]}
+      },
+      "files": [
+        {"layer": "system-file", "path": "/etc/ainfra/config.yaml", "status": "absent"},
+        {"layer": "user-file", "path": "/home/example/.config/ainfra/config.yaml", "status": "loaded"},
+        {"layer": "project-file", "path": "/work/development/ainfra.config.yaml", "status": "loaded"}
+      ],
+      "rejectedProjectSettings": []
+    }
+  },
+  "diagnostics": []
+}

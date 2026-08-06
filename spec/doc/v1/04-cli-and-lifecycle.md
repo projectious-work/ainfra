@@ -23,20 +23,25 @@
 | `ainfra destroy [DEPLOYMENT] --plan RUN_ID` | Apply the exact reviewed OpenTofu destroy plan and record the engine result. |
 | `ainfra version` | Print the ainfra version and machine-readable build information. |
 
-`deploy` composes apply, output collection, inventory generation, Ansible
-configuration, and Ansible check-mode verification. It MUST NOT create a plan
-or infer approval.
+`deploy` composes apply and every subsequent stage applicable to the resolved
+template. For a configurable-host template this includes output collection,
+inventory generation, Ansible configuration, and Ansible check-mode
+verification. For `inventory: none`, those stages are recorded as
+`not_applicable` and no Ansible executable is required or invoked. `deploy`
+MUST NOT create a plan or infer approval.
 
 ## Common behavior
 
 - **AINFRA-CLI-001:** a deployment-bound command MUST resolve its deployment in
   this order: an explicit positional `DEPLOYMENT` path; `--project`;
   `AINFRA_PROJECT`; or the nearest ancestor containing `ainfra.yaml`.
-- **AINFRA-CLI-008:** `DEPLOYMENT` is a filesystem path to a deployment
+- **AINFRA-CLI-008:** positional `DEPLOYMENT`, `--project`, and
+  `AINFRA_PROJECT` each accept a filesystem path to either a deployment
   directory or its `ainfra.yaml`. Relative paths resolve from the current
-  working directory and are canonicalized before use. Thus `ainfra plan
-  development` selects `./development`, while `ainfra deploy
-  product-a/development --plan RUN_ID` selects that explicit nested path.
+  working directory. Both forms are canonicalized to the same deployment root
+  before comparison or use. Thus `ainfra plan development` selects
+  `./development`, while `ainfra deploy product-a/development/ainfra.yaml
+  --plan RUN_ID` selects that explicit nested deployment.
 - **AINFRA-CLI-009:** ainfra MUST NOT search configured root lists, match
   deployment basenames globally, or interpret a path segment as an environment
   name. A missing or ambiguous explicit path is an error. Supplying both a
@@ -239,10 +244,17 @@ manifest-declared output, validates it, scans it for secret-shaped material,
 and persists standardized `output.json`. Inventory is derived from that output
 without reading provider state directly.
 
+For `inventory: none`, `output` and `inventory` return a typed not-applicable
+result without invoking OpenTofu output or creating inventory. `configure`
+refuses for the same reason. Within `deploy`, these stages and verification are
+recorded as not applicable rather than successful engine executions.
+
 - **AINFRA-INV-001:** inventory generation MUST be a pure deterministic
   function of validated output.
 - **AINFRA-INV-002:** output and inventory MUST be written atomically.
 - **AINFRA-INV-003:** generated inventory MUST not contain deployment secrets.
+- **AINFRA-INV-004:** an infrastructure-only template MUST NOT produce an empty
+  inventory as a substitute for `inventory: none`.
 
 ## Run logs and engine evidence
 
@@ -317,6 +329,9 @@ normal configuration followed by a separate check-mode verification.
   SHOULD be used for outcome verification.
 - **AINFRA-ANS-005:** successful prior stages MAY be resumed; interrupted or
   failed mutating stages MUST NOT be automatically repeated.
+- **AINFRA-ANS-006:** Ansible Runner is a prerequisite only when the resolved
+  template declares an Ansible engine. Commands for an infrastructure-only
+  template MUST NOT fail merely because Ansible Runner is absent.
 
 ## Destroy
 

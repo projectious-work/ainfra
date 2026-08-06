@@ -79,6 +79,10 @@ coordination repository:
 - `DEC-20260806_1115-VividDell`: keep standardized OpenTofu output a closed,
   versioned inventory handoff rather than an arbitrary Ansible-variable
   channel.
+- `DEC-20260806_1148-BriskRabbit`: use layered CLI configuration with committed
+  deployment policy and typed effective-configuration diagnostics.
+- `DEC-20260806_1313-HumbleTulip`: accept equivalent deployment path forms and
+  make Ansible conditional for infrastructure-only templates.
 
 If this specification conflicts with an accepted decision, the decision wins
 until the specification is amended.
