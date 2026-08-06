@@ -13,6 +13,12 @@
   deployment, template version, environment, operation, and reviewed input.
 - **AINFRA-PROD-006:** direct engine commands MUST remain a documented recovery
   and diagnosis path.
+- **AINFRA-PROD-007:** Ansible owns host inspection, facts, fact caching, task
+  semantics, check mode, and configuration changes. ainfra MUST NOT maintain a
+  parallel model of desired or current host state, interpret fact-cache
+  contents, or independently determine host convergence. It MAY retain
+  sanitized Ansible Runner events and summarize only outcomes reported by
+  Ansible as ainfra execution evidence.
 
 ## Target users
 
@@ -65,7 +71,7 @@ provider knowledge.
 | Template | Provider resources, OpenTofu variables and outputs, Ansible content, supported topology, provider-specific security, template documentation |
 | Deployment | Template selection, pointers to native engine input files, credential references, approvals |
 | OpenTofu | Infrastructure dependency graph, provider execution, plan, apply, state, locking |
-| Ansible Runner/Core | Host configuration execution, events, facts, check mode, collection behavior |
+| Ansible Runner/Core | Host inspection and configuration, task semantics, facts and fact caching, check mode, collection behavior, and engine-reported outcomes |
 | Operator | Credentials, plan review, cost approval, SSH trust, destructive approval, independent provider verification |
 
 ## Supported delivery

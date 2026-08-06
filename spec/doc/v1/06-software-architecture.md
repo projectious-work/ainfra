@@ -135,7 +135,10 @@ core conversion function.
 
 Owns Ansible Runner invocation, runner input-directory construction, event
 interpretation, expected-host verification, and check-mode outcomes. It does
-not provision infrastructure or acquire templates.
+not provision infrastructure, acquire templates, parse fact caches, or model
+desired or current host state. Event interpretation is limited to the
+documented Runner result contract and cannot make a stronger convergence claim
+than Ansible reports.
 
 ### `run`
 
