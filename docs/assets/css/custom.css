@@ -1,0 +1,591 @@
+/* =============================================================================
+   projectious.work brand — Hextra adapter
+   =============================================================================
+   The Hextra half of the adapter documented in
+   src/content/docs/themes/hugo.md. The token block below is byte-for-byte the
+   one in examples/hugo-docsy/assets/scss/_styles_project.scss; only the
+   selectors differ. Targets Hextra v0.10.0.
+
+   Canonical values: brand/tokens/tokens.json.
+   ========================================================================== */
+
+/* The brand faces are loaded by layouts/_partials/custom/head-end.html, not by
+   an @import here. Hextra concatenates this file into its own main.css bundle,
+   and an @import is only honoured at the very top of a stylesheet — bundled
+   into the middle of one it is silently dropped, which left this example
+   rendering every page in the system fallback face. */
+
+/* midnight-9 #1d3352 expressed as HSL, so Hextra's derived --color-primary-*
+   ramp stays in the brand's hue rather than its default azure. */
+:root {
+  --primary-hue: 214deg;
+  --primary-saturation: 47%;
+  --primary-lightness: 22%;
+  --hextra-max-page-width: 90rem;
+  --hextra-max-navbar-width: 90rem;
+  --hextra-max-footer-width: 90rem;
+}
+
+/* Required: Hextra re-declares all three under .dark. Without this block, dark
+   mode reverts to stock Hextra blue on the active sidebar item. */
+html.dark {
+  --primary-hue: 214deg;
+  --primary-saturation: 47%;
+  --primary-lightness: 62%;
+}
+
+@layer theme {
+  :root {
+    --hx-default-font-family: "Source Sans 3", system-ui, sans-serif;
+    --hx-default-mono-font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   The shared semantic layer
+   -----------------------------------------------------------------------------
+   Every value is a reference into brand/tokens/variables.css, which is mounted
+   as css/brand-tokens.css and generated from src/data/brand.yaml. Nothing here
+   is a literal, so this example cannot drift from the brand the way a copied
+   hex does — and it did: before this, four of the semantic tints here were
+   values the brand does not define.
+
+   The `*-light-N` / `*-dark-N` names are used rather than the mode-swapping
+   `--midnight-N`, because those swap on `prefers-color-scheme` and Hextra's
+   mode is the `html.dark` class. Mapping the fixed ramps explicitly is what
+   lets the theme's own toggle stay authoritative.
+   -------------------------------------------------------------------------- */
+:root {
+  --pj-canvas: var(--midnight-light-1);
+  --pj-surface: var(--color-surface-light);
+  --pj-surface-hover: var(--midnight-light-3);
+  --pj-text: var(--midnight-light-12);
+  --pj-text-secondary: var(--slate-light-11);
+  --pj-heading: var(--midnight-light-9);
+  --pj-link: var(--midnight-light-11);
+  --pj-link-hover: var(--orange-light-11);
+  --pj-nav-active-bg: var(--midnight-light-4);
+  --pj-nav-active-text: var(--midnight-light-9);
+  --pj-border: var(--slate-light-5);
+  --pj-border-strong: var(--slate-light-9);
+  --pj-focus: var(--orange-light-10);
+  --pj-info-bg: var(--color-info-light-bg);       --pj-info-border: var(--color-info-light);
+  --pj-success-bg: var(--color-success-light-bg); --pj-success-border: var(--color-success-light);
+  --pj-warning-bg: var(--color-warning-light-bg); --pj-warning-border: var(--color-warning-light);
+  --pj-danger-bg: var(--color-danger-light-bg);   --pj-danger-border: var(--color-danger-light);
+  /* 88% over the canvas, matching the documentation site's own header. */
+  --pj-navbar: color-mix(in srgb, var(--midnight-light-1) 88%, transparent);
+  --pj-footer: var(--midnight-light-2);
+
+  /* Mode-independent. The code surface is dark in both modes by design. */
+  --pj-action: var(--orange-light-10);
+  --pj-action-hover: var(--color-accent-dark);
+  --pj-action-label: #ffffff;
+  --pj-code: var(--midnight-dark-1);
+  --pj-code-text: var(--midnight-dark-12);
+  --pj-code-chrome: var(--midnight-dark-2);
+}
+
+html.dark {
+  --pj-canvas: var(--midnight-dark-1);
+  --pj-surface: var(--midnight-dark-2);
+  --pj-surface-hover: var(--midnight-dark-3);
+  --pj-text: var(--midnight-dark-12);
+  --pj-text-secondary: var(--slate-dark-11);
+  --pj-heading: var(--midnight-dark-12);
+  --pj-link: var(--midnight-dark-11);
+  --pj-link-hover: var(--orange-dark-10);
+  --pj-nav-active-bg: var(--midnight-dark-4);
+  --pj-nav-active-text: var(--midnight-dark-12);
+  --pj-border: var(--midnight-dark-5);
+  --pj-border-strong: var(--midnight-dark-8);
+  --pj-focus: var(--orange-dark-11);
+  --pj-info-bg: var(--color-info-dark-bg);       --pj-info-border: var(--color-info-dark);
+  --pj-success-bg: var(--color-success-dark-bg); --pj-success-border: var(--color-success-dark);
+  --pj-warning-bg: var(--color-warning-dark-bg); --pj-warning-border: var(--color-warning-dark);
+  --pj-danger-bg: var(--color-danger-dark-bg);   --pj-danger-border: var(--color-danger-dark);
+  --pj-navbar: color-mix(in srgb, var(--midnight-dark-1) 88%, transparent);
+  --pj-footer: var(--midnight-dark-2);
+}
+
+/* -----------------------------------------------------------------------------
+   Shell — navbar, sidebar and TOC all sit on the canvas; a hairline and
+   whitespace do the separating.
+   -------------------------------------------------------------------------- */
+body {
+  background: var(--pj-canvas);
+  color: var(--pj-text);
+}
+
+.hextra-nav-container {
+  background: var(--pj-navbar);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--pj-border);
+}
+
+/* Hextra paints the bar with a separate absolutely-positioned layer inside the
+   container — `hextra-nav-container-blur`, carrying `bg-white` and a shadow —
+   so setting the container's background alone left the bar rendering pure white
+   over it. Against the app canvas (midnight-1) that reads as a white strip
+   pasted on the page, which is most obvious on the landing page where the hero
+   sits directly beneath it.
+
+   The container above already carries the fill, the blur and the border, so the
+   layer is cleared rather than recoloured. */
+.hextra-nav-container .hextra-nav-container-blur {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The header is set in the heading face, like the documentation site's own.
+   Hextra's navbar inherits the body face and sets the title at 16px/800 and the
+   links at 16px/400, which is a different lockup from the rest of the system:
+   the brand is 20px/700 with the -0.3px tracking every heading carries, and the
+   links are 600 so the current one is distinguished by an underline rather than
+   by being the only bold thing in the bar. */
+.hextra-nav-container nav a,
+.hextra-nav-container nav a span {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-weight: 600;
+}
+
+/* Hextra sets its nav menu items at `text-sm` (14px); the documentation site's
+   header links are 16px. Two sizes in one bar is the sort of difference that
+   reads as "a different product" rather than "a different theme". */
+.hextra-nav-container nav a.hx\:text-sm,
+.hextra-nav-container .hextra-nav-menu-toggle {
+  font-size: 1rem;
+}
+
+/* Inactive destinations are supporting text, not headings — the current one is
+   marked by the accent underline below plus the weight Hextra already sets. */
+.hextra-nav-container nav a.hx\:text-sm {
+  color: var(--pj-text-secondary);
+}
+.hextra-nav-container nav a.hx\:text-sm:hover,
+.hextra-nav-container nav a.hx\:text-sm:focus-visible {
+  color: var(--pj-text);
+}
+
+/* The title is the first link in the bar — the one wrapping the logo. */
+.hextra-nav-container nav > a:first-child span {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--pj-heading);
+}
+
+.hextra-sidebar-container,
+.hextra-toc {
+  background: var(--pj-canvas);
+}
+
+/* The footer follows the mode like every other surface. It previously set a
+   light-blue foreground in both modes, which on the light footer fill was
+   light-on-light. */
+.hextra-footer {
+  background: var(--pj-footer);
+  color: var(--pj-text);
+}
+.hextra-footer a { color: var(--pj-link); }
+
+/* Not scoped to `.content`: the hextra-home layout renders the hero and the
+   feature grid outside it, and they were falling back to the theme's default
+   sans while the documentation pages used the brand face. */
+body {
+  font-family: "Source Sans 3", system-ui, sans-serif;
+}
+
+h1, h2, h3, h4,
+.hextra-feature-card h3,
+.hx\:text-4xl, .hx\:text-5xl, .hx\:text-6xl {
+  color: var(--pj-heading);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  letter-spacing: -0.3px;
+}
+
+/* The hero's single call to action is the view's primary action, so it takes
+   the accent fill rather than Hextra's primary-derived blue — which in dark
+   mode put white on #5987c3 at 3.7:1. The shortcode ships only Tailwind
+   utilities, so `a.not-prose` is the hook. */
+a.not-prose[class*="rounded-full"] {
+  background: var(--pj-action) !important;
+  color: var(--pj-action-label) !important;
+}
+a.not-prose[class*="rounded-full"]:hover,
+a.not-prose[class*="rounded-full"]:focus-visible {
+  background: var(--pj-action-hover) !important;
+}
+
+.content,
+.content p,
+.content li { color: var(--pj-text); }
+
+.content a { color: var(--pj-link); }
+.content a:hover,
+.content a:focus-visible { color: var(--pj-link-hover); }
+
+/* -----------------------------------------------------------------------------
+   Navigation — quiet at rest, tinted pill when current, plus a left marker so
+   the current item is not signalled by colour alone.
+   -------------------------------------------------------------------------- */
+.hextra-sidebar-container a,
+.hextra-toc a { color: var(--pj-text-secondary); }
+
+.hextra-sidebar-container a:hover,
+.hextra-toc a:hover {
+  background: var(--pj-surface-hover);
+  color: var(--pj-heading);
+}
+
+/* Hextra marks these with utility classes in its markup, which always outrank a
+   stylesheet selector — hence !important on these three groups only. */
+/* The marker is drawn inside the link's own left padding, so the padding goes
+   on every sidebar link rather than only the active one — pad just the active
+   item and the label shifts sideways as you navigate. */
+.hextra-sidebar-container a {
+  padding-left: 0.625rem;
+  padding-right: 0.5rem;
+  border-radius: 6px;
+}
+
+.hextra-sidebar-container a { border-radius: 0; border-left: 2px solid transparent; }
+
+.hextra-sidebar-container a.hextra-sidebar-active-item {
+  background: var(--pj-nav-active-bg) !important;
+  color: var(--pj-nav-active-text) !important;
+  font-weight: 700;
+  border-radius: 0 !important;
+  border-left-color: var(--pj-action);
+}
+
+/* The table of contents uses a left border rather than an inset shadow. A
+   border is laid out, so the 16px left padding is measured from it and the
+   accent can never end up against the first glyph — an inset shadow paints over
+   the padding box and needs that clearance arranged by hand. */
+/* Hextra's TOC links are inline-block with no vertical padding, so a tinted
+   current item hugs the text on all four sides. Give every link the box —
+   block, symmetric padding, and a transparent left border — so the active one
+   has room to breathe and the label does not shift when it becomes current. */
+/* Hextra's table of contents is a flat list: nesting is expressed by `pl-4`,
+   `pl-8` … utilities on the anchor, and the top level is marked `font-medium`.
+   Overriding padding-left therefore flattens the outline, so each level's
+   indent is restated below on top of this box.
+
+   The box itself: block, symmetric padding, and a transparent left border so
+   the label does not shift when an entry becomes current. `hx:w-full` pins the
+   width to 100% of the list, so negative margins would only shift the box —
+   `auto` lets it grow into them and reach the column edges, as Docsy's does. */
+/* Hextra spaces its table-of-contents entries with `my-2` on each list item —
+   8px above and below every link, on top of the link's own padding. That put
+   39.2px between entries where the Docsy example and the documentation site
+   both sit at 30.4px, so the same outline read as noticeably airier here.
+   The rhythm belongs to the link box below, not to the list. */
+.hextra-toc ul li {
+  margin-block: 0;
+}
+
+/* The link box is Docsy's, so the two outlines have the same rhythm and the
+   same measure: 16px of left padding with the active marker drawn as a 2px
+   border inside it, and nothing on the right. Hextra's own box indents 30px and
+   reserves 24px on the right, which on its narrower column was enough to wrap
+   every entry on a page of ordinary-length headings onto two lines.
+
+   Sub-entries keep the top level's size and drop to normal weight, again as in
+   Docsy: the hierarchy is carried by weight, not by a second type size. */
+.hextra-toc a {
+  display: block;
+  width: auto;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  margin-inline: -0.5rem;
+  padding: 2px 0 2px 1rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+/* Top-level entries carry the weight, as they do in Docsy — the outline should
+   be readable as a hierarchy before any of it is read as text. */
+.hextra-toc a.hx\:font-medium {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Restore the level indentation the box padding above would otherwise erase. */
+.hextra-toc a[class*="pl-4"] { padding-left: 2rem; }
+.hextra-toc a[class*="pl-8"] { padding-left: 3rem; }
+.hextra-toc a[class*="pl-12"] { padding-left: 4rem; }
+
+/* "On this page" */
+.hextra-toc .hextra-scrollbar > p {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--pj-heading);
+}
+
+/* No font-weight here: the entry keeps whatever weight its level carries, so a
+   current subheading does not end up looking heavier than the section above it
+   — or, worse, a current top-level entry lighter than its siblings. The tint
+   and the accent border are the marker. */
+.hextra-toc a.hextra-toc-active {
+  background: var(--pj-surface-hover) !important;
+  color: var(--pj-nav-active-text) !important;
+  border-left-color: var(--pj-action);
+  border-radius: 0 !important;
+}
+
+/* -----------------------------------------------------------------------------
+   Section rule
+   -------------------------------------------------------------------------- */
+/* The one structural job the accent is given. The divider stays quiet; a short
+   accent lead-in marks where each section starts. See the shared layer. */
+.content h2 {
+  border-bottom: 1px solid var(--pj-border);
+  padding-bottom: 0.375rem;
+  position: relative;
+}
+
+.content h2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 2.5rem;
+  height: 2px;
+  background: var(--pj-action);
+}
+
+/* -----------------------------------------------------------------------------
+   Components
+   -------------------------------------------------------------------------- */
+.hextra-card,
+.hextra-feature-card {
+  background: var(--pj-surface);
+  border-color: var(--pj-border);
+  border-radius: 9px;
+}
+.hextra-card:hover { background: var(--pj-surface-hover); }
+
+input,
+textarea,
+select,
+.search-input {
+  background: var(--pj-surface);
+  border-color: var(--pj-border-strong);
+  color: var(--pj-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--pj-focus);
+  outline-offset: 2px;
+}
+
+/* Code stays dark in both modes. Target the `pre`, not the wrapper: Hextra
+   tints the inner element and the wrapper's background never shows. */
+.hextra-code-block pre,
+.content pre {
+  background: var(--pj-code) !important;
+  color: var(--pj-code-text);
+  border-radius: 9px;
+}
+
+.hextra-code-block .hextra-code-filename {
+  background: var(--pj-code-chrome) !important;
+  /* On the always-dark code chrome, so the dark ramp in both modes. */
+  color: var(--slate-dark-11) !important;
+}
+
+/* Hextra's built-in callout styles itself with Tailwind utilities and exposes
+   no stable class hook, so its tints cannot be rebound from here. The brand
+   callout is the `pj-callout` shortcode in layouts/_shortcodes/. */
+.pj-callout {
+  margin: 24px 0;
+  padding: 12px 16px;
+  border-left: 3px solid;
+  border-radius: 0 6px 6px 0;
+  color: var(--pj-text);
+}
+.pj-callout-title {
+  margin: 0 0 4px;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+.pj-callout-body > :first-child { margin-top: 0; }
+.pj-callout-body > :last-child { margin-bottom: 0; }
+
+.pj-callout-info    { background: var(--pj-info-bg);    border-color: var(--pj-info-border); }
+.pj-callout-success { background: var(--pj-success-bg); border-color: var(--pj-success-border); }
+.pj-callout-warning { background: var(--pj-warning-bg); border-color: var(--pj-warning-border); }
+.pj-callout-danger  { background: var(--pj-danger-bg);  border-color: var(--pj-danger-border); }
+
+/* -----------------------------------------------------------------------------
+   Brand components inside Hextra's prose container
+   -------------------------------------------------------------------------- */
+/* Hextra colours every link inside `.content`, and `.content a` (0,2,0) outranks
+   a single component class (0,1,0). Components that carry their own link colour
+   have to restate it here, or the theme repaints their labels — a blue label on
+   the accent fill, and blue links on the navbar specimen.
+
+   Restate the *property*, never the value. Each component publishes its colours
+   as custom properties (see _demo.scss), so these rules win on specificity
+   while the colour itself still comes from the brand — including its light and
+   dark variants. Copying a hex here is what let this example keep painting the
+   navbar specimen's links for a midnight bar after the specimen went light. */
+.content a.pj-btn--accent,
+.content a.pj-btn--accent:hover,
+.content a.pj-btn--accent:focus-visible {
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.content .pj-navbar a.pj-navbar__link { color: var(--pj-navbar-link); }
+.content .pj-navbar a.pj-navbar__link:hover,
+.content .pj-navbar a.pj-navbar__link:focus-visible { color: var(--pj-navbar-link-hover); }
+.content .pj-navbar a.pj-navbar__link--active { color: var(--pj-navbar-link-active); }
+
+/* The specimens set their own type scale and spacing; Hextra's prose rules would
+   otherwise add margins inside the specimen frames. */
+.content .pj-demo :where(p, ul, ol) { margin: 0; }
+
+/* -----------------------------------------------------------------------------
+   Anchor landing position
+   -------------------------------------------------------------------------- */
+/* Hextra's navbar is sticky and 4rem tall, and its headings carry no
+   scroll-margin, so following a table-of-contents link lands the heading at
+   viewport top — underneath the navbar.
+
+   That also breaks the scroll-spy: its IntersectionObserver watches a band that
+   starts 20px down the viewport (rootMargin "-20px 0px -80% 0px"), so a heading
+   parked at 0 never enters it and the active marker stays where it was. Landing
+   the heading below the navbar puts it inside the band, which fixes the marker
+   and the obscured heading with one rule. */
+.content :is(h1, h2, h3, h4, h5, h6),
+.content [id] {
+  scroll-margin-top: 5rem;
+}
+
+/* -----------------------------------------------------------------------------
+   Navbar current item
+   -------------------------------------------------------------------------- */
+/* The Components page documents an accent underline on the current top-level
+   nav item. Hextra marks that item by dropping the muted text classes and
+   adding `hx:font-medium` — it exposes no dedicated class — so that is the hook.
+   `aria-current` is not emitted by the theme, so the underline plus the weight
+   change are the two cues available here. */
+/* Matched at the same specificity as the muted rule above, which is also
+   (0,3,0) — the current destination has to win it, or the accent underline is
+   the only thing distinguishing it. */
+.hextra-nav-container nav a.hx\:text-sm.hx\:font-medium {
+  color: var(--pj-heading);
+  box-shadow: inset 0 -2px 0 var(--pj-action);
+}
+
+/* Hextra marks the current page and its ancestor section, so an entry followed
+   by another active entry gives up the marker — one accent per view, and the
+   more specific match is the useful one. */
+.hextra-nav-container nav a.hx\:text-sm.hx\:font-medium:has(~ a.hx\:font-medium) {
+  box-shadow: none;
+}
+
+/* Hextra paints two sticky strips — the sidebar's theme-toggle bar and the
+   table of contents' "scroll to top" block — with a literal `bg-white` plus a
+   white fade shadow, so they can lift content as it scrolls under them. The app
+   canvas is midnight-1, not white, so both read as pale panels floating on it.
+   The theme exposes no variable for either, so they are rebound to the canvas
+   here; the fade keeps working because it is the same colour it sits on. */
+.hextra-sidebar-container > [data-toggle-animation],
+.hextra-toc .hx\:bg-white {
+  background: var(--pj-canvas) !important;
+  box-shadow: 0 -12px 16px var(--pj-canvas) !important;
+  border-color: var(--pj-border) !important;
+}
+
+/* The colour-mode control, moved into the navbar by assets/js/navbar-theme.js
+   so the header matches the documentation site's: search, then theme, then the
+   GitHub link. Icon only — the bar has no room for a word, and every other
+   control in it is an icon or a field. */
+.pj-navbar-theme {
+  display: flex;
+  align-items: center;
+}
+.pj-navbar-theme .hextra-theme-toggle {
+  padding: 0.5rem;
+  border-radius: 6px;
+  color: var(--pj-text-secondary);
+}
+.pj-navbar-theme .hextra-theme-toggle:hover,
+.pj-navbar-theme .hextra-theme-toggle:focus-visible {
+  background: var(--pj-surface-hover);
+  color: var(--pj-heading);
+}
+/* Hextra's sidebar instance renders a "Light"/"Dark" label beside the glyph. */
+.pj-navbar-theme .hextra-theme-toggle span {
+  display: none;
+}
+
+/* The sidebar strip the toggle came out of. Hidden rather than left empty —
+   without this it renders as a bare white bar pinned to the bottom of the
+   sidebar. Keyed off the class the script sets, so if the script never runs the
+   toggle stays where Hextra put it and remains reachable. */
+.pj-navbar-theme-ready .hextra-sidebar-container > [data-toggle-animation] {
+  display: none;
+}
+
+/* Hextra's search input sits on `black/[.05]`, which on the app background is
+   barely a field at all — it reads as text until you click it. Give it the same
+   surface and control border every other input in the system has. */
+.hextra-search-input {
+  background: var(--pj-surface) !important;
+  border: 1px solid var(--pj-border-strong);
+  color: var(--pj-text);
+}
+.hextra-search-input::placeholder { color: var(--pj-text-secondary); }
+.hextra-search-input:focus {
+  border-color: var(--pj-action);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(224, 82, 50, 0.18);
+}
+
+/* -----------------------------------------------------------------------------
+   Type ramp and reading measure
+   -------------------------------------------------------------------------- */
+/* Hextra sets its own scale and a 1.5 line-height. The documentation site uses
+   the brand ramp at 1.65, inside a 1100px measure — matching it is most of what
+   makes the two read as one product. The colour on h1 needs !important because
+   Hextra paints it with a utility class in the markup. */
+.content {
+  max-width: 1100px;
+  line-height: 1.65;
+}
+
+.content p,
+.content li { line-height: 1.65; }
+
+/* Docsy scales headings down on narrow viewports through Bootstrap's
+   responsive font sizes, so the documentation site's h1 is 36px on a desktop
+   and ~26px on a phone. Hextra has no equivalent, and a pinned 36px h1 eats a
+   390px screen. The clamp reproduces the same ramp: 26.28px at 390px, 36px at
+   1440px, linear between. */
+.content h1 {
+  font-size: clamp(1.6425rem, 1.4169rem + 0.9257vw, 2.25rem) !important;
+  font-weight: 700 !important;
+  line-height: 1.15;
+  color: var(--pj-heading) !important;
+}
+.content h2 {
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2;
+}
+.content h3 {
+  font-size: 1.375rem !important;
+  font-weight: 600 !important;
+  line-height: 1.25;
+}
+.content h4 {
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3;
+}
