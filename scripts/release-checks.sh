@@ -17,6 +17,7 @@ gate_command() {
       cargo audit
       ;;
     repository)
+      scripts/validate-v1-spec
       uv run --frozen ruff format --check src tests scripts
       uv run --frozen ruff check src tests scripts
       uv run --frozen pytest

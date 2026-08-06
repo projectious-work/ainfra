@@ -2,11 +2,11 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft for owner review |
+| Status | Ready for implementation handoff |
 | Specification version | 1.0.0-draft.1 |
 | Intended product line | ainfra v1 |
 | Primary implementation | New Go CLI |
-| Last updated | 2026-08-05 |
+| Last updated | 2026-08-06 |
 
 This directory is the canonical specification for the from-scratch ainfra v1
 implementation. The existing Rust implementation is evidence and history, not
@@ -70,6 +70,8 @@ Supporting material:
   and template examples.
 - [`../../schemas/v1/`](../../schemas/v1/) contains JSON Schema contracts for
   ainfra-owned documents.
+- [`../../tests/v1/`](../../tests/v1/) contains negative schema fixtures used
+  by `scripts/validate-v1-spec`; they are expected to fail validation.
 
 ## Governing decisions
 
@@ -88,6 +90,8 @@ coordination repository:
   deployment policy and typed effective-configuration diagnostics.
 - `DEC-20260806_1313-HumbleTulip`: accept equivalent deployment path forms and
   make Ansible conditional for infrastructure-only templates.
+- `DEC-20260806_1439-ProudFlame`: enforce standard JSON Schema formats in
+  specification and runtime validation.
 
 If this specification conflicts with an accepted decision, the decision wins
 until the specification is amended.

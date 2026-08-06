@@ -13,6 +13,7 @@ go tool golangci-lint run
 go test ./...
 go test -race ./...
 go test -coverprofile=coverage.out ./...
+scripts/validate-v1-spec
 ```
 
 Go-based development tools SHOULD be pinned with the `go.mod` tool mechanism
@@ -80,6 +81,25 @@ Suite ownership, required coverage, integration dependencies, isolation, and
 release applicability are defined only in the
 [testing strategy](13-testing-strategy.md). This chapter defines how to invoke
 the Go tools, not a second test taxonomy.
+
+### Specification contracts
+
+```text
+scripts/validate-v1-spec
+```
+
+This maintainer and release command runs the pinned `check-jsonschema` tool
+with JSON Schema's non-GPL format dependencies, offline through the locked
+development environment. It validates every v1 schema against its Draft
+2020-12 metaschema, validates every maintained example through an explicit
+schema mapping, keeps standard format assertions enabled, and proves through
+negative fixtures that malformed `date-time` and `uri` values fail. Adding a
+schema or example requires updating the explicit mapping; the release review
+checks completeness.
+
+This script is not an end-user prerequisite. The Go binary embeds the schemas
+and applies equivalent structural and format validation during ordinary command
+loading and doctor checks.
 
 ## Security and dependency tools
 

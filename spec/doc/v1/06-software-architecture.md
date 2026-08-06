@@ -48,6 +48,12 @@ See [package-dependencies.svg](package-dependencies.svg).
 Production code MUST remain under `internal/` until an external Go API has a
 real consumer and separate stability commitment.
 
+The `schemas` package MUST configure the selected Go validator to assert every
+standard `format` used by published contracts, including `date-time` and `uri`.
+Format support is a tested runtime capability, not an annotation-only parser
+option. End users receive this validation through normal loading and doctor;
+they do not install the repository's development validator.
+
 ## Package responsibilities
 
 ### `cmd/ainfra`

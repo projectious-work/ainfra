@@ -9,6 +9,8 @@ if [ -d .github/workflows ]; then
   exit 1
 fi
 
+scripts/validate-v1-spec
+
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features

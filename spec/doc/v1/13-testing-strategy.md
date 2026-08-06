@@ -227,3 +227,6 @@ evidence.
   architectures natively or through a documented build and smoke combination.
 - **AINFRA-TEST-013:** test output and fixtures MUST pass the production
   artifact secret-scanning policy.
+- **AINFRA-TEST-018:** schema validation MUST assert every supported standard
+  `format` used by the published contracts. Positive examples and negative
+  malformed-format fixtures MUST run in local and release schema gates.
