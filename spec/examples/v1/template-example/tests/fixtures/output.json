@@ -1,15 +1,12 @@
 {
   "schema_version": "1",
-  "groups": {
-    "example": {
-      "hosts": {
-        "localhost": {
-          "ansible_connection": "local",
-          "ansible_host": "127.0.0.1",
-          "vars": {
-            "ainfra_environment": "development"
-          }
-        }
+  "hosts": {
+    "localhost": {
+      "groups": [
+        "example"
+      ],
+      "connection": {
+        "type": "local"
       }
     }
   }

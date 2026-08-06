@@ -5,8 +5,8 @@ the canonical developer interface and MUST remain independently runnable:
 
 ```text
 go build ./cmd/ainfra
-gofmt -w .
-go tool goimports -w .
+go fmt ./...
+git ls-files -z '*.go' | xargs -0 go tool goimports -w
 go vet ./...
 go tool staticcheck ./...
 go tool golangci-lint run
@@ -50,12 +50,19 @@ release groups.
 ### Formatting and static analysis
 
 ```text
-gofmt
-go tool goimports
+go fmt ./...
+git ls-files -z '*.go' | xargs -0 go tool goimports -w
+git diff --exit-code -- '*.go'
 go vet ./...
 go tool staticcheck ./...
 go tool golangci-lint run
 ```
+
+`go fmt ./...` is the canonical recursive package formatter. The separate
+`goimports` command enumerates every tracked Go file recursively. The final
+diff command turns either formatter's change into a failing check. This avoids
+non-portable assumptions that `gofmt -w .` or `goimports -w .` recursively
+traverse the module.
 
 The `golangci-lint` configuration MUST contain a curated low-noise set. A
 warning is either fixed or suppressed at the narrowest location with rationale.

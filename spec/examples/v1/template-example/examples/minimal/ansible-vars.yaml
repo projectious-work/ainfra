@@ -1,3 +1,4 @@
 ---
-ainfra_message: ainfra localhost conformance example
-ainfra_emit_summary: true
+deployment_label: development
+message: ainfra localhost conformance example
+emit_summary: true

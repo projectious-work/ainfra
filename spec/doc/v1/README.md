@@ -76,6 +76,9 @@ coordination repository:
 - `DEC-20260805_1518-BalancedHorizon`: rewrite from scratch as a simple Go CLI.
 - `DEC-20260805_1625-TallTiger`: publish Linux/macOS binaries and an optional
   Dockerfile, but no Windows binary or published container image.
+- `DEC-20260806_1115-VividDell`: keep standardized OpenTofu output a closed,
+  versioned inventory handoff rather than an arbitrary Ansible-variable
+  channel.
 
 If this specification conflicts with an accepted decision, the decision wins
 until the specification is amended.

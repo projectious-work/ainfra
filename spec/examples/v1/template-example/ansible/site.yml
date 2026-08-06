@@ -3,19 +3,19 @@
   hosts: all
   gather_facts: false
   vars:
-    ainfra_emit_summary: true
+    emit_summary: true
   tasks:
     - name: Validate inventory and deployment variables
       ansible.builtin.assert:
         that:
-          - ainfra_environment is defined
-          - ainfra_environment | length > 0
-          - ainfra_message is defined
-          - ainfra_message | length > 0
-          - ainfra_emit_summary is boolean
+          - deployment_label is defined
+          - deployment_label | length > 0
+          - message is defined
+          - message | length > 0
+          - emit_summary is boolean
         quiet: true
 
     - name: Report the non-secret conformance message
       ansible.builtin.debug:
-        msg: "{{ ainfra_environment }}: {{ ainfra_message }}"
-      when: ainfra_emit_summary
+        msg: "{{ deployment_label }}: {{ message }}"
+      when: emit_summary

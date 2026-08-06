@@ -18,7 +18,7 @@
 | `ainfra deploy [DEPLOYMENT] --plan RUN_ID` | Apply a reviewed plan, collect output, generate inventory, configure hosts, and verify convergence. |
 | `ainfra output [DEPLOYMENT] --run RUN_ID` | Show the sanitized standardized infrastructure output recorded for a run. |
 | `ainfra inventory [DEPLOYMENT] --run RUN_ID` | Show or regenerate deterministic Ansible inventory from a run's validated standardized output. |
-| `ainfra logs [DEPLOYMENT] --run RUN_ID [--engine ENGINE] [--errors\|--raw --stream STREAM]` | Display the sanitized execution timeline, structured engine failures, or explicitly selected sensitive raw evidence for a run. |
+| `ainfra logs [DEPLOYMENT] --run RUN_ID [--source SOURCE] [--errors\|--raw --stream STREAM]` | Browse ainfra and engine evidence for a run, optionally selecting errors or sensitive raw child evidence. |
 | `ainfra status [DEPLOYMENT]` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
 | `ainfra destroy [DEPLOYMENT] --plan RUN_ID` | Apply the exact reviewed OpenTofu destroy plan and record the engine result. |
 | `ainfra version` | Print the ainfra version and machine-readable build information. |
@@ -51,8 +51,10 @@ or infer approval.
   selected target or perform an operation.
 - **AINFRA-CLI-002:** every command MUST support `--format text|json` where its
   result is meaningful to automation.
-- **AINFRA-CLI-003:** JSON output MUST use a versioned envelope and stderr MUST
-  contain diagnostics only.
+- **AINFRA-CLI-003:** stdout MUST contain only the requested command result. In
+  JSON mode it MUST contain exactly one versioned protocol object. Stderr MAY
+  contain configured operational logs and human diagnostics, but raw child
+  output MUST never contaminate JSON stdout.
 - **AINFRA-CLI-004:** `--non-interactive` MUST prevent prompts and fail when
   required confirmation or input is absent.
 - **AINFRA-CLI-007:** `--yes` MAY satisfy a documented confirmation only when
@@ -245,18 +247,30 @@ without reading provider state directly.
 ## Run logs and engine evidence
 
 `ainfra logs` reads retained run evidence; it never reruns an engine. Its
-default view is a sanitized, chronological execution timeline. `--engine
-opentofu|ansible-runner` limits the view to one child engine. `--errors` limits
-the result to native structured records classified as errors, failures, or
-unreachable outcomes, plus child exit, timeout, cancellation, interruption,
-and ainfra diagnostics. It MUST NOT search localized prose for words such as
-"error" or infer infrastructure, host, or application state.
+default view is a sanitized, chronological timeline combining ainfra lifecycle
+events with OpenTofu and Ansible Runner evidence. `--source
+ainfra|opentofu|ansible-runner` selects one source. For `ainfra`, `--errors`
+selects typed error-level events and diagnostics. For a child engine it selects
+native structured records classified as errors, failures, or unreachable
+outcomes, plus child exit, timeout, cancellation, and interruption facts. It
+MUST NOT search localized prose for words such as "error" or infer
+infrastructure, host, or application state.
+
+The ainfra source is the run's append-only `events.jsonl`, not the configured
+operational log sinks. Rotating log files and syslog may contain events from
+many commands, have independent retention, and are not authoritative run
+evidence; `ainfra logs` MUST NOT ingest or search them. Thus ainfra's own
+run-correlated activity is browsable without pretending that incidental
+operational logs are a database.
 
 `--raw` displays sensitive engine-native evidence without redaction and is
-mutually exclusive with `--errors`, `--format json`, and configured log sinks.
-It requires `--engine`, an explicit `--stream stdout|stderr|events`, and an
-interactive confirmation; automation requires both `--non-interactive` and
-`--yes`. Raw bytes go only to stdout and a warning goes to stderr. They MUST
+mutually exclusive with `--errors` and `--format json`; raw bytes bypass every
+configured operational log sink.
+It requires child-engine `--source`, an explicit
+`--stream stdout|stderr|events`, and an interactive confirmation; automation
+requires both `--non-interactive` and `--yes`. `--raw --source ainfra` is
+invalid because ainfra run events are already structured and sanitized. Raw
+bytes go only to stdout and a warning goes to stderr. They MUST
 NOT be copied into the machine-result envelope, operational logs, syslog, or
 MCP responses.
 
@@ -280,6 +294,11 @@ are preserved but not reclassified.
   MUST NOT pass through normal renderers or logging sinks.
 - **AINFRA-LOGS-005:** engine-reported counts MUST retain their attribution and
   MUST NOT be restated as ainfra-observed infrastructure convergence.
+- **AINFRA-LOGS-006:** the default timeline MUST include attributable ainfra
+  run events and child-engine evidence; source filtering MUST not change the
+  underlying evidence.
+- **AINFRA-LOGS-007:** operational file/syslog sinks MUST NOT be treated as or
+  searched as authoritative run evidence.
 
 ## Configure and verify
 

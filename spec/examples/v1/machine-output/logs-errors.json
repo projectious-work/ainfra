@@ -6,7 +6,7 @@
     "deployment": {"name": "development", "root": "/work/development"},
     "runId": "example-apply-run",
     "view": "errors",
-    "engine": "opentofu",
+    "source": "opentofu",
     "structuredFiltering": "available",
     "displayedRecords": 1,
     "evidence": [

@@ -169,7 +169,7 @@
     "logsEnvelope": {
       "properties": {
         "command": {"const": "logs"},
-        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "view", "structuredFiltering", "displayedRecords", "evidence"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "view": {"enum": ["timeline", "errors"]}, "engine": {"enum": ["opentofu", "ansible-runner"]}, "structuredFiltering": {"enum": ["available", "partial", "unavailable"]}, "displayedRecords": {"type": "integer", "minimum": 0}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}}}]}
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "view", "structuredFiltering", "displayedRecords", "evidence"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "view": {"enum": ["timeline", "errors"]}, "source": {"enum": ["ainfra", "opentofu", "ansible-runner"]}, "structuredFiltering": {"enum": ["available", "partial", "unavailable"]}, "displayedRecords": {"type": "integer", "minimum": 0}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}}}]}
       }
     },
     "statusEnvelope": {

@@ -11,6 +11,13 @@ with stderr as the default sink. Run evidence goes only to the run store. A log
 file or syslog stream MUST NOT be treated as authoritative run evidence, and
 rotating a log MUST NOT remove run evidence.
 
+Accordingly, `ainfra logs` browses the selected run's evidence store, including
+ainfra lifecycle events and attributed child-engine evidence. It does not read
+the CLI's rotating operational log files or local syslog. Operational logging
+answers “what did this CLI process decide and do?” across invocations; run
+evidence answers “what was recorded for this deployment run?” and has its own
+integrity and retention contract.
+
 ## Console output
 
 The text renderer SHOULD provide a polished terminal experience comparable to
@@ -56,6 +63,11 @@ where possible and MUST never contaminate JSON stdout.
   common widths, no-color mode, Unicode fallback, failures, and cancellation.
 - **AINFRA-OUTPUT-006:** verbosity changes logs, not the schema or meaning of
   command results.
+- **AINFRA-OUTPUT-007:** stderr MAY carry configured operational logs and human
+  diagnostics in text or structured sink format; consumers of JSON mode MUST
+  treat stdout as the sole machine-result stream.
+- **AINFRA-OUTPUT-008:** raw child stdout and stderr MUST never be forwarded to
+  JSON stdout; `ainfra logs --raw` is a separate non-JSON byte-stream mode.
 
 ## Versioned machine-result contract
 

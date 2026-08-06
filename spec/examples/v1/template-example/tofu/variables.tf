@@ -1,5 +1,5 @@
 variable "environment" {
-  description = "Environment label exposed to the localhost Ansible run."
+  description = "Deployment label recorded by the provider-free OpenTofu example."
   type        = string
 
   validation {

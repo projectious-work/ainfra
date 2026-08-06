@@ -88,8 +88,9 @@ The suite covers:
   parent directories containing one or more deployment children;
 - `-v`, `-vv`, `-vvv`, log formats, rotation, and a fake local syslog endpoint;
 - rich, plain, no-color, narrow-width, non-TTY, and JSON output;
-- default, engine-filtered, `--errors`, and guarded `--raw` log views, including
-  refusal to guess from unstructured prose;
+- default combined, source-filtered, `--errors`, and guarded `--raw` run-log
+  views, including ainfra lifecycle events, refusal to search operational
+  sinks, and refusal to guess from unstructured prose;
 - doctor scopes, `doctor all`, reconciliation confirmation, partial failure,
   and post-reconciliation checks;
 - lock, plan, apply, configure, deploy, status, and destroy behavior using fake
