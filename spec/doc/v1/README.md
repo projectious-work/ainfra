@@ -6,7 +6,7 @@
 | Specification version | 1.0.0-draft.1 |
 | Intended product line | ainfra v1 |
 | Primary implementation | New Go CLI |
-| Last updated | 2026-08-06 |
+| Last updated | 2026-08-07 |
 
 This directory is the canonical specification for the from-scratch ainfra v1
 implementation. The existing Rust implementation is evidence and history, not
@@ -49,6 +49,7 @@ backend behavior.
 14. [Go source conventions](14-go-source-conventions.md)
 15. [MCP server mode](15-mcp-server-mode.md)
 16. [Market positioning](16-market-positioning.md)
+17. [Spec-driven development cycle](17-spec-driven-development-cycle.md)
 
 Roadmap data:
 
