@@ -25,9 +25,9 @@ layout: hextra-home
 
 <div class="ainfra-hero-actions hx:mb-6">
   <div class="ainfra-hero-action-primary">
-  {{< hextra/hero-button text="Get started" link="docs/" >}}
+  {{< hextra/hero-button text="Get started" link="docs/quick-start/" >}}
   </div>
   <div class="ainfra-hero-action-secondary">
-  {{< hextra/hero-button text="Tutorials" link="docs/" >}}
+  {{< hextra/hero-button text="Tutorials" link="docs/tutorials/" >}}
   </div>
 </div>

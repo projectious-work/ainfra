@@ -46,16 +46,19 @@ params:
 menu:
   main:
     - name: Quick start
-      pageRef: /docs
+      pageRef: /docs/quick-start
       weight: 10
+    - name: Blog
+      pageRef: /blog
+      weight: 15
     - name: Templates
-      pageRef: /docs
+      pageRef: /docs/templates
       weight: 20
     - name: Documentation
       pageRef: /docs
       weight: 30
     - name: Roadmap
-      url: https://github.com/projectious-work/ainfra/blob/v1.x-dev/spec/doc/v1/roadmap.yaml
+      pageRef: /docs/roadmap
       weight: 40
     - name: Releases
       url: https://github.com/projectious-work/ainfra/releases
