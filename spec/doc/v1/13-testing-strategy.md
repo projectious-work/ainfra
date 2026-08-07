@@ -82,7 +82,10 @@ bounded timeouts.
 
 The suite covers:
 
-- help, version, invalid syntax, and every documented exit code;
+- root, group, and leaf help through both `help` and `--help` spellings;
+- version, unknown commands and help topics, invalid global and command
+  options, malformed format selection, missing and extra arguments, and every
+  documented exit code;
 - project discovery and complete config/env/flag precedence permutations;
 - explicit deployment paths, nested paths, missing manifests, and fail-closed
   parent directories containing one or more deployment children;
@@ -100,6 +103,10 @@ The suite covers:
 Tests assert stdout, stderr, sinks, exit code, child invocation, and allowed
 filesystem changes separately. JSON assertions decode the schema. Human output
 uses reviewed golden files with volatile values normalized before comparison.
+Help tests additionally prove that configuration, project discovery, network,
+and child tools are untouched. Invalid-invocation tests prove the text/JSON
+stdout and stderr split and verify that failures after canonical dispatch keep
+their command discriminator.
 
 ## Real-tool integration tests
 

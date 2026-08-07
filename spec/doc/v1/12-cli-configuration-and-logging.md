@@ -78,6 +78,19 @@ The envelope has the closed fields `apiVersion`, canonical `command`, `ok`,
 command-specific `result`, and `diagnostics`. Command identifiers and every
 result shape are discriminated by the schema; unknown fields are errors.
 
+Static help uses the canonical discriminator `help`. Its successful result
+identifies the normalized topic and supplies deterministic usage, summary,
+subcommand, argument, and option metadata. The arrays follow declaration
+order and are present even when empty. Root help uses topic `ainfra`; command
+groups use `doctor` or `template`; leaf help uses the canonical command
+identifier.
+
+A failure that occurs before a valid canonical command is dispatched uses the
+discriminator `invocation`, `ok: false`, `result: null`, and at least one
+diagnostic. This includes unknown commands and help topics, parser errors, and
+invalid global options. After a valid command is dispatched, semantic input
+or execution failures retain that command's canonical discriminator.
+
 Successful commands MUST return a non-null result. A command that fails before
 producing a meaningful result returns `result: null`; a later failure MAY
 return a schema-valid partial result and at least one diagnostic. Engine facts
@@ -106,6 +119,11 @@ outside the JSON result interface.
   `resultApiVersions`, and `standardOutputSchemaVersions` arrays MUST identify
   the versions accepted by that binary and MUST include the versions used by
   this v1 specification.
+- **AINFRA-OUTPUT-014:** successful help JSON MUST use the closed `help`
+  envelope and MUST describe the same static command metadata as text help.
+- **AINFRA-OUTPUT-015:** every pre-dispatch failure selected for JSON output
+  MUST use the closed `invocation` envelope, contain `result: null`, and carry
+  at least one stable `AINFRA-E####` diagnostic.
 
 ## Logging and verbosity
 

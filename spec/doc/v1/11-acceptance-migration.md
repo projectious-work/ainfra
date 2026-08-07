@@ -18,7 +18,9 @@ these journeys pass from a clean supported environment:
     ambiguous interrupted event;
 11. reject an apply plan for destroy and vice versa;
 12. apply an exact destroy plan and accurately record the OpenTofu result;
-13. complete machine JSON and exit-code compatibility fixtures;
+13. complete machine JSON and exit-code compatibility fixtures, including
+    root/group/leaf help, unknown help topics, pre-dispatch parser failures,
+    and post-dispatch semantic failures with their required discriminators;
 14. diagnose environment, deployment, template/source, and run fixtures with
     stable findings and correct pass/skip/warning/fail states;
 15. reconcile a safe local finding idempotently, reject an unsafe finding, and

@@ -1,0 +1,24 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "help",
+  "ok": true,
+  "result": {
+    "topic": "plan",
+    "usage": "ainfra plan [DEPLOYMENT] [--destroy] [options]",
+    "summary": "Create a saved apply or destroy plan.",
+    "subcommands": [],
+    "arguments": [
+      {
+        "name": "DEPLOYMENT",
+        "required": false,
+        "repeatable": false,
+        "summary": "Deployment directory or ainfra.yaml path."
+      }
+    ],
+    "options": [
+      {"names": ["--destroy"], "summary": "Create a destroy plan."},
+      {"names": ["--format"], "valueName": "text|json", "summary": "Select output format."}
+    ]
+  },
+  "diagnostics": []
+}

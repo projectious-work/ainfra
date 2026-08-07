@@ -1,0 +1,13 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "help",
+  "ok": true,
+  "result": {
+    "topic": "ainfra",
+    "usage": "ainfra <command> [options]",
+    "summary": "Manage infrastructure deployments.",
+    "subcommands": [],
+    "arguments": []
+  },
+  "diagnostics": []
+}

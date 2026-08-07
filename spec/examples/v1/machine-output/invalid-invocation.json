@@ -1,0 +1,14 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "invocation",
+  "ok": false,
+  "result": null,
+  "diagnostics": [
+    {
+      "code": "AINFRA-E0001",
+      "severity": "error",
+      "message": "unknown command: plna",
+      "nextAction": "Run 'ainfra help' to list available commands."
+    }
+  ]
+}

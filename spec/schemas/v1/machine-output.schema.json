@@ -13,7 +13,7 @@
         "doctor.run", "doctor.environment", "template.lock",
         "template.update", "template.migrate", "plan", "apply",
         "configure", "deploy", "output", "inventory", "logs", "status",
-        "destroy", "version"
+        "destroy", "version", "help", "invocation"
       ]
     },
     "ok": {"type": "boolean"},
@@ -42,7 +42,9 @@
     {"$ref": "#/$defs/artifactEnvelope"},
     {"$ref": "#/$defs/logsEnvelope"},
     {"$ref": "#/$defs/statusEnvelope"},
-    {"$ref": "#/$defs/versionEnvelope"}
+    {"$ref": "#/$defs/versionEnvelope"},
+    {"$ref": "#/$defs/helpEnvelope"},
+    {"$ref": "#/$defs/invocationEnvelope"}
   ],
   "$defs": {
     "diagnostic": {
@@ -223,6 +225,82 @@
             }
           }
         }
+      }
+    },
+    "helpResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topic", "usage", "summary", "subcommands", "arguments", "options"],
+      "properties": {
+        "topic": {
+          "enum": [
+            "ainfra", "doctor", "template", "init", "doctor.all",
+            "doctor.deployment", "doctor.template", "doctor.run",
+            "doctor.environment", "template.lock", "template.update",
+            "template.migrate", "plan", "apply", "configure", "deploy",
+            "output", "inventory", "logs", "status", "destroy", "version"
+          ]
+        },
+        "usage": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "subcommands": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/helpNamedItem"}
+        },
+        "arguments": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/helpArgument"}
+        },
+        "options": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/helpOption"}
+        }
+      }
+    },
+    "helpNamedItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "summary"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1}
+      }
+    },
+    "helpArgument": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "required", "repeatable", "summary"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "required": {"type": "boolean"},
+        "repeatable": {"type": "boolean"},
+        "summary": {"type": "string", "minLength": 1}
+      }
+    },
+    "helpOption": {
+      "type": "object", "additionalProperties": false,
+      "required": ["names", "summary"],
+      "properties": {
+        "names": {
+          "type": "array", "items": {"type": "string", "minLength": 2},
+          "minItems": 1, "uniqueItems": true
+        },
+        "valueName": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1}
+      }
+    },
+    "helpEnvelope": {
+      "properties": {
+        "command": {"const": "help"},
+        "ok": {"const": true},
+        "result": {"$ref": "#/$defs/helpResult"},
+        "diagnostics": {"maxItems": 0}
+      }
+    },
+    "invocationEnvelope": {
+      "properties": {
+        "command": {"const": "invocation"},
+        "ok": {"const": false},
+        "result": {"type": "null"},
+        "diagnostics": {"minItems": 1}
       }
     },
     "initEnvelope": {
