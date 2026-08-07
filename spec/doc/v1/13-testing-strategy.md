@@ -97,8 +97,12 @@ The suite covers:
 - doctor scopes, `doctor all`, reconciliation confirmation, partial failure,
   and post-reconciliation checks;
 - lock, plan, apply, configure, deploy, status, and destroy behavior using fake
-  tools; and
-- signal forwarding, cancellation, corrupt evidence, and recovery guidance.
+  tools;
+- signal forwarding, cancellation, corrupt evidence, and recovery guidance;
+  and
+- MCP stdio discovery, default read-only capability exposure, explicit
+  planning/deployment/destruction allowlists, authorization binding, CLI/MCP
+  outcome equivalence, and refusal before child invocation.
 
 Tests assert stdout, stderr, sinks, exit code, child invocation, and allowed
 filesystem changes separately. JSON assertions decode the schema. Human output
