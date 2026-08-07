@@ -460,7 +460,7 @@ model_providers = [
 # `version` optionally pins the CLI recipe; omit it to use the addon default.
 harnesses = [
     { harness = "codex", enable = true, install = true },
-#   { harness = "claude", enable = true, install = true },
+    { harness = "claude", enable = true, install = true },
 #   { harness = "gemini", enable = true, install = true },
 #   { harness = "aider", enable = true, install = true },
 #   { harness = "continue", enable = true, install = true },
