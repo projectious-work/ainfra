@@ -134,6 +134,8 @@ approved set.
 ## Build metadata
 
 Release binaries MUST report version, commit, build time policy, Go version,
-and supported contract versions. Reproducibility SHOULD avoid embedding
-variable timestamps in binary bytes; human release metadata can carry the
-publication time externally.
+and supported contract versions. In JSON mode, supported contract versions
+MUST use the closed structure defined for the `version` result in
+[`machine-output.schema.json`](../../schemas/v1/machine-output.schema.json).
+Reproducibility SHOULD avoid embedding variable timestamps in binary bytes;
+human release metadata can carry the publication time externally.

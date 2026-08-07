@@ -100,6 +100,12 @@ outside the JSON result interface.
   meaning, or required invariant requires a new machine-result API version.
 - **AINFRA-OUTPUT-012:** engine-attributed reports MUST remain distinguishable
   from ainfra execution facts in every renderer.
+- **AINFRA-OUTPUT-013:** successful `ainfra version --format json` output MUST
+  report supported contract versions in the closed
+  `supportedContractVersions` object. Its `documentApiVersions`,
+  `resultApiVersions`, and `standardOutputSchemaVersions` arrays MUST identify
+  the versions accepted by that binary and MUST include the versions used by
+  this v1 specification.
 
 ## Logging and verbosity
 

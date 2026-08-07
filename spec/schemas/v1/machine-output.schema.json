@@ -115,6 +115,43 @@
     "configurationSource": {
       "enum": ["compiled-default", "system-file", "user-file", "project-file", "explicit-file", "environment", "command-line", "discovered"]
     },
+    "supportedContractVersions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documentApiVersions", "resultApiVersions",
+        "standardOutputSchemaVersions"
+      ],
+      "properties": {
+        "documentApiVersions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^ainfra\\.projectious\\.work/v[1-9][0-9]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "contains": {"const": "ainfra.projectious.work/v1"}
+        },
+        "resultApiVersions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^ainfra\\.result/v[1-9][0-9]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "contains": {"const": "ainfra.result/v1"}
+        },
+        "standardOutputSchemaVersions": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+          "minItems": 1,
+          "uniqueItems": true,
+          "contains": {"const": "1"}
+        }
+      }
+    },
     "effectiveConfigurationValue": {
       "type": "object",
       "additionalProperties": false,
@@ -263,7 +300,7 @@
     "versionEnvelope": {
       "properties": {
         "command": {"const": "version"},
-        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["version", "commit", "builtAt", "goVersion", "platform"], "properties": {"version": {"type": "string", "minLength": 1}, "commit": {"type": "string", "minLength": 1}, "builtAt": {"type": "string", "format": "date-time"}, "goVersion": {"type": "string", "minLength": 1}, "platform": {"type": "string", "pattern": "^(linux|darwin)/(amd64|arm64)$"}}}]}
+        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["version", "commit", "builtAt", "goVersion", "platform", "supportedContractVersions"], "properties": {"version": {"type": "string", "minLength": 1}, "commit": {"type": "string", "minLength": 1}, "builtAt": {"type": "string", "format": "date-time"}, "goVersion": {"type": "string", "minLength": 1}, "platform": {"type": "string", "pattern": "^(linux|darwin)/(amd64|arm64)$"}, "supportedContractVersions": {"$ref": "#/$defs/supportedContractVersions"}}}]}
       }
     }
   }
