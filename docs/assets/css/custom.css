@@ -220,7 +220,14 @@ a.not-prose[class*="rounded-full"]:focus-visible {
 .ainfra-hero-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.75rem;
+}
+
+.ainfra-hero {
+  max-width: 52rem;
+  margin-inline: auto;
+  text-align: center;
 }
 
 .ainfra-hero-action-secondary a.not-prose[class*="rounded-full"] {
@@ -232,6 +239,26 @@ a.not-prose[class*="rounded-full"]:focus-visible {
 .ainfra-hero-action-secondary a.not-prose[class*="rounded-full"]:hover,
 .ainfra-hero-action-secondary a.not-prose[class*="rounded-full"]:focus-visible {
   background: var(--pj-surface-hover) !important;
+}
+
+.ainfra-home-section {
+  margin-top: 4rem;
+}
+
+.ainfra-home-section .hextra-feature-grid {
+  align-items: stretch;
+}
+
+.ainfra-home-section .hextra-feature-card {
+  height: 100%;
+}
+
+.ainfra-home-intro .hextra-feature-card {
+  min-height: 12rem;
+}
+
+.ainfra-home-features .hextra-feature-card {
+  min-height: 10rem;
 }
 
 .content,

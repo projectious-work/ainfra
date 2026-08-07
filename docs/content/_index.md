@@ -4,6 +4,7 @@ description: Infrastructure for containerized AI.
 layout: hextra-home
 ---
 
+<div class="ainfra-hero">
 {{< hextra/hero-badge link="docs/" >}}
   <div class="hx:w-2 hx:h-2 hx:rounded-full hx:bg-primary-400"></div>
   <span>Free AI agents inside fully controlled boundaries</span>
@@ -31,3 +32,46 @@ layout: hextra-home
   {{< hextra/hero-button text="Tutorials" link="docs/tutorials/" >}}
   </div>
 </div>
+</div>
+
+<section class="ainfra-home-section ainfra-home-intro">
+{{< hextra/feature-grid cols="2" >}}
+  {{< hextra/feature-card
+    title="What is ainfra?"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+  {{< hextra/feature-card
+    title="When would I use ainfra?"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+{{< /hextra/feature-grid >}}
+</section>
+
+<section class="ainfra-home-section ainfra-home-features">
+{{< hextra/feature-grid cols="3" >}}
+  {{< hextra/feature-card
+    title="Lorem ipsum"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+  {{< hextra/feature-card
+    title="Lorem ipsum"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+  {{< hextra/feature-card
+    title="Lorem ipsum"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+  {{< hextra/feature-card
+    title="Lorem ipsum"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+  {{< hextra/feature-card
+    title="Lorem ipsum"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+  {{< hextra/feature-card
+    title="Lorem ipsum"
+    subtitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  >}}
+{{< /hextra/feature-grid >}}
+</section>
