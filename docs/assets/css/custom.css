@@ -272,6 +272,197 @@ a.not-prose[class*="rounded-full"]:focus-visible {
   min-height: 10rem;
 }
 
+/* -----------------------------------------------------------------------------
+   Roadmap — generated from spec/doc/v1/roadmap.yaml.
+   -------------------------------------------------------------------------- */
+.ainfra-roadmap {
+  margin-top: 2rem;
+}
+
+.ainfra-roadmap-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 4rem;
+}
+
+.ainfra-roadmap-stat {
+  padding: 1.25rem;
+  background: var(--pj-surface);
+  border: 1px solid var(--pj-border);
+  border-radius: 9px;
+}
+
+.ainfra-roadmap-stat strong,
+.ainfra-roadmap-stat span {
+  display: block;
+}
+
+.ainfra-roadmap-stat strong {
+  color: var(--pj-heading);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.ainfra-roadmap-stat span {
+  margin-top: 0.5rem;
+  color: var(--pj-text-secondary);
+  font-size: 0.875rem;
+}
+
+.ainfra-roadmap-group + .ainfra-roadmap-group {
+  margin-top: 5rem;
+}
+
+.ainfra-roadmap-group-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--pj-border);
+}
+
+.ainfra-roadmap-group-number {
+  color: var(--pj-action);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+.ainfra-roadmap-group-header p {
+  margin: 0 0 0.25rem;
+  color: var(--pj-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.content .ainfra-roadmap-group-header h2 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--pj-heading);
+  font-size: 1.75rem;
+}
+
+.content .ainfra-roadmap-group-header h2::after {
+  display: none;
+}
+
+.ainfra-roadmap-phases {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.ainfra-roadmap-phase {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  min-height: 12rem;
+  padding: 1.25rem;
+  background: var(--pj-surface);
+  border: 1px solid var(--pj-border);
+  border-left: 3px solid var(--pj-border-strong);
+  border-radius: 9px;
+}
+
+.ainfra-roadmap-phase.status-in-progress {
+  border-left-color: var(--pj-action);
+}
+
+.ainfra-roadmap-phase.status-completed,
+.ainfra-roadmap-phase.status-done {
+  border-left-color: var(--pj-success-border);
+}
+
+.ainfra-roadmap-phase.status-planned {
+  border-left-color: var(--pj-info-border);
+}
+
+.ainfra-roadmap-phase-marker {
+  color: var(--pj-text-secondary);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.status-in-progress .ainfra-roadmap-phase-marker {
+  color: var(--pj-action);
+}
+
+.status-completed .ainfra-roadmap-phase-marker,
+.status-done .ainfra-roadmap-phase-marker {
+  color: var(--pj-success-border);
+}
+
+.ainfra-roadmap-phase-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--pj-text-secondary);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+}
+
+.ainfra-roadmap-status {
+  padding: 0.125rem 0.5rem;
+  background: var(--pj-canvas);
+  border: 1px solid var(--pj-border);
+  border-radius: 999px;
+  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-weight: 600;
+}
+
+.status-in-progress .ainfra-roadmap-status {
+  background: var(--pj-warning-bg);
+  border-color: var(--pj-warning-border);
+}
+
+.status-completed .ainfra-roadmap-status,
+.status-done .ainfra-roadmap-status {
+  background: var(--pj-success-bg);
+  border-color: var(--pj-success-border);
+}
+
+.status-planned .ainfra-roadmap-status {
+  background: var(--pj-info-bg);
+  border-color: var(--pj-info-border);
+}
+
+.ainfra-roadmap-phase h3 {
+  margin: 1rem 0 0.5rem;
+  color: var(--pj-heading);
+  font-size: 1.125rem;
+}
+
+.ainfra-roadmap-phase p {
+  margin: 0;
+  color: var(--pj-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 48rem) {
+  .ainfra-roadmap-summary,
+  .ainfra-roadmap-phases {
+    grid-template-columns: 1fr;
+  }
+
+  .ainfra-roadmap-summary {
+    margin-bottom: 3rem;
+  }
+
+  .ainfra-roadmap-phase {
+    min-height: 0;
+  }
+}
+
 .content,
 .content p,
 .content li { color: var(--pj-text); }

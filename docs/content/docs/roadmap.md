@@ -1,11 +1,11 @@
 ---
 title: Roadmap
 weight: 100
+toc: false
 ---
 
 The ainfra v1 roadmap begins with the core lifecycle and expands through
-hardening, templates, integrations, and release readiness.
+hardening, templates, integrations, and release readiness. It is generated
+directly from the authoritative specification.
 
-The detailed, machine-readable roadmap remains part of the authoritative v1
-specification in the repository. This page will summarize user-visible progress
-as implementation milestones are completed.
+{{< ainfra-roadmap >}}

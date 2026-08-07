@@ -1,0 +1,75 @@
+{{- $roadmap := .Page.Site.Data.roadmap -}}
+{{- if not $roadmap -}}
+  {{- errorf "Roadmap data was not mounted from spec/doc/v1/roadmap.yaml" -}}
+{{- end -}}
+
+{{- $counts := newScratch -}}
+{{- $counts.Set "total" 0 -}}
+{{- range $roadmap.groups -}}
+  {{- range .phases -}}
+    {{- $status := .status | default "planned" -}}
+    {{- $counts.Add "total" 1 -}}
+    {{- $counts.Add $status 1 -}}
+  {{- end -}}
+{{- end -}}
+
+<div class="ainfra-roadmap not-prose">
+  <div class="ainfra-roadmap-summary" aria-label="Roadmap summary">
+    <div class="ainfra-roadmap-stat">
+      <strong>{{ $counts.Get "total" }}</strong>
+      <span>Total phases</span>
+    </div>
+    {{- range slice "in_progress" "planned" "idea" "completed" -}}
+      {{- $count := $counts.Get . -}}
+      {{- if $count -}}
+        <div class="ainfra-roadmap-stat">
+          <strong>{{ $count }}</strong>
+          <span>{{ . | humanize }}</span>
+        </div>
+      {{- end -}}
+    {{- end -}}
+  </div>
+
+  <div class="ainfra-roadmap-groups">
+    {{- range $groupIndex, $group := $roadmap.groups -}}
+      <section class="ainfra-roadmap-group">
+        <header class="ainfra-roadmap-group-header">
+          <span class="ainfra-roadmap-group-number"
+            aria-hidden="true">{{ printf "%02d" (add $groupIndex 1) }}</span>
+          <div>
+            <p>{{ $group.note }}</p>
+            <h2>{{ $group.label }}</h2>
+          </div>
+        </header>
+
+        <div class="ainfra-roadmap-phases">
+          {{- range $group.phases -}}
+            {{- $status := .status | default "planned" -}}
+            {{- $statusClass := replace $status "_" "-" -}}
+            {{- $symbol := "○" -}}
+            {{- if eq $status "in_progress" -}}
+              {{- $symbol = "●" -}}
+            {{- else if or (eq $status "completed") (eq $status "done") -}}
+              {{- $symbol = "✓" -}}
+            {{- else if eq $status "idea" -}}
+              {{- $symbol = "◇" -}}
+            {{- end -}}
+            <article class="ainfra-roadmap-phase status-{{ $statusClass }}">
+              <div class="ainfra-roadmap-phase-marker" aria-hidden="true">
+                {{ $symbol }}
+              </div>
+              <div class="ainfra-roadmap-phase-content">
+                <div class="ainfra-roadmap-phase-meta">
+                  <span>Phase {{ .id }}</span>
+                  <span class="ainfra-roadmap-status">{{ $status | humanize }}</span>
+                </div>
+                <h3>{{ .title }}</h3>
+                <p>{{ .summary }}</p>
+              </div>
+            </article>
+          {{- end -}}
+        </div>
+      </section>
+    {{- end -}}
+  </div>
+</div>
