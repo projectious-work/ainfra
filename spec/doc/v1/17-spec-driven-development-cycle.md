@@ -86,6 +86,9 @@ is responsible for integration across all packages.
 Before implementation, a reviewer other than the primary plan author checks
 the plan against every applicable specification file, normative requirement,
 schema, example, acceptance journey, governing decision, and company standard.
+Decision records referenced for provenance do not add hidden requirements;
+the accepted checked-in specification commit is the complete normative
+baseline for this review.
 
 Each requirement receives one result:
 

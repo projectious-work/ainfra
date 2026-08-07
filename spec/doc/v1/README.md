@@ -74,10 +74,12 @@ Supporting material:
 - [`../../tests/v1/`](../../tests/v1/) contains negative schema fixtures used
   by `scripts/validate-v1-spec`; they are expected to fail validation.
 
-## Governing decisions
+## Decision provenance and specification authority
 
-The specification incorporates these accepted decisions from the company
-coordination repository:
+The specification incorporates the outcomes of these accepted decisions from
+the company coordination repository. The summaries below record provenance;
+their complete implementation consequences are expressed normatively in this
+checked-in specification, its schemas, examples, and fixtures:
 
 - `DEC-20260805_1450-DeftWren`: keep ainfra a native OpenTofu and Ansible
   orchestrator.
@@ -98,8 +100,18 @@ coordination repository:
 - `DEC-20260806_1803-FreshAnt`: deliver the read-only MCP stdio server mode in
   v1 after the core lifecycle and hardening phases.
 
-If this specification conflicts with an accepted decision, the decision wins
-until the specification is amended.
+This repository MUST be sufficient to implement and review v1 without access
+to external decision records. The accepted specification commit is the sole
+normative implementation and conformance baseline. An external decision does
+not override that baseline: a changed outcome takes effect for implementers
+only after a reviewed specification amendment updates every affected
+requirement, schema, example, fixture, acceptance journey, and roadmap entry.
+
+- **AINFRA-SPEC-001:** v1 implementation and conformance review MUST use only
+  the accepted, checked-in specification baseline as normative authority.
+- **AINFRA-SPEC-002:** decision identifiers and summaries in this section MUST
+  be treated as provenance, not as hidden or independently overriding
+  requirements.
 
 ## Conformance model
 
