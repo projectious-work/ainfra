@@ -10,15 +10,15 @@ apiVersion = "aibox.projectious.work/v1"
 kind       = "Workspace"
 
 [aibox]
-project_name = "ainfra"   # Human-readable project name; defaults to container.name
+project_name = "ainfra"             # Human-readable project name; defaults to container.name
 profile      = "human-dev"       # Usage profile. Options: human-dev, headless-runner
 
 # =============================================================================
 # [container] — runtime and build configuration
 # =============================================================================
 [container]
-name     = "ainfra"   # Container name used by docker/podman
-hostname = "ainfra"   # Hostname visible inside the container
+name     = "ainfra"             # Container name used by docker/podman
+hostname = "ainfra"             # Hostname visible inside the container
 user     = "aibox"              # User inside the container (controls mount paths)
 
 [container.image]
@@ -122,8 +122,8 @@ enabled = [
     "cross-reference-management", # processkit; Conventions and helpers for lightweight relationships between entities expressed as frontmatter references (n…
     "decision-record", # processkit; Record decisions with rationale, alternatives, and consequences — the ADR pattern as a primitive. Use when a …
     "devils-advocate", # product; Systematically challenges a plan, decision, or proposal — identifying assumptions, failure modes, and stronge…
-    "documentation", # product; Writing effective project documentation — READMEs, API doc comments, and inline comments that explain why. Us…
     "discussion-management", # processkit; Manage Discussion entities — structured, multi-turn conversations that explore questions and produce decision…
+    "documentation", # product; Writing effective project documentation — READMEs, API doc comments, and inline comments that explain why. Us…
     "eval-gate-authoring", # processkit; Turn observed run outputs into eval-spec Artifacts, paired Gates, and policy bindings. Use when creating or c…
     "event-log", # processkit; Append-only event log — the probabilistic record of everything that happened in the project. Use whenever som…
     "feature-engineering", # data-ai; Feature engineering for ML — encoding, imputation, scaling, selection, time-series features. Use when prepari…
@@ -131,8 +131,8 @@ enabled = [
     "git-branching", # engineering; Select, document, and evolve a Git branching strategy for a repository. Use when comparing Gitflow, GitHub Fl…
     "git-workflow", # engineering; Git workflow conventions — branch naming, conventional commits, PR descriptions, and merge strategy. Use when…
     "id-management", # processkit; Generate unique entity IDs following the project's configured format. The write-side foundation that every en…
-    "infographics", # documents; Creates data-driven infographics and charts as accessible SVG. Use when visualizing data, choosing a chart ty…
     "index-management", # processkit; SQLite-backed index over all entity files in the project. The read-side foundation for every other MCP server…
+    "infographics", # documents; Creates data-driven infographics and charts as accessible SVG. Use when visualizing data, choosing a chart ty…
     "legal-review", # product; Structures a systematic legal and compliance review of contracts, policies, or technical decisions — identify…
     "logo-design", # design; Creates SVG logos with scalable geometry, color theory, and variant generation. Use when designing logos, ico…
     "migration-management", # processkit; Manage Migration entities — pending, in-progress, and applied transitions between upstream source versions. U…
@@ -140,10 +140,12 @@ enabled = [
     "note-management", # processkit; Captures, reviews, and promotes Note entities — the lightweight knowledge capture primitive in processkit. No…
     "owner-profiling", # processkit; Build and maintain a structured personal-context portfolio for the project owner — identity, working style, g…
     "pk-doctor", # processkit; Aggregator health-check for a processkit-managed repository. Runs a fixed suite of checks over the live conte…
-    "processkit-gateway", # processkit; Provider-neutral processkit MCP gateway. Use when a harness should see one processkit MCP surface while proce…
     "process-management", # processkit; Legacy/migration guidance for v1 Process entities — declarative workflow definitions with roles, gates, and a…
+    "processkit-gateway", # processkit; Provider-neutral processkit MCP gateway. Use when a harness should see one processkit MCP surface while proce…
+    "project-reconciliation", # processkit; Reconcile a processkit project’s migrations, health findings, and repository collaboration queue. Use when re…
     "prompt-engineering", # data-ai; Prompt design patterns — few-shot, chain-of-thought, structured output, injection defense. Use when crafting …
     "release-audit", # processkit; Detect-only pre-release validation sweep over the processkit content tree. Walks entity files, SKILL.md defin…
+    "repo-management", # devops; Reconcile repository issues, pull requests, merge requests, local git state, commits, and pushes across GitHu…
     "retrospective", # processkit; Generates a post-release blameless retrospective from project signals — synthesizing DORA-like metrics, WorkI…
     "role-management", # processkit; Create and maintain Role entities — named sets of responsibilities that actors can fill. Use when defining a …
     "runtime-prune", # processkit; Inspect, plan, and invoke safe cleanup for runtime-manager-owned state without binding the workflow to a spec…
@@ -222,13 +224,11 @@ enabled = [
     # "postmortem-writing", # devops; Blameless postmortem writing — timeline, root cause analysis, corrective actions. Use when writing an inciden…
     # "pptx-authoring", # documents; Creating PowerPoint presentations programmatically with python-pptx — slides, layouts, text boxes, charts, ta…
     # "prd-writing", # product; Write a Product Requirements Document structured with problem statement, goals, user stories, scope, and succ…
-    # "project-reconciliation", # processkit; Reconcile a processkit project’s migrations, health findings, and repository collaboration queue. Use when re…
     # "python-best-practices", # engineering; Python conventions and patterns — typing, testing, project layout, tooling. Use when writing or reviewing Pyt…
     # "rag-engineering", # data-ai; Retrieval-Augmented Generation pipelines — ingestion, chunking, embedding, vector stores, retrieval, evaluati…
     # "refactoring", # engineering; Systematic refactoring with Fowler's catalog, GoF patterns, and code smell detection. Use when restructuring …
     # "reflex-python", # engineering; Reflex Python web framework for full-stack apps in pure Python — components, state, routing, and deployment. …
     # "release-semver", # devops; Semantic versioning releases — version bumps, changelogs, tags, publishing. Use when preparing a new release:…
-    # "repo-management", # devops; Reconcile repository issues, pull requests, merge requests, local git state, commits, and pushes across GitHu…
     # "repository-portfolio-review", # processkit; Review one or more GitHub repositories for governance, documentation, licensing, privacy, security, and portf…
     # "research-with-confidence", # product; Investigates a question systematically before answering — verifying claims through sources, distinguishing kn…
     # "rust-conventions", # engineering; Rust conventions — error handling with anyhow/thiserror, module layout, clippy. Use when writing or reviewing…
@@ -301,13 +301,21 @@ enabled = [
 
 # Documentation/docs-zensical — Zensical – Python docs site; requires python
 # [addons.docs-zensical.tools]
-# zensical = {} # Python documentation site generator; default on; options: {}, { enabled = true|false }, { version = "0.0.43" | "0.0.44" | "0.0.47" (default) or "latest" }
+# zensical = {} # Python documentation site generator; default on; options: {}, { enabled = true|false }, { version = "0.0.43" | "0.0.44" | "0.0.47" | "0.0.51" | "0.0.52" | "0.0.53" (default) or "latest" }
 
 # ---- Languages ------------------------------------------------------------
 
 # Languages/go — Go programming language toolchain
-# [addons.go.tools]
-# go = {} # Go compiler, tooling, and module workflow; default on; options: {}, { enabled = true|false }, { version = "1.25" | "1.26" | "1.26.3" | "1.26.4" (default) or "latest" }
+[addons.go.tools]
+go = {} # Go compiler, tooling, and module workflow; default on; options: {}, { enabled = true|false }, { version = "1.25.12" | "1.26.3" | "1.26.4" | "1.26.5" (default) or "latest" }
+
+# Languages/go-quality — Production Go formatting, linting, vulnerability, and security tools; requires go
+[addons.go-quality.tools]
+goimports = {} # Go import organizer and formatter; default on; options: {}, { enabled = true|false }, { version = "v0.48.0" (default) or "latest" }
+staticcheck = {} # Advanced Go static analysis suite; default on; options: {}, { enabled = true|false }, { version = "v0.7.0" (default) or "latest" }
+golangci-lint = {} # Fast aggregate Go linter runner; default on; options: {}, { enabled = true|false }, { version = "v2.12.2" (default) or "latest" }
+govulncheck = {} # Official Go vulnerability analyzer; default on; options: {}, { enabled = true|false }, { version = "v1.6.0" (default) or "latest" }
+gosec = {} # Go source security analyzer; default on; options: {}, { enabled = true|false }, { version = "v2.28.0" (default) or "latest" }
 
 # Languages/latex — TeX Live LaTeX typesetting system
 # [addons.latex.tools]
@@ -326,21 +334,21 @@ enabled = [
 # Languages/node — Node.js runtime with pnpm, yarn, or bun
 [addons.node.tools]
 node = { version = "26" } # Node.js JavaScript and TypeScript runtime; default on; options: {}, { enabled = true|false }, { version = "20" | "22" | "24" | "26" (default) or "latest" }
-pnpm = { version = "11.10.0" } # Fast disk-efficient Node package manager; default on; options: {}, { enabled = true|false }, { version = "9" | "10" | "11.1.3" | "11.5.2" | "11.10.0" (default) or "latest" }
+pnpm = { version = "11.10.0" } # Fast disk-efficient Node package manager; default on; options: {}, { enabled = true|false }, { version = "9" | "10" | "11.1.3" | "11.5.2" | "11.10.0" | "11.18.0" | "11.20.0" (default) or "latest" }
 # yarn = { enabled = true } # Yarn Node package manager; default off; options: {}, { enabled = true|false }, { version = "4" | "4.16.0" | "4.17.0" (default) or "latest" }
 # bun = { enabled = true } # Bun JavaScript runtime, package manager, and test runner; default off; options: {}, { enabled = true|false }, { version = "1.2" | "1.3.14" (default) or "latest" }
 
 # Languages/python — Python runtime with uv, poetry, or pdm
 [addons.python.tools]
 python = { version = "3.14" } # Python interpreter runtime for applications and scripts; default on; options: {}, { enabled = true|false }, { version = "3.12" | "3.13" | "3.14" (default) or "latest" }
-uv = { version = "0.11.26" } # Fast Python package manager and virtual environment tool; default on; options: {}, { enabled = true|false }, { version = "0.7" | "0.11.10" | "0.11.11" | "0.11.15" | "0.11.19" | "0.11.26" (default) or "latest" }
+uv = { version = "0.11.26" } # Fast Python package manager and virtual environment tool; default on; options: {}, { enabled = true|false }, { version = "0.7" | "0.11.10" | "0.11.11" | "0.11.15" | "0.11.19" | "0.11.26" | "0.12.0" (default) or "latest" }
 # pip = { enabled = true } # Python package installer for pip-based projects; default off; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 # poetry = { enabled = true } # Python dependency and packaging workflow manager; default off; options: {}, { enabled = true|false }, { version = "1.8" | "2.0" | "2.4.1" (default) or "latest" }
 # pdm = { enabled = true } # Python project and dependency manager using PEP standards; default off; options: {}, { enabled = true|false }, { version = "2.22" | "2.26.9" | "2.27.0" | "2.28.0" (default) or "latest" }
 
 # Languages/rust — Rust toolchain via rustup
 [addons.rust.tools]
-rustc = { version = "1.96.1" } # Rust compiler toolchain installed via rustup; default on; options: {}, { enabled = true|false }, { version = "1.90" | "1.91" | "1.92" | "1.93" | "1.94" | "1.94.1" | "1.96.0" | "1.96.1" (default) or "latest" }
+rustc = { version = "1.96.1" } # Rust compiler toolchain installed via rustup; default on; options: {}, { enabled = true|false }, { version = "1.90" | "1.91" | "1.92" | "1.93" | "1.94" | "1.94.1" | "1.96.0" | "1.96.1" | "1.97.1" (default) or "latest" }
 clippy = {} # Rust linter for catching common mistakes and style issues; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 rustfmt = {} # Rust code formatter; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 cargo-audit = {} # Rust dependency vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
@@ -385,17 +393,22 @@ cloudflared = {} # Cloudflare Tunnel connector and command-line client; default 
 gh = {} # GitHub CLI for issues, PRs, releases, and auth; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 lazygit = {} # Interactive terminal UI for Git status, commits, and branches; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
-# Tools/infrastructure — OpenTofu, Ansible, Packer
+# Tools/go-release — GoReleaser plus language-neutral release validation; requires go, release
+# [addons.go-release.tools]
+# goreleaser = {} # Multi-platform Go release packager; default on; options: {}, { enabled = true|false }, { version = "2.17.1" (default) or "latest" }
+
+# Tools/infrastructure — OpenTofu, Ansible, Packer, and optional rootless Podman
 [addons.infrastructure.tools]
-opentofu = { } # Open-source Terraform-compatible infrastructure as code CLI; default on; options: {}, { enabled = true|false }, { version = "1.9.0" | "1.12.0" | "1.12.1" | "1.12.3" (default) or "latest" }
-ansible = { } # Configuration management and automation engine; default on; options: {}, { enabled = true|false }, { version = "13.7.0" | "14.0.0" | "14.1.0" (default) or "latest" }
-packer = { } # Machine image build automation tool; default on; options: {}, { enabled = true|false }, { version = "1.11.2" | "1.15.3" | "1.15.4" (default) or "latest" }
+opentofu = {} # Open-source Terraform-compatible infrastructure as code CLI; default on; options: {}, { enabled = true|false }, { version = "1.9.0" | "1.12.0" | "1.12.1" | "1.12.3" | "1.12.5" (default) or "latest" }
+ansible = {} # Configuration management and automation engine; default on; options: {}, { enabled = true|false }, { version = "13.7.0" | "14.0.0" | "14.1.0" | "14.2.0" (default) or "latest" }
+packer = {} # Machine image build automation tool; default on; options: {}, { enabled = true|false }, { version = "1.11.2" | "1.15.3" | "1.15.4" | "1.16.0" (default) or "latest" }
+podman = { enabled = true } # Rootless container engine with Compose support; default off; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
 # Tools/kubernetes — kubectl, Helm, Kustomize, k9s
 [addons.kubernetes.tools]
-kubectl = { } # Kubernetes command-line client; default on; options: {}, { enabled = true|false }, { version = "1.36.1" | "1.36.2" (default) or "latest" }
-helm = {  } # Kubernetes package manager for charts; default on; options: {}, { enabled = true|false }, { version = "3.17.2" | "4.2.0" | "4.2.2" (default) or "latest" }
-kustomize = { } # Kubernetes manifest overlay and patching tool; default on; options: {}, { enabled = true|false }, { version = "5.6.0" | "5.8.1" (default) or "latest" }
+kubectl = {} # Kubernetes command-line client; default on; options: {}, { enabled = true|false }, { version = "1.36.1" | "1.36.2" | "1.36.3" (default) or "latest" }
+helm = {} # Kubernetes package manager for charts; default on; options: {}, { enabled = true|false }, { version = "3.17.2" | "4.2.0" | "4.2.2" | "4.2.3" (default) or "latest" }
+kustomize = {} # Kubernetes manifest overlay and patching tool; default on; options: {}, { enabled = true|false }, { version = "5.6.0" | "5.8.1" (default) or "latest" }
 # k9s = { enabled = true } # Interactive terminal UI for Kubernetes clusters; default off; options: {}, { enabled = true|false }, { version = "0.50.18" | "0.51.0" (default) or "latest" }
 
 # Tools/preview-archive — Yazi image/PDF/SVG preview helpers plus archive preview/extraction tools
@@ -415,6 +428,19 @@ ffmpeg = {} # Video and audio metadata plus thumbnail support for previews; defa
 ghostscript = {} # PostScript and EPS rendering support for document previews; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 rich = {} # Markdown, JSON, RST, and notebook terminal rendering for Yazi previews; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
+# Tools/release — Language-neutral shell and container release validation
+[addons.release.tools]
+shellcheck = {} # Shell script static analyzer; default on; options: {}, { enabled = true|false }, { version = "0.11.0" (default) or "latest" }
+hadolint = {} # Dockerfile linter; default on; options: {}, { enabled = true|false }, { version = "2.15.1" (default) or "latest" }
+
+# Tools/supply-chain — Secret scanning, vulnerability analysis, SBOM generation, and signing
+[addons.supply-chain.tools]
+gitleaks = {} # Repository secret scanner; default on; options: {}, { enabled = true|false }, { version = "8.30.1" (default) or "latest" }
+osv-scanner = {} # OSV dependency vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "2.4.0" (default) or "latest" }
+syft = {} # Software bill of materials generator; default on; options: {}, { enabled = true|false }, { version = "1.50.0" (default) or "latest" }
+grype = {} # Artifact and container vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "0.116.1" (default) or "latest" }
+cosign = {} # Sigstore artifact signing and verification CLI; default on; options: {}, { enabled = true|false }, { version = "3.1.2" (default) or "latest" }
+
 # =============================================================================
 # [ai] — AI agent harnesses and model providers
 # =============================================================================
@@ -429,6 +455,7 @@ rich = {} # Markdown, JSON, RST, and notebook terminal rendering for Yazi previe
 # GitHub Copilot              copilot        (uses GITHUB_TOKEN)
 # OpenCode                    opencode       any (multi-provider)
 # Hermes                      hermes         any (multi-provider)
+# Tau                         tau            any (multi-provider)
 #
 # Harnesses are configured by the ordered `harnesses` list below.
 # The list order is the tmux/layout order: 1st, 2nd, 3rd harness.
@@ -451,7 +478,7 @@ model_providers = [
 ]
 
 # Ordered harness list. Supported harness values:
-# claude, codex, gemini, aider, continue, cursor, copilot, opencode, hermes.
+# claude, codex, gemini, aider, continue, cursor, copilot, opencode, hermes, tau.
 # Each one-line entry is directly uncommentable; list order is tmux/layout order.
 # `enable = true` includes the harness in generated agent/MCP/runtime config.
 # `install = true` installs the matching in-container CLI recipe when one exists.
@@ -468,6 +495,7 @@ harnesses = [
 #   { harness = "copilot", enable = true, install = true },
 #   { harness = "opencode", enable = true, install = true },
 #   { harness = "hermes", enable = true, install = true },
+#   { harness = "tau", enable = true, install = true },
 ]
 
 # AI harness execution policy. These are aibox-level intent settings;
@@ -525,6 +553,11 @@ network    = "ask"
 # network    = "ask"
 
 # [ai.execution.hermes]
+# filesystem = "workspace-write"
+# approval   = "on-request"
+# network    = "ask"
+
+# [ai.execution.tau]
 # filesystem = "workspace-write"
 # approval   = "on-request"
 # network    = "ask"
@@ -589,7 +622,7 @@ schema_version = "1.0.0"      # Context schema version — updated automatically
 #     monokai, moonlight, nord, plastic, poimandres, projectious, red,
 #     snazzy, synthwave-84, vesper
 [customization]
-theme  = "nord"
+theme  = "vesper"
 # Light/dark variant. `auto` follows host OS appearance when detectable.
 # Solo families (see list above) ignore mode.
 # Options: auto | light | dark

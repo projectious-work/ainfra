@@ -1,0 +1,12 @@
+{
+  "_aibox_managed_claude_permissions": {
+    "allow": [],
+    "deny": []
+  },
+  "enabledMcpjsonServers": [
+    "processkit-gateway"
+  ],
+  "permissions": {
+    "allow": []
+  }
+}

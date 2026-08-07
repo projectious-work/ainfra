@@ -1,0 +1,56 @@
+{
+  "_processkit_managed_keys": {
+    "allow": [
+      "mcp__processkit-gateway__*"
+    ],
+    "enabled_servers": [
+      "processkit-gateway"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "processkit-gateway"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "_processkit_managed": true,
+        "hooks": [
+          {
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/context/skills/processkit/skill-gate/scripts/check_route_task_called.py",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit|create_workitem|transition_workitem|record_decision|link_entities|open_discussion|create_artifact|log_event|create_note"
+      }
+    ],
+    "SessionStart": [
+      {
+        "_processkit_managed": true,
+        "hooks": [
+          {
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/context/skills/processkit/skill-gate/scripts/emit_compliance_contract.py",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "_processkit_managed": true,
+        "hooks": [
+          {
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/context/skills/processkit/skill-gate/scripts/emit_compliance_contract.py",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "mcp__processkit-gateway__*"
+    ]
+  }
+}
