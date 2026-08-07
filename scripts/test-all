@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+run() {
+  printf '+ %s\n' "$*"
+  "$@"
+}
+
+run go test ./...
+run go test -race ./...
+run go test -coverprofile=coverage.out ./...
+
+printf '%s\n' 'all Go test suites passed'

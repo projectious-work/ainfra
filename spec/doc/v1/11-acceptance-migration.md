@@ -18,7 +18,9 @@ these journeys pass from a clean supported environment:
     ambiguous interrupted event;
 11. reject an apply plan for destroy and vice versa;
 12. apply an exact destroy plan and accurately record the OpenTofu result;
-13. complete machine JSON and exit-code compatibility fixtures;
+13. complete machine JSON and exit-code compatibility fixtures, including
+    root/group/leaf help, unknown help topics, pre-dispatch parser failures,
+    and post-dispatch semantic failures with their required discriminators;
 14. diagnose environment, deployment, template/source, and run fixtures with
     stable findings and correct pass/skip/warning/fail states;
 15. reconcile a safe local finding idempotently, reject an unsafe finding, and
@@ -88,7 +90,10 @@ The rewrite is intentionally not a port.
 
 The phased delivery sequence and potential future directions are maintained in
 the [implementation roadmap data](roadmap.yaml). Each phase ends in a usable
-vertical slice and MUST not reintroduce a meta-language.
+vertical slice and MUST not reintroduce a meta-language. Each phase follows the
+[spec-driven development cycle](17-spec-driven-development-cycle.md) and may be
+marked shipped only after its requirement-complete conformance review and gap
+closure.
 
 ## Implementation-time selections
 

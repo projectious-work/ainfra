@@ -1,0 +1,225 @@
+package command_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/projectious-work/ainfra/internal/app"
+	"github.com/projectious-work/ainfra/internal/command"
+)
+
+func run(arguments ...string) (command.ExitCode, string, string) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := command.Run(arguments, command.Options{
+		Build: app.Build{
+			Version: "1.0.0-alpha.1",
+			Commit:  "0123456789abcdef",
+			BuiltAt: "2026-08-07T00:00:00Z",
+		},
+		IO: command.IO{Stdout: &stdout, Stderr: &stderr},
+	})
+	return code, stdout.String(), stderr.String()
+}
+
+func TestVersionJSON(t *testing.T) {
+	t.Parallel()
+	code, stdout, stderr := run("version", "--format", "json")
+	if code != command.ExitSuccess {
+		t.Fatalf("exit = %d, stderr = %s", code, stderr)
+	}
+	var value map[string]any
+	if err := json.Unmarshal([]byte(stdout), &value); err != nil {
+		t.Fatalf("decode stdout: %v", err)
+	}
+	if stderr != "" {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestVersionAcceptsGlobalOptionsBeforeCommand(t *testing.T) {
+	t.Parallel()
+	code, stdout, stderr := run("--format", "json", "version")
+	if code != command.ExitSuccess {
+		t.Fatalf("exit = %d, stderr = %s", code, stderr)
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+		t.Fatalf("decode stdout: %v", err)
+	}
+	if envelope["command"] != "version" {
+		t.Errorf("command = %v", envelope["command"])
+	}
+}
+
+func TestInvalidInvocation(t *testing.T) {
+	t.Parallel()
+	tests := [][]string{
+		{"unknown"},
+		{"version", "unexpected"},
+		{"version", "--format", "xml"},
+	}
+	for _, arguments := range tests {
+		code, stdout, stderr := run(arguments...)
+		if code != command.ExitInvalidInput {
+			t.Errorf("Run(%q) exit = %d", arguments, code)
+		}
+		if stdout != "" {
+			t.Errorf("Run(%q) stdout = %q", arguments, stdout)
+		}
+		if stderr == "" {
+			t.Errorf("Run(%q) missing diagnostic", arguments)
+		}
+	}
+}
+
+func TestInvalidJSONInvocation(t *testing.T) {
+	t.Parallel()
+	code, stdout, stderr := run("version", "--format", "json", "unexpected")
+	if code != command.ExitInvalidInput {
+		t.Fatalf("exit = %d", code)
+	}
+	if stderr != "" {
+		t.Errorf("stderr = %q", stderr)
+	}
+	var envelope struct {
+		Command     string `json:"command"`
+		OK          bool   `json:"ok"`
+		Result      any    `json:"result"`
+		Diagnostics []any  `json:"diagnostics"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+		t.Fatalf("decode stdout: %v", err)
+	}
+	if envelope.Command != "invocation" || envelope.OK || envelope.Result != nil || len(envelope.Diagnostics) != 1 {
+		t.Errorf("unexpected failure envelope: %+v", envelope)
+	}
+}
+
+func TestHelpJSONNormalizesTopics(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		arguments []string
+		topic     string
+	}{
+		{[]string{"--format=json", "help"}, "ainfra"},
+		{[]string{"help", "doctor", "--format", "json"}, "doctor"},
+		{[]string{"doctor", "environment", "--help", "--format=json"}, "doctor.environment"},
+		{[]string{"version", "--help", "--format=json"}, "version"},
+	}
+	for _, test := range tests {
+		code, stdout, stderr := run(test.arguments...)
+		if code != command.ExitSuccess || stderr != "" {
+			t.Errorf("Run(%q) exit=%d stderr=%q", test.arguments, code, stderr)
+			continue
+		}
+		var envelope struct {
+			Command string `json:"command"`
+			Result  struct {
+				Topic       string `json:"topic"`
+				Usage       string `json:"usage"`
+				Summary     string `json:"summary"`
+				Subcommands []any  `json:"subcommands"`
+				Arguments   []any  `json:"arguments"`
+				Options     []any  `json:"options"`
+			} `json:"result"`
+		}
+		if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+			t.Errorf("Run(%q) decode: %v", test.arguments, err)
+			continue
+		}
+		if envelope.Command != "help" || envelope.Result.Topic != test.topic ||
+			envelope.Result.Usage == "" || envelope.Result.Summary == "" ||
+			envelope.Result.Subcommands == nil || envelope.Result.Arguments == nil ||
+			envelope.Result.Options == nil {
+			t.Errorf("Run(%q) envelope=%+v", test.arguments, envelope)
+		}
+	}
+}
+
+func TestInvocationOutputSelection(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		arguments []string
+		json      bool
+	}{
+		{[]string{"--format", "json", "unknown"}, true},
+		{[]string{"unknown", "--format=json"}, true},
+		{[]string{"help", "missing", "--format=json"}, true},
+		{[]string{"--format", "xml", "unknown"}, false},
+		{[]string{"--", "unknown", "--format=json"}, false},
+	}
+	for _, test := range tests {
+		code, stdout, stderr := run(test.arguments...)
+		if code != command.ExitInvalidInput {
+			t.Errorf("Run(%q) exit=%d", test.arguments, code)
+		}
+		if test.json {
+			if stdout == "" || stderr != "" {
+				t.Errorf("Run(%q) stdout=%q stderr=%q", test.arguments, stdout, stderr)
+			}
+		} else if stdout != "" || stderr == "" {
+			t.Errorf("Run(%q) stdout=%q stderr=%q", test.arguments, stdout, stderr)
+		}
+	}
+}
+
+func TestPlanHelpMatchesCanonicalMetadata(t *testing.T) {
+	code, stdout, stderr := run("help", "plan", "--format=json")
+	if code != command.ExitSuccess || stderr != "" {
+		t.Fatalf("exit=%d stderr=%q", code, stderr)
+	}
+	var envelope struct {
+		Result struct {
+			Usage     string                     `json:"usage"`
+			Arguments []struct{ Name string }    `json:"arguments"`
+			Options   []struct{ Names []string } `json:"options"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Result.Usage != "ainfra plan [DEPLOYMENT] [--destroy] [options]" ||
+		len(envelope.Result.Arguments) != 1 || envelope.Result.Arguments[0].Name != "DEPLOYMENT" ||
+		len(envelope.Result.Options) == 0 || envelope.Result.Options[0].Names[0] != "--destroy" {
+		t.Errorf("non-canonical plan help: %+v", envelope.Result)
+	}
+}
+
+func TestPlanHelpGolden(t *testing.T) {
+	code, stdout, stderr := run("help", "plan", "--output-style=plain", "--color=never")
+	if code != command.ExitSuccess || stderr != "" {
+		t.Fatalf("exit=%d stderr=%q", code, stderr)
+	}
+	want, err := os.ReadFile("testdata/help-plan.golden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stdout != string(want) {
+		t.Errorf("help output:\n%s\nwant:\n%s", stdout, want)
+	}
+}
+
+func TestDelimiterIsNotPositional(t *testing.T) {
+	code, _, stderr := run("version", "--")
+	if code != command.ExitSuccess || stderr != "" {
+		t.Errorf("version --: exit=%d stderr=%q", code, stderr)
+	}
+	code, stdout, stderr := run("--format=json", "help", "--", "version")
+	if code != command.ExitSuccess || stderr != "" || !strings.Contains(stdout, `"topic":"version"`) {
+		t.Errorf("help -- version: exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+}
+
+func TestExitCodeContract(t *testing.T) {
+	t.Parallel()
+	if command.ExitSuccess != 0 || command.ExitOperationFailed != 1 ||
+		command.ExitInvalidInput != 2 || command.ExitDependency != 3 ||
+		command.ExitSecurity != 4 || command.ExitStaleBinding != 5 ||
+		command.ExitInterrupted != 6 {
+		t.Fatal("exit-code contract changed")
+	}
+}

@@ -2,6 +2,7 @@
 
 | Command | Purpose |
 |---|---|
+| `ainfra help [TOPIC]` | Show static help for ainfra, a command group, or a canonical leaf command without resolving a deployment or invoking child tools. |
 | `ainfra init [DEPLOYMENT]` | Create a minimal deployment definition at an explicit path without overwriting existing files or creating infrastructure. |
 | `ainfra doctor [--reconcile]` | Shorthand for `ainfra doctor all` against the nearest deployment. |
 | `ainfra doctor all [TARGET] [--reconcile]` | Diagnose the applicable execution environment, deployment, resolved template, and latest-run contracts together. |
@@ -22,6 +23,11 @@
 | `ainfra status [DEPLOYMENT]` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
 | `ainfra destroy [DEPLOYMENT] --plan RUN_ID` | Apply the exact reviewed OpenTofu destroy plan and record the engine result. |
 | `ainfra version` | Print the ainfra version and machine-readable build information. |
+
+`ainfra --help` is equivalent to `ainfra help`. `ainfra <command> --help` is
+equivalent to `ainfra help <command>` after aliases and command groups are
+normalized. Canonical leaf topics use the machine command identifiers in this
+chapter; the command-group topics are `doctor` and `template`.
 
 `deploy` composes apply and every subsequent stage applicable to the resolved
 template. For a configurable-host template this includes output collection,
@@ -69,6 +75,19 @@ MUST NOT create a plan or infer approval.
   child process and recorded without claiming rollback.
 - **AINFRA-CLI-006:** ainfra MUST show the equivalent direct engine command in
   verbose or diagnostic output, with secrets redacted.
+- **AINFRA-CLI-011:** help MUST be side-effect-free, exit with status `0`, and
+  MUST NOT load deployment configuration, discover a project, access the
+  network, or invoke a child tool.
+- **AINFRA-CLI-012:** an unknown command or help topic, unknown option,
+  malformed global option, or syntactically missing or extra argument MUST
+  fail before command dispatch with exit status `2`. In text mode stdout MUST
+  be empty and stderr MUST contain the diagnostic and concise usage. In JSON
+  mode stdout MUST contain exactly one `invocation` envelope and stderr MUST
+  not duplicate the parser diagnostic.
+- **AINFRA-CLI-013:** global output flags MUST be recognized independent of
+  their position before `--`. Exact `--format json` and `--format=json` select
+  JSON error output even when the remaining invocation is invalid. An invalid
+  format value cannot select JSON and therefore uses text error output.
 
 ## Initialization
 

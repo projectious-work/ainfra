@@ -35,6 +35,10 @@ than planned behavior. If implementation exposes a flawed specification, the
 specification is amended explicitly; documentation MUST NOT silently redefine
 the contract to match an accidental implementation.
 
+Planning, agent assignment, independent plan review, controlled implementation
+waves, implementation conformance, and gap closure follow the
+[spec-driven development cycle](17-spec-driven-development-cycle.md).
+
 - **AINFRA-DOC-010:** every non-trivial implementation change MUST update the
   active phase note or state why it has no phase-note impact in its review.
 - **AINFRA-DOC-011:** phase notes MUST explain decisions and observable results,

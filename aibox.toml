@@ -387,15 +387,15 @@ lazygit = {} # Interactive terminal UI for Git status, commits, and branches; de
 
 # Tools/infrastructure — OpenTofu, Ansible, Packer
 [addons.infrastructure.tools]
-opentofu = { version = "1.12.3" } # Open-source Terraform-compatible infrastructure as code CLI; default on; options: {}, { enabled = true|false }, { version = "1.9.0" | "1.12.0" | "1.12.1" | "1.12.3" (default) or "latest" }
-ansible = { version = "14.1.0" } # Configuration management and automation engine; default on; options: {}, { enabled = true|false }, { version = "13.7.0" | "14.0.0" | "14.1.0" (default) or "latest" }
-packer = { version = "1.15.4" } # Machine image build automation tool; default on; options: {}, { enabled = true|false }, { version = "1.11.2" | "1.15.3" | "1.15.4" (default) or "latest" }
+opentofu = { } # Open-source Terraform-compatible infrastructure as code CLI; default on; options: {}, { enabled = true|false }, { version = "1.9.0" | "1.12.0" | "1.12.1" | "1.12.3" (default) or "latest" }
+ansible = { } # Configuration management and automation engine; default on; options: {}, { enabled = true|false }, { version = "13.7.0" | "14.0.0" | "14.1.0" (default) or "latest" }
+packer = { } # Machine image build automation tool; default on; options: {}, { enabled = true|false }, { version = "1.11.2" | "1.15.3" | "1.15.4" (default) or "latest" }
 
 # Tools/kubernetes — kubectl, Helm, Kustomize, k9s
 [addons.kubernetes.tools]
-kubectl = { version = "1.36.2" } # Kubernetes command-line client; default on; options: {}, { enabled = true|false }, { version = "1.36.1" | "1.36.2" (default) or "latest" }
-helm = { version = "4.2.2" } # Kubernetes package manager for charts; default on; options: {}, { enabled = true|false }, { version = "3.17.2" | "4.2.0" | "4.2.2" (default) or "latest" }
-kustomize = { version = "5.8.1" } # Kubernetes manifest overlay and patching tool; default on; options: {}, { enabled = true|false }, { version = "5.6.0" | "5.8.1" (default) or "latest" }
+kubectl = { } # Kubernetes command-line client; default on; options: {}, { enabled = true|false }, { version = "1.36.1" | "1.36.2" (default) or "latest" }
+helm = {  } # Kubernetes package manager for charts; default on; options: {}, { enabled = true|false }, { version = "3.17.2" | "4.2.0" | "4.2.2" (default) or "latest" }
+kustomize = { } # Kubernetes manifest overlay and patching tool; default on; options: {}, { enabled = true|false }, { version = "5.6.0" | "5.8.1" (default) or "latest" }
 # k9s = { enabled = true } # Interactive terminal UI for Kubernetes clusters; default off; options: {}, { enabled = true|false }, { version = "0.50.18" | "0.51.0" (default) or "latest" }
 
 # Tools/preview-archive — Yazi image/PDF/SVG preview helpers plus archive preview/extraction tools

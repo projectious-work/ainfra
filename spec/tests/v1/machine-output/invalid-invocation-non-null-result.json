@@ -1,0 +1,13 @@
+{
+  "apiVersion": "ainfra.result/v1",
+  "command": "invocation",
+  "ok": false,
+  "result": {},
+  "diagnostics": [
+    {
+      "code": "AINFRA-E0001",
+      "severity": "error",
+      "message": "unknown command"
+    }
+  ]
+}
