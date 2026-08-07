@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // Style selects a human-readable presentation style.
@@ -66,12 +67,56 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 	}
 
 	switch result := envelope.Result.(type) {
-	case Version:
-		if style == StyleRich {
-			_, err := fmt.Fprintf(writer, "ainfra %s\n  commit: %s\n  built: %s\n  go: %s\n  platform: %s\n", result.Version, result.Commit, result.BuiltAt, result.GoVersion, result.Platform)
+	case Help:
+		_, err := fmt.Fprintf(writer, "%s\n\nUsage:\n  %s\n", result.Summary, result.Usage)
+		if err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(writer, "ainfra %s\ncommit %s\nbuilt %s\ngo %s\nplatform %s\n", result.Version, result.Commit, result.BuiltAt, result.GoVersion, result.Platform)
+		if len(result.Subcommands) > 0 {
+			if _, err = io.WriteString(writer, "\nCommands:\n"); err != nil {
+				return err
+			}
+			for _, command := range result.Subcommands {
+				if _, err = fmt.Fprintf(writer, "  %-18s %s\n", command.Name, command.Summary); err != nil {
+					return err
+				}
+			}
+		}
+		if len(result.Arguments) > 0 {
+			if _, err = io.WriteString(writer, "\nArguments:\n"); err != nil {
+				return err
+			}
+			for _, argument := range result.Arguments {
+				if _, err = fmt.Fprintf(writer, "  %-18s %s\n", argument.Name, argument.Summary); err != nil {
+					return err
+				}
+			}
+		}
+		if len(result.Options) > 0 {
+			if _, err = io.WriteString(writer, "\nOptions:\n"); err != nil {
+				return err
+			}
+			for _, option := range result.Options {
+				names := strings.Join(option.Names, ", ")
+				if option.ValueName != "" {
+					names += " " + option.ValueName
+				}
+				if _, err = fmt.Fprintf(writer, "  %-18s %s\n", names, option.Summary); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	case Version:
+		contracts := fmt.Sprintf("documents %s; results %s; standard output %s",
+			strings.Join(result.SupportedContractVersions.DocumentAPIVersions, ", "),
+			strings.Join(result.SupportedContractVersions.ResultAPIVersions, ", "),
+			strings.Join(result.SupportedContractVersions.StandardOutputSchemaVersions, ", "))
+		if style == StyleRich {
+			_, err := fmt.Fprintf(writer, "ainfra %s\n  commit: %s\n  built: %s\n  go: %s\n  platform: %s\n  contracts: %s\n", result.Version, result.Commit, result.BuiltAt, result.GoVersion, result.Platform, contracts)
+			return err
+		}
+		_, err := fmt.Fprintf(writer, "ainfra %s\ncommit %s\nbuilt %s\ngo %s\nplatform %s\ncontracts %s\n", result.Version, result.Commit, result.BuiltAt, result.GoVersion, result.Platform, contracts)
 		return err
 	default:
 		return fmt.Errorf("render unsupported result for %s", envelope.Command)

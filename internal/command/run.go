@@ -5,14 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/output"
 )
-
-var errHelp = errors.New("help requested")
 
 // IO supplies explicit process streams and terminal capabilities.
 type IO struct {
@@ -29,51 +26,30 @@ type Options struct {
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
 func Run(arguments []string, options Options) ExitCode {
-	if len(arguments) == 0 {
-		if err := writeHelp(options.IO.Stdout); err != nil {
-			return ExitOperationFailed
-		}
-		return ExitSuccess
-	}
-	if arguments[0] == "help" || arguments[0] == "--help" || arguments[0] == "-h" {
-		if err := writeHelp(options.IO.Stdout); err != nil {
-			return ExitOperationFailed
-		}
-		return ExitSuccess
-	}
-	versionArguments, isVersion := normalizeVersionInvocation(arguments)
-	if !isVersion {
-		if _, err := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0001: unknown command %q\n", arguments[0]); err != nil {
-			return ExitOperationFailed
-		}
-		return ExitInvalidInput
+	renderArguments, positional, helpRequested := splitInvocation(arguments)
+	renderOptions, err := parseRenderOptions(renderArguments, options.IO.IsTerminal)
+	if err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
 	}
 
-	renderOptions, err := parseRenderOptions(versionArguments, options.IO.IsTerminal)
-	if errors.Is(err, errHelp) {
-		if writeErr := writeVersionHelp(options.IO.Stdout); writeErr != nil {
+	if len(arguments) == 0 || helpRequested || (len(positional) > 0 && positional[0] == "help") {
+		topic, topicErr := normalizeHelpTopic(positional, helpRequested)
+		if topicErr != nil {
+			return failInvocation(arguments, topicErr.Error(), options.IO)
+		}
+		result, found := helpFor(topic)
+		if !found {
+			return failInvocation(arguments, fmt.Sprintf("unknown help topic %q", topic), options.IO)
+		}
+		envelope := output.Success(output.CommandHelp, result)
+		if err := output.Render(options.IO.Stdout, envelope, renderOptions); err != nil {
 			return ExitOperationFailed
 		}
 		return ExitSuccess
 	}
-	if err != nil {
-		if requestedJSON(versionArguments) {
-			envelope := output.Failure(output.CommandVersion, diagnostic.Diagnostic{
-				Code:       "AINFRA-E0002",
-				Severity:   diagnostic.SeverityError,
-				Message:    err.Error(),
-				Component:  "command",
-				NextAction: "Run 'ainfra version --help' for valid syntax.",
-			})
-			if renderErr := output.Render(options.IO.Stdout, envelope, output.RenderOptions{Format: output.FormatJSON}); renderErr != nil {
-				return ExitOperationFailed
-			}
-			return ExitInvalidInput
-		}
-		if _, writeErr := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0002: %s\n", err); writeErr != nil {
-			return ExitOperationFailed
-		}
-		return ExitInvalidInput
+
+	if len(positional) != 1 || (positional[0] != "version" && positional[0] != "--version") {
+		return failInvocation(arguments, "invalid command invocation", options.IO)
 	}
 
 	envelope := output.Success(output.CommandVersion, app.Version(options.Build))
@@ -86,21 +62,67 @@ func Run(arguments []string, options Options) ExitCode {
 	return ExitSuccess
 }
 
-func normalizeVersionInvocation(arguments []string) ([]string, bool) {
-	for index, argument := range arguments {
-		if argument != "version" && argument != "--version" {
+func splitInvocation(arguments []string) (renderArguments, positional []string, help bool) {
+	for index := 0; index < len(arguments); index++ {
+		argument := arguments[index]
+		if argument == "--" {
+			positional = append(positional, arguments[index+1:]...)
+			break
+		}
+		if argument == "--help" || argument == "-h" {
+			help = true
 			continue
 		}
-		options := make([]string, 0, len(arguments)-1)
-		options = append(options, arguments[:index]...)
-		options = append(options, arguments[index+1:]...)
-		return options, true
+		if argument == "--format" || argument == "--output-style" || argument == "--color" {
+			renderArguments = append(renderArguments, argument)
+			if index+1 < len(arguments) {
+				index++
+				renderArguments = append(renderArguments, arguments[index])
+			}
+			continue
+		}
+		if stringsHasRenderPrefix(argument) {
+			renderArguments = append(renderArguments, argument)
+			continue
+		}
+		positional = append(positional, argument)
 	}
-	return nil, false
+	return renderArguments, positional, help
+}
+
+func stringsHasRenderPrefix(argument string) bool {
+	return len(argument) > 9 && (argument[:9] == "--format=" ||
+		(len(argument) > 15 && argument[:15] == "--output-style=") ||
+		(len(argument) > 8 && argument[:8] == "--color="))
+}
+
+func normalizeHelpTopic(positional []string, helpFlag bool) (string, error) {
+	if len(positional) == 0 {
+		return "ainfra", nil
+	}
+	if positional[0] == "help" {
+		positional = positional[1:]
+	}
+	if len(positional) == 0 {
+		return "ainfra", nil
+	}
+	if !helpFlag && len(positional) > 2 {
+		return "", errors.New("help accepts at most one group and one command topic")
+	}
+	if len(positional) > 2 {
+		return "", errors.New("invalid help topic")
+	}
+	if len(positional) == 2 {
+		return positional[0] + "." + positional[1], nil
+	}
+	return positional[0], nil
 }
 
 func requestedJSON(arguments []string) bool {
 	for index, argument := range arguments {
+		if argument == "--" {
+			return false
+		}
 		if argument == "--format=json" {
 			return true
 		}
@@ -111,6 +133,26 @@ func requestedJSON(arguments []string) bool {
 	return false
 }
 
+func failInvocation(arguments []string, message string, streams IO) ExitCode {
+	if requestedJSON(arguments) {
+		envelope := output.Failure(output.CommandInvocation, diagnostic.Diagnostic{
+			Code:       "AINFRA-E0001",
+			Severity:   diagnostic.SeverityError,
+			Message:    message,
+			Component:  "command",
+			NextAction: "Run 'ainfra help' to list valid commands and options.",
+		})
+		if err := output.Render(streams.Stdout, envelope, output.RenderOptions{Format: output.FormatJSON}); err != nil {
+			return ExitOperationFailed
+		}
+		return ExitInvalidInput
+	}
+	if _, err := fmt.Fprintf(streams.Stderr, "AINFRA-E0001: %s\nUsage: ainfra <command> [options]\n", message); err != nil {
+		return ExitOperationFailed
+	}
+	return ExitInvalidInput
+}
+
 func parseRenderOptions(arguments []string, terminal bool) (output.RenderOptions, error) {
 	flags := flag.NewFlagSet("version", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -118,9 +160,6 @@ func parseRenderOptions(arguments []string, terminal bool) (output.RenderOptions
 	style := flags.String("output-style", string(output.StyleAuto), "auto, rich, or plain")
 	color := flags.String("color", string(output.ColorAuto), "auto, always, or never")
 	if err := flags.Parse(arguments); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return output.RenderOptions{}, errHelp
-		}
 		return output.RenderOptions{}, err
 	}
 	if flags.NArg() != 0 {
@@ -146,24 +185,4 @@ func parseRenderOptions(arguments []string, terminal bool) (output.RenderOptions
 		return output.RenderOptions{}, errors.New("--output-style and --color cannot be used with --format json")
 	}
 	return options, nil
-}
-
-func writeHelp(writer io.Writer) error {
-	_, err := io.WriteString(writer, strings.TrimSpace(`ainfra manages native OpenTofu and Ansible infrastructure templates.
-
-Usage:
-  ainfra help
-  ainfra version [--format text|json] [--output-style auto|rich|plain]
-                 [--color auto|always|never]
-
-Commands:
-  help       Show command help
-  version    Show version and build information
-`)+"\n")
-	return err
-}
-
-func writeVersionHelp(writer io.Writer) error {
-	_, err := io.WriteString(writer, "Usage: ainfra version [--format text|json] [--output-style auto|rich|plain] [--color auto|always|never]\n")
-	return err
 }

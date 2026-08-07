@@ -22,5 +22,10 @@ func Version(build Build) output.Version {
 		BuiltAt:   build.BuiltAt,
 		GoVersion: runtime.Version(),
 		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
+		SupportedContractVersions: output.SupportedContractVersions{
+			DocumentAPIVersions:          []string{"ainfra.projectious.work/v1"},
+			ResultAPIVersions:            []string{output.APIVersion},
+			StandardOutputSchemaVersions: []string{"1"},
+		},
 	}
 }

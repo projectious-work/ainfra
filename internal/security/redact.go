@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var redaction = []byte("<redacted>")
+const redaction = "<redacted>"
 
 // RedactingWriter removes registered exact sensitive values across writes.
 type RedactingWriter struct {
@@ -41,7 +41,7 @@ func (writer *RedactingWriter) Write(input []byte) (int, error) {
 		for len(writer.pending) > 0 {
 			matched, prefix := writer.classifyPending()
 			if matched {
-				if _, err := writer.writer.Write(redaction); err != nil {
+				if _, err := io.WriteString(writer.writer, redaction); err != nil {
 					return 0, err
 				}
 				writer.pending = writer.pending[:0]

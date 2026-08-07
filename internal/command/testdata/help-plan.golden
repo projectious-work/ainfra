@@ -1,0 +1,14 @@
+Create a saved apply or destroy plan.
+
+Usage:
+  ainfra plan [DEPLOYMENT] [--destroy] [options]
+
+Arguments:
+  DEPLOYMENT         Deployment directory or ainfra.yaml path.
+
+Options:
+  --destroy          Create a destroy plan.
+  --format text|json Select output format.
+  --output-style auto|rich|plain Select text presentation.
+  --color auto|always|never Control terminal color.
+  --help, -h         Show static help.

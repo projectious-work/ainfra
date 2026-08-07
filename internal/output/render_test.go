@@ -9,6 +9,26 @@ import (
 	"github.com/projectious-work/ainfra/internal/output"
 )
 
+func TestEnvelopeConstructorsEnforceSchemaInvariants(t *testing.T) {
+	tests := []struct {
+		name string
+		call func()
+	}{
+		{name: "nil success", call: func() { output.Success(output.CommandVersion, nil) }},
+		{name: "empty failure", call: func() { output.Failure(output.CommandInvocation) }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("constructor accepted an invalid envelope")
+				}
+			}()
+			test.call()
+		})
+	}
+}
+
 func versionEnvelope() output.Envelope {
 	return output.Success(output.CommandVersion, output.Version{
 		Version:   "1.0.0-alpha.1",
@@ -16,6 +36,11 @@ func versionEnvelope() output.Envelope {
 		BuiltAt:   "2026-08-07T00:00:00Z",
 		GoVersion: "go1.26.5",
 		Platform:  "linux/arm64",
+		SupportedContractVersions: output.SupportedContractVersions{
+			DocumentAPIVersions:          []string{"ainfra.projectious.work/v1"},
+			ResultAPIVersions:            []string{"ainfra.result/v1"},
+			StandardOutputSchemaVersions: []string{"1"},
+		},
 	})
 }
 
@@ -50,7 +75,7 @@ func TestRenderPlainVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	want := "ainfra 1.0.0-alpha.1\ncommit 0123456789abcdef\nbuilt 2026-08-07T00:00:00Z\ngo go1.26.5\nplatform linux/arm64\n"
+	want := "ainfra 1.0.0-alpha.1\ncommit 0123456789abcdef\nbuilt 2026-08-07T00:00:00Z\ngo go1.26.5\nplatform linux/arm64\ncontracts documents ainfra.projectious.work/v1; results ainfra.result/v1; standard output 1\n"
 	if rendered.String() != want {
 		t.Errorf("plain output:\n%s\nwant:\n%s", rendered.String(), want)
 	}

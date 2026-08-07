@@ -10,9 +10,22 @@ trap 'rm -rf -- "$temporary"' EXIT HUP INT TERM
 binary="$temporary/ainfra"
 success="$temporary/version-success.json"
 failure="$temporary/version-failure.json"
+help="$temporary/help.json"
 
 go build -o "$binary" ./cmd/ainfra
 "$binary" --format json version >"$success"
+"$binary" --format json help version >"$help"
+
+for topic in ainfra doctor template init doctor.all doctor.deployment \
+  doctor.template doctor.run doctor.environment template.lock \
+  template.update template.migrate plan apply configure deploy output \
+  inventory logs status destroy version; do
+  if [ "$topic" = ainfra ]; then
+    "$binary" --format json help >"$temporary/help-$topic.json"
+  else
+    "$binary" --format json help "$topic" >"$temporary/help-$topic.json"
+  fi
+done
 
 set +e
 "$binary" version --format json unexpected >"$failure"
@@ -25,6 +38,6 @@ fi
 
 uv run --frozen --offline check-jsonschema \
   --schemafile spec/schemas/v1/machine-output.schema.json \
-  "$success" "$failure"
+  "$temporary"/*.json
 
 printf '%s\n' 'implemented CLI machine results conform to the v1 schema'
