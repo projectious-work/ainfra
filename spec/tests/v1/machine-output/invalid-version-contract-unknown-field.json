@@ -3,15 +3,16 @@
   "command": "version",
   "ok": true,
   "result": {
-    "version": "1.0.0",
+    "version": "1.0.0-alpha.1",
     "commit": "0123456789abcdef",
-    "builtAt": "yesterday",
+    "builtAt": "2026-08-07T10:00:00Z",
     "goVersion": "go1.25.0",
     "platform": "linux/amd64",
     "supportedContractVersions": {
       "documentApiVersions": ["ainfra.projectious.work/v1"],
       "resultApiVersions": ["ainfra.result/v1"],
-      "standardOutputSchemaVersions": ["1"]
+      "standardOutputSchemaVersions": ["1"],
+      "templateApiVersions": ["ainfra.projectious.work/v1"]
     }
   },
   "diagnostics": []
