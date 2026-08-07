@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+temporary=$(mktemp -d)
+trap 'rm -rf -- "$temporary"' EXIT HUP INT TERM
+
+binary="$temporary/ainfra"
+success="$temporary/version-success.json"
+failure="$temporary/version-failure.json"
+
+go build -o "$binary" ./cmd/ainfra
+"$binary" --format json version >"$success"
+
+set +e
+"$binary" version --format json unexpected >"$failure"
+status=$?
+set -e
+if [ "$status" -ne 2 ]; then
+  echo "invalid version invocation returned $status, expected 2" >&2
+  exit 1
+fi
+
+uv run --frozen --offline check-jsonschema \
+  --schemafile spec/schemas/v1/machine-output.schema.json \
+  "$success" "$failure"
+
+printf '%s\n' 'implemented CLI machine results conform to the v1 schema'

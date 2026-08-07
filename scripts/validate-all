@@ -4,20 +4,30 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
+run() {
+  printf '+ %s\n' "$*"
+  "$@"
+}
+
 if [ -d .github/workflows ]; then
   echo "GitHub Actions and workflow files are prohibited." >&2
   exit 1
 fi
 
-scripts/validate-v1-spec
+run go build ./cmd/ainfra
+run go fmt ./...
 
-cargo fmt --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-targets --all-features
-cargo audit
+printf "+ git ls-files -z '*.go' | xargs -0 go tool goimports -w\n"
+git ls-files -z '*.go' | xargs -0 go tool goimports -w
 
-uv run --frozen ruff format --check src tests
-uv run --frozen ruff check src tests
-uv run --frozen pytest
-scripts/test-ansible
-scripts/security-all
+run git diff --exit-code -- '*.go'
+run go vet ./...
+run go tool staticcheck ./...
+run go tool golangci-lint run
+run go test ./...
+run scripts/validate-v1-spec
+run scripts/validate-cli-contracts
+run go tool govulncheck ./...
+run go tool gosec ./...
+
+printf '%s\n' 'all local validation checks passed'

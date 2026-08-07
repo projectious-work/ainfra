@@ -1,0 +1,79 @@
+package output
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+)
+
+// Style selects a human-readable presentation style.
+type Style string
+
+const (
+	// StyleAuto selects rich output only for a capable terminal.
+	StyleAuto Style = "auto"
+	// StyleRich selects decorated terminal output.
+	StyleRich Style = "rich"
+	// StylePlain selects stable undecorated output.
+	StylePlain Style = "plain"
+)
+
+// Format selects human-oriented text or the machine-result protocol.
+type Format string
+
+const (
+	// FormatText selects human-readable output.
+	FormatText Format = "text"
+	// FormatJSON selects the versioned machine-result envelope.
+	FormatJSON Format = "json"
+)
+
+// ColorMode controls whether terminal color may be used.
+type ColorMode string
+
+const (
+	// ColorAuto enables color only when terminal capabilities permit it.
+	ColorAuto ColorMode = "auto"
+	// ColorAlways requests color output.
+	ColorAlways ColorMode = "always"
+	// ColorNever disables color output.
+	ColorNever ColorMode = "never"
+)
+
+// RenderOptions describe the selected presentation without changing results.
+type RenderOptions struct {
+	Format     Format
+	Style      Style
+	Color      ColorMode
+	IsTerminal bool
+}
+
+// Render writes one semantic result in the selected presentation.
+func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
+	if options.Format == FormatJSON {
+		encoder := json.NewEncoder(writer)
+		encoder.SetEscapeHTML(false)
+		return encoder.Encode(envelope)
+	}
+
+	style := options.Style
+	if style == StyleAuto {
+		if options.IsTerminal {
+			style = StyleRich
+		} else {
+			style = StylePlain
+		}
+	}
+
+	switch result := envelope.Result.(type) {
+	case Version:
+		if style == StyleRich {
+			_, err := fmt.Fprintf(writer, "ainfra %s\n  commit: %s\n  built: %s\n  go: %s\n  platform: %s\n", result.Version, result.Commit, result.BuiltAt, result.GoVersion, result.Platform)
+			return err
+		}
+		_, err := fmt.Fprintf(writer, "ainfra %s\ncommit %s\nbuilt %s\ngo %s\nplatform %s\n", result.Version, result.Commit, result.BuiltAt, result.GoVersion, result.Platform)
+		return err
+	default:
+		return fmt.Errorf("render unsupported result for %s", envelope.Command)
+	}
+}
