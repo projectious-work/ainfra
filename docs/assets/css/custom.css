@@ -230,6 +230,13 @@ a.not-prose[class*="rounded-full"]:focus-visible {
   text-align: center;
 }
 
+.ainfra-hero > a:first-child {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
 .ainfra-hero-action-secondary a.not-prose[class*="rounded-full"] {
   background: transparent !important;
   border: 1px solid var(--pj-border-strong);
@@ -243,6 +250,10 @@ a.not-prose[class*="rounded-full"]:focus-visible {
 
 .ainfra-home-section {
   margin-top: 4rem;
+}
+
+.ainfra-home-features {
+  margin-top: clamp(5rem, 10vw, 7rem);
 }
 
 .ainfra-home-section .hextra-feature-grid {
