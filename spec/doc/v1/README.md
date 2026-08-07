@@ -97,6 +97,9 @@ coordination repository:
   release-promotion standard.
 - `DEC-20260806_1803-FreshAnt`: deliver the read-only MCP stdio server mode in
   v1 after the core lifecycle and hardening phases.
+- `DEC-20260807_1627-AmberFlute`: retain read-only MCP as the default while
+  allowing explicitly enabled, independently authorized, plan-bound lifecycle
+  mutations in v1 and standardize the `mcp serve --stdio` entry point.
 
 If this specification conflicts with an accepted decision, the decision wins
 until the specification is amended.

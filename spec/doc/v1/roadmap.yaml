@@ -55,14 +55,15 @@ groups:
         status: planned
 
   - label: Automation interface
-    note: read-only agent integration for v1
+    note: read-only by default with explicitly authorized agent operations
     phases:
       - id: "7"
-        title: Read-only MCP server mode
+        title: Guarded MCP server mode
         summary: >-
           Serve doctor, inspection, status, schemas, and sanitized run results
-          over MCP stdio by adapting the same typed application use cases,
-          without exposing lifecycle mutations.
+          over MCP stdio by default, and expose explicitly allowlisted planning
+          and plan-bound lifecycle mutations through the same typed application
+          use cases, authorization, locking, evidence, and recovery contracts.
         status: planned
 
   - label: Template authoring

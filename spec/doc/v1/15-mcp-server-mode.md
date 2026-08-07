@@ -27,9 +27,14 @@ Network transports are outside the initial MCP phase. Adding one requires a
 separate authentication, authorization, TLS, origin, rate-limit, audit, and
 deployment threat model.
 
-## Initial capability boundary
+`mcp serve --stdio` is the common local-server command shape used by
+projectious.work CLI products. Product-specific root and capability options
+extend that command without changing the `mcp serve` entry point.
 
-The initial server exposes only read-only ainfra-owned capabilities:
+## Capability boundary
+
+The server is read-only by default. Its default registry exposes ainfra-owned
+capabilities for:
 
 - doctor without `--reconcile`;
 - deployment and template contract inspection;
@@ -37,20 +42,25 @@ The initial server exposes only read-only ainfra-owned capabilities:
 - sanitized standardized output and generated inventory; and
 - published schemas, supported versions, and documentation references.
 
-Tool handlers call the same typed application use cases as the CLI. They MUST
-NOT execute a shell, reconstruct CLI argument strings, parse console output, or
-implement a second lifecycle. MCP input and output schemas are derived from the
-same typed contracts and versioned machine results used by normal commands.
+The operator MAY enable additional capability groups explicitly when starting
+the server. Capability selection is allowlist-based; absence means denial:
 
-The initial mode does not expose reconciliation, template writes, lock/update,
-plan, apply, configure, deploy, or destroy. MCP annotations describing a tool as
-read-only or destructive are useful client metadata but MUST NOT be treated as
-authorization controls.
+| Group | Additional operations |
+|---|---|
+| `planning` | reconciliation planning, template lock/update/migration planning, and saved infrastructure plan creation |
+| `deployment` | approved reconciliation, template writes, apply, configure, deploy, and other non-destroy lifecycle mutations |
+| `destruction` | exact reviewed destroy-plan execution; requires `deployment` and a separate enablement |
 
-## Future mutation support
+Enabling a group makes tools discoverable but does not approve an individual
+mutation. Tool handlers call the same typed application use cases as the CLI.
+They MUST NOT execute a shell, reconstruct CLI argument strings, parse console
+output, or implement a second lifecycle. MCP input and output schemas derive
+from the same typed contracts and versioned machine results as normal commands.
 
-Mutating tools MAY be considered only after read-only server operation is
-stable. They require a separate accepted security design covering:
+## Mutation authorization
+
+MCP mutation support is part of v1 so an authorized AI agent can operate
+infrastructure on a user's behalf. It requires:
 
 - explicit server-start capability allowlisting;
 - per-request caller authorization independent of descriptive tool metadata;
@@ -62,8 +72,20 @@ stable. They require a separate accepted security design covering:
   credentials, executable selection, or log destinations.
 
 Starting a server with access to credentials MUST NOT by itself authorize a
-mutation. No future MCP tool may create an implicit plan or bypass the normal
-reviewed-plan protocol.
+mutation. An apply, deploy, or destroy request MUST name an existing saved plan
+and carry an approval artifact or authorization-provider result bound to the
+project root, canonical operation, plan ID and digest, intent, caller, and
+expiry. Configure and other mutations that do not consume an infrastructure
+plan require equivalent operation- and input-bound authorization. The server
+MUST reject conversational claims such as “the user approved,” MCP tool
+annotations, or capability enablement itself as approval evidence.
+
+No MCP tool may create an implicit plan, approve the plan it created, expand
+the approved operation, or bypass the normal reviewed-plan protocol. An agent
+MAY create a plan and present it for review, but execution requires independent
+authorization after plan creation. Destruction additionally requires the
+`destruction` capability group and an approval whose intent is exactly
+`destroy`.
 
 ## Project and configuration isolation
 
@@ -80,8 +102,9 @@ snapshots where a concurrent external ainfra process changes local state.
 ## Protocol behavior and testing
 
 - **AINFRA-MCP-001:** stdout MUST contain valid MCP transport frames only.
-- **AINFRA-MCP-002:** the initial tool registry MUST be read-only and fixed by
-  the shipped version, not extended by templates.
+- **AINFRA-MCP-002:** the default tool registry MUST be read-only. Additional
+  v1 tools MUST be exposed only through explicit server-start capability
+  allowlisting and MUST NOT be extended by templates.
 - **AINFRA-MCP-003:** every tool result MUST use a versioned typed schema and
   preserve normal diagnostic codes and redaction.
 - **AINFRA-MCP-004:** project containment and file policies MUST be identical to
@@ -93,5 +116,15 @@ snapshots where a concurrent external ainfra process changes local state.
   have black-box tests against the compiled binary.
 - **AINFRA-MCP-007:** MCP mode MUST remain an adapter over application use
   cases; domain packages MUST NOT import MCP protocol types.
+- **AINFRA-MCP-008:** ainfra MUST use the common
+  `ainfra mcp serve --stdio` entry point; product-specific project and
+  capability options MUST NOT create an alternative MCP-server command.
+- **AINFRA-MCP-009:** black-box tests MUST prove that undisclosed capability
+  groups, absent or stale approval, self-approved plans, mismatched plan
+  intent, caller, root, digest, or expiry, and destroy without its separate
+  capability are refused before child invocation.
+- **AINFRA-MCP-010:** for the same authorized use case, CLI and MCP execution
+  MUST produce equivalent plan validation, locking, child invocation,
+  evidence, diagnostics, cancellation, exit outcome, and recovery state.
 
 [mcp-spec]: https://modelcontextprotocol.io/specification/latest
