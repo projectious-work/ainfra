@@ -7,14 +7,15 @@ groups:
         summary: >-
           Finalize the v1 boundary, native-file contracts, security model, Go
           architecture, schemas, examples, and acceptance journeys.
-        status: in_progress
+        status: shipped
+        devNote: dev-notes/phase-00-product-specification.md
       - id: "1"
         title: Go project foundation
         summary: >-
           Establish the Go module, command shell, typed results, process and
           filesystem boundaries, test fixtures, developer tools, and
           Linux/macOS builds.
-        status: planned
+        status: in_progress
       - id: "2"
         title: Contracts and doctor
         summary: >-

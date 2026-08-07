@@ -19,7 +19,7 @@
       <strong>{{ $counts.Get "total" }}</strong>
       <span>Total phases</span>
     </div>
-    {{- range slice "in_progress" "planned" "idea" "completed" -}}
+    {{- range slice "shipped" "in_progress" "planned" "idea" -}}
       {{- $count := $counts.Get . -}}
       {{- if $count -}}
         <div class="ainfra-roadmap-stat">
@@ -49,7 +49,7 @@
             {{- $symbol := "○" -}}
             {{- if eq $status "in_progress" -}}
               {{- $symbol = "●" -}}
-            {{- else if or (eq $status "completed") (eq $status "done") -}}
+            {{- else if or (eq $status "shipped") (eq $status "completed") -}}
               {{- $symbol = "✓" -}}
             {{- else if eq $status "idea" -}}
               {{- $symbol = "◇" -}}
@@ -65,6 +65,12 @@
                 </div>
                 <h3>{{ .title }}</h3>
                 <p>{{ .summary }}</p>
+                {{- with .devNote -}}
+                  <a class="ainfra-roadmap-dev-note"
+                    href="https://github.com/projectious-work/ainfra/blob/v1.x-dev/{{ . }}">
+                    Read phase note →
+                  </a>
+                {{- end -}}
               </div>
             </article>
           {{- end -}}
