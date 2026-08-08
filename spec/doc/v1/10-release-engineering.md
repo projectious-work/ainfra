@@ -145,21 +145,44 @@ or equivalent path around its isolation boundary. The agent prepares and
 reviews repository changes, the owner invokes the approved host script, and the
 agent may then inspect the resulting evidence.
 
-The repository MUST provide one narrowly scoped, argument-free host script for
-this check. It validates the root Dockerfile and exact current branch,
-worktree, and checkout from which that script is invoked. A phase-name argument
-such as `phase-01` would not select a different input and MUST NOT be accepted.
-The script MUST fail unless it resolves and operates from the repository root.
+The repository MUST provide one narrowly scoped host script for this check.
+The calling agent first creates a self-contained run directory with this fixed
+layout:
+
+```text
+tmp/container-gate/<run-id>/
+├── input/
+│   ├── Dockerfile
+│   └── context/
+└── evidence/               # absent before host execution
+```
+
+The script accepts exactly one argument: the path to that run directory. The
+argument selects the complete Docker build input rather than a phase name. A
+phase-name argument such as `phase-01`, additional arguments, options, input
+outside the fixed layout, and input inherited from the caller's current
+directory or environment MUST be rejected.
+
+The script MUST resolve the repository root independently of the caller's
+current directory. It MUST canonicalize the supplied path, prove that it is a
+direct child of the canonical `tmp/container-gate/` directory, require a
+collision-resistant `<run-id>` basename, and reject symlinks, special files,
+hard-linked regular files, path traversal, unexpected entries, and
+world-writable input. It MUST treat `input/` as immutable and create
+`evidence/` itself with exclusive, restrictive permissions. Existing
+`evidence/` content MUST cause a fail-closed refusal rather than be reused or
+overwritten.
 
 For every invocation, the script MUST:
 
-1. create a collision-resistant run identifier and evidence directory below
-   `tmp/container-gate/<run-id>/`;
-2. print the run identifier and evidence path prominently at start and
-   completion;
-3. record the commit, branch, dirty-worktree state and diff checksum,
-   Dockerfile checksum, host architecture, UTC timestamps, and versions of
-   Docker, Syft, and Grype;
+1. derive the run identifier from the validated directory basename and create
+   `evidence/` below that directory;
+2. print the run identifier, canonical input path, and evidence path
+   prominently at start and completion;
+3. record the source commit, branch, dirty-worktree state and diff checksum
+   supplied with the run input, a deterministic checksum manifest for every
+   input file, host architecture, UTC timestamps, and versions of Docker,
+   Syft, and Grype;
 4. state every exact command immediately before execution, both on the
    terminal and in an append-only command log in that run directory;
 5. retain separate build, image-inspection, non-root runtime-smoke, SPDX JSON
@@ -178,17 +201,20 @@ absolute:
 - it MUST NOT use `eval`, `source`, `sh -c`, `bash -c`, dynamically
   constructed command strings, caller-supplied shell fragments, or indirect
   command execution;
-- it MUST NOT accept paths, image names, Dockerfiles, commands, build
-  arguments, runtime arguments, mounts, devices, or environment assignments
-  from positional arguments or uncontrolled environment variables;
+- it MUST accept only the single validated run-directory path described above
+  and MUST NOT accept image names, commands, build arguments, runtime
+  arguments, mounts, devices, or environment assignments from positional
+  arguments, input files, or uncontrolled environment variables;
 - it MUST NOT use privileged containers, host PID/network/IPC/user namespaces,
   host filesystem mounts, devices, added capabilities, security-policy
   relaxation, or mount any Docker/Podman/containerd socket into the tested
   image;
 - it MUST NOT publish, push, sign, or otherwise transfer the temporary image;
+- it MUST pass only `input/context/` as the Docker build context and only
+  `input/Dockerfile` as the Dockerfile, without executing any other input file;
 - it MUST configure its temporary files, tool state, vulnerability database,
-  and caches inside the unique evidence directory and MUST NOT write elsewhere
-  except through Docker's own private local image storage; and
+  and caches inside `evidence/` and MUST NOT write elsewhere except through
+  Docker's own private local image storage; and
 - cleanup MUST target only the exact run-specific image tag and MUST NOT use
   globs, broad pruning, or deletion of unrelated images, containers, volumes,
   files, or directories.
@@ -200,9 +226,10 @@ The permission and subsequent owner review MUST be visible in the pull-request
 or equivalent review record. Generic permission to work on a phase, release,
 Dockerfile, or test suite does not authorize modification of the script.
 
-The host operator remains responsible for reviewing the script and current
-Dockerfile diff before every execution. Evidence describes the exact recorded
-checkout and does not transfer trust to a later commit or worktree state.
+The host operator remains responsible for reviewing the script, supplied
+Dockerfile, input checksum manifest, and relevant source diff before every
+execution. Evidence describes only the immutable input tree identified by its
+recorded checksums and does not transfer trust to later input or source state.
 Container evidence generated for a dirty worktree MAY close an implementation
 phase gate when the dirty state and diff checksum are recorded, but it MUST NOT
 satisfy the clean-release requirement in AINFRA-REL-001.
@@ -248,8 +275,8 @@ Review and update when applicable:
   target, intended version, and operation type before changing branches or
   opening a pull request.
 - **AINFRA-REL-010:** mandatory host container evidence MUST be produced only
-  through the owner-approved, argument-free script and retained under its
-  unique run identifier.
+  through the owner-approved script from its single validated run-directory
+  argument and retained under that unique run identifier.
 - **AINFRA-REL-011:** the host script MUST satisfy every absolute restriction
   above and MUST NOT change after initial owner review without prior, explicit
   owner permission for the specific change.
