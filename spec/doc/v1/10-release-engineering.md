@@ -157,8 +157,9 @@ For every invocation, the script MUST:
    `tmp/container-gate/<run-id>/`;
 2. print the run identifier and evidence path prominently at start and
    completion;
-3. record the commit, branch, dirty-worktree state, Dockerfile checksum, host
-   architecture, UTC timestamps, and versions of Docker, Syft, and Grype;
+3. record the commit, branch, dirty-worktree state and diff checksum,
+   Dockerfile checksum, host architecture, UTC timestamps, and versions of
+   Docker, Syft, and Grype;
 4. state every exact command immediately before execution, both on the
    terminal and in an append-only command log in that run directory;
 5. retain separate build, image-inspection, non-root runtime-smoke, SPDX JSON
@@ -185,8 +186,9 @@ absolute:
   relaxation, or mount any Docker/Podman/containerd socket into the tested
   image;
 - it MUST NOT publish, push, sign, or otherwise transfer the temporary image;
-- it MUST NOT write outside the repository's unique evidence directory except
-  through Docker's own private local image storage; and
+- it MUST configure its temporary files, tool state, vulnerability database,
+  and caches inside the unique evidence directory and MUST NOT write elsewhere
+  except through Docker's own private local image storage; and
 - cleanup MUST target only the exact run-specific image tag and MUST NOT use
   globs, broad pruning, or deletion of unrelated images, containers, volumes,
   files, or directories.
