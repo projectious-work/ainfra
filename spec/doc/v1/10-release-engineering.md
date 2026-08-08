@@ -152,6 +152,8 @@ layout:
 ```text
 tmp/container-gate/<run-id>/
 ├── input/
+│   ├── provenance.json
+│   ├── checksums.sha256
 │   ├── Dockerfile
 │   └── context/
 └── evidence/               # absent before host execution
@@ -168,8 +170,10 @@ current directory. It MUST canonicalize the supplied path, prove that it is a
 direct child of the canonical `tmp/container-gate/` directory, require a
 collision-resistant `<run-id>` basename, and reject symlinks, special files,
 hard-linked regular files, path traversal, unexpected entries, and
-world-writable input. It MUST treat `input/` as immutable and create
-`evidence/` itself with exclusive, restrictive permissions. Existing
+world-writable input. It MUST verify `checksums.sha256` over the Dockerfile and
+complete context before doing any build work. It MUST treat `input/` as
+immutable and create `evidence/` itself with exclusive, restrictive
+permissions. Existing
 `evidence/` content MUST cause a fail-closed refusal rather than be reused or
 overwritten.
 
@@ -179,10 +183,10 @@ For every invocation, the script MUST:
    `evidence/` below that directory;
 2. print the run identifier, canonical input path, and evidence path
    prominently at start and completion;
-3. record the source commit, branch, dirty-worktree state and diff checksum
-   supplied with the run input, a deterministic checksum manifest for every
-   input file, host architecture, UTC timestamps, and versions of Docker,
-   Syft, and Grype;
+3. validate and retain `provenance.json`, including the source commit, branch,
+   dirty-worktree state and diff checksum; independently retain the verified
+   input checksum manifest, host architecture, UTC timestamps, and versions of
+   Docker, Syft, and Grype;
 4. state every exact command immediately before execution, both on the
    terminal and in an append-only command log in that run directory;
 5. retain separate build, image-inspection, non-root runtime-smoke, SPDX JSON
