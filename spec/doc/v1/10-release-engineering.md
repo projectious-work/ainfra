@@ -156,7 +156,7 @@ tmp/container-gate/<run-id>/
 │   ├── checksums.sha256
 │   ├── Dockerfile
 │   └── context/
-├── runtime/                # empty or absent before host execution
+├── runtime/                # absent before the reviewed bootstrap starts
 └── evidence/               # absent before host execution
 ```
 
@@ -173,11 +173,13 @@ collision-resistant `<run-id>` basename, and reject symlinks, special files,
 hard-linked regular files, path traversal, unexpected entries, and
 world-writable input. It MUST verify `checksums.sha256` over the Dockerfile and
 complete context before doing any build work. It MUST treat `input/` as
-immutable, create or validate an empty `runtime/` directory for mutable
-per-run execution state, and create `evidence/` itself with exclusive,
-restrictive permissions. Existing `evidence/` content or non-empty
-`runtime/` content MUST cause a fail-closed refusal rather than be reused or
-overwritten.
+immutable and create `evidence/` itself with exclusive, restrictive
+permissions. Existing `evidence/` content MUST cause a fail-closed refusal
+rather than be reused or overwritten. When the reviewed bootstrap described
+below is used, it MUST require `runtime/` to be absent and create the fixed
+`runtime/bootstrap/` layout exclusively before invoking the Python entrypoint.
+The Python entrypoint MUST then validate the bootstrap manifest and reject
+every unexpected runtime entry.
 
 For every invocation, the script MUST:
 
@@ -206,7 +208,8 @@ absolute:
   mechanism;
 - it MUST NOT use `eval`, `source`, `sh -c`, `bash -c`, dynamically
   constructed command strings, caller-supplied shell fragments, or indirect
-  command execution;
+  command execution, except for the reviewed launcher's direct `exec` of the
+  fixed uv argument vector permitted below;
 - it MUST accept only the single validated run-directory path described above
   and MUST NOT accept image names, commands, build arguments, runtime
   arguments, mounts, devices, or environment assignments from positional
@@ -226,39 +229,65 @@ absolute:
   globs, broad pruning, or deletion of unrelated images, containers, volumes,
   files, or directories.
 
-A host implementation MAY use an owner-installed bootstrap tool such as
-`uv` to execute a Python entry point. This is supporting infrastructure for
-this already-permitted container-validation phase, not an independent reason
-for host execution. A virtual environment MAY live under the run-specific
-`runtime/` directory. Persistent tool caches and a managed Python runtime MAY
-live in fixed, owner-controlled host-user locations outside the run directory.
-Those locations are execution infrastructure, not evidence.
+A host implementation MAY use a two-stage, jointly owner-reviewed gate bundle:
+a minimal fixed launcher and a Python entrypoint executed by an owner-installed
+bootstrap tool such as `uv`. This is supporting infrastructure for this
+already-permitted container-validation phase, not an independent reason for
+host execution. A virtual environment MAY live under
+`runtime/bootstrap/venv/`. Persistent tool caches and a managed Python runtime
+MAY live in fixed, owner-controlled host-user locations outside the run
+directory. Those locations and raw bootstrap logs are execution
+infrastructure, not evidence.
 
 When such tool-managed state is used:
 
-- the owner MUST install and approve the bootstrap tool; the gate MUST NOT
+- the owner MUST install and approve the bootstrap tool; neither stage MUST
   install or update it;
-- the reviewed gate MUST fix the runtime, cache, and managed-interpreter
-  locations; the caller, run-directory input, and uncontrolled environment
-  MUST NOT select or override them;
-- the interpreter version MUST be precisely pinned, and dependencies MUST be
-  standard-library-only where practical or owner-reviewed and locked or
-  checksummed;
-- candidate-controlled project metadata, inline dependency metadata, tool
-  configuration, package indexes, executable search paths, and inherited
-  `UV_*`, Python, or package-manager variables MUST NOT change what executes;
+- the launcher MUST accept only the run-directory path, resolve itself and the
+  bootstrap executable from owner-approved fixed paths, perform the minimum
+  canonicalization and containment checks needed to derive the run directory,
+  and reject pre-existing `runtime/` or `evidence/` content;
+- the launcher MUST create `runtime/bootstrap/` exclusively with restrictive
+  permissions, construct an allowlisted environment from scratch, set fixed
+  cache and managed-interpreter locations, and directly `exec` a fixed uv
+  argument vector without a dynamic shell or caller-controlled arguments;
+- the launcher MUST record its own identity, the exact uv invocation,
+  bootstrap-tool identity, selected interpreter artifact, and complete
+  acquisition output in a bootstrap manifest and log under
+  `runtime/bootstrap/` before and during the handoff;
+- the interpreter policy MAY name a bounded supported series, but each run MUST
+  select an owner-approved exact version and build whose identity and digest
+  are verified and recorded;
+- dependencies MUST be standard-library-only where practical or
+  owner-reviewed and locked or checksummed;
+- inline dependency metadata is permitted only inside the controlled gate,
+  covered by its owner-reviewed source hash, independently recorded, and
+  consistent with the approved dependency lock or empty dependency set;
+- candidate-controlled project, workspace, Docker-context, or other inline
+  metadata, tool configuration, package indexes, executable search paths, and
+  inherited `UV_*`, Python, or package-manager variables MUST NOT change what
+  executes;
 - project isolation such as `--no-project`, or an equivalent control for the
-  approved tool version, MUST prevent dependency resolution from the candidate
-  Docker context or repository metadata;
+  approved tool version, MUST prevent candidate dependency resolution;
 - network acquisition MUST be disabled or restricted to explicitly permitted,
   pinned, logged, and integrity-verified interpreter or dependency artifacts;
-- the evidence MUST record the bootstrap-tool version, resolved interpreter
-  version and path, dependency lock or checksums, cache and runtime locations,
-  network acquisitions, and exact invocation;
+- after startup, the Python entrypoint MUST perform the complete run-directory
+  and input validation, validate the exact bootstrap manifest and runtime
+  layout, reject unexpected state, and copy an authoritative bootstrap summary
+  plus hashes of the raw manifest and log into `evidence/`;
+- the evidence MUST record the launcher and Python source hashes,
+  bootstrap-tool version and identity, resolved interpreter version, build,
+  path and digest, dependency identity, cache and runtime locations, network
+  acquisitions, and exact invocation;
 - runtime state MUST NOT be treated as evidence or a release artifact; and
 - cleanup MAY remove only the unique run's `runtime/` content. Approved
   persistent caches and managed runtimes MAY remain and MUST NOT be broadly
   deleted.
+
+A fully preinstalled, offline, owner-approved interpreter is the simplest
+conforming bootstrap path. Managed acquisition remains permitted only when the
+launcher records enough contemporaneous output for the Python entrypoint to
+validate and summarize it as evidence.
 
 The initial script requires explicit owner review before its first host
 execution. After that review, its content is controlled: an agent MUST NOT
