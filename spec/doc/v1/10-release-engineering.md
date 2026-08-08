@@ -123,8 +123,9 @@ Dockerfile is source and is validated, not published as an image artifact.
 8. Build user documentation, check links, and verify CLI reference drift.
 9. Validate template-authoring instructions with a clean-room exercise or
    fixture.
-10. Build and lint the optional Dockerfile; scan the locally built image, then
-    discard it.
+10. Run the owner-approved host container-validation script against the
+    optional Dockerfile; retain its build, runtime-smoke, SBOM, image-scan, and
+    cleanup evidence.
 11. Cross-build all four supported targets.
 12. Smoke-test archives on representative Linux/macOS systems.
 13. Generate checksums and SBOMs; scan final artifacts.
@@ -134,6 +135,111 @@ Dockerfile is source and is validated, not published as an image artifact.
 16. Create signed tag and release from the exact validated commit.
 17. Download published artifacts and independently verify checksums,
     signatures, `ainfra version`, and `ainfra help`.
+
+## Host container-validation phase
+
+Container build and runtime evidence MUST be produced by a human operator on a
+host with Docker, Syft, and Grype. An AI agent in a restricted development
+container MUST NOT receive a Docker socket, privileged companion, host shell,
+or equivalent path around its isolation boundary. The agent prepares and
+reviews repository changes, the owner invokes the approved host script, and the
+agent may then inspect the resulting evidence.
+
+The repository MUST provide one narrowly scoped host script for this check.
+The calling agent first creates a self-contained run directory with this fixed
+layout:
+
+```text
+tmp/container-gate/<run-id>/
+├── input/
+│   ├── provenance.json
+│   ├── checksums.sha256
+│   ├── Dockerfile
+│   └── context/
+└── evidence/               # absent before host execution
+```
+
+The script accepts exactly one argument: the path to that run directory. The
+argument selects the complete Docker build input rather than a phase name. A
+phase-name argument such as `phase-01`, additional arguments, options, input
+outside the fixed layout, and input inherited from the caller's current
+directory or environment MUST be rejected.
+
+The script MUST resolve the repository root independently of the caller's
+current directory. It MUST canonicalize the supplied path, prove that it is a
+direct child of the canonical `tmp/container-gate/` directory, require a
+collision-resistant `<run-id>` basename, and reject symlinks, special files,
+hard-linked regular files, path traversal, unexpected entries, and
+world-writable input. It MUST verify `checksums.sha256` over the Dockerfile and
+complete context before doing any build work. It MUST treat `input/` as
+immutable and create `evidence/` itself with exclusive, restrictive
+permissions. Existing
+`evidence/` content MUST cause a fail-closed refusal rather than be reused or
+overwritten.
+
+For every invocation, the script MUST:
+
+1. derive the run identifier from the validated directory basename and create
+   `evidence/` below that directory;
+2. print the run identifier, canonical input path, and evidence path
+   prominently at start and completion;
+3. validate and retain `provenance.json`, including the source commit, branch,
+   dirty-worktree state and diff checksum; independently retain the verified
+   input checksum manifest, host architecture, UTC timestamps, and versions of
+   Docker, Syft, and Grype;
+4. state every exact command immediately before execution, both on the
+   terminal and in an append-only command log in that run directory;
+5. retain separate build, image-inspection, non-root runtime-smoke, SPDX JSON
+   SBOM, machine-readable Grype, and cleanup evidence;
+6. use a unique temporary image tag derived from the run identifier;
+7. fail closed on a failed command, missing tool, high-or-critical
+   vulnerability, malformed or missing evidence, or failed cleanup; and
+8. remove the temporary local image even when an earlier check fails, while
+   retaining the evidence directory for review.
+
+The script is host-executed trusted code. The following restrictions are
+absolute:
+
+- it MUST NOT invoke `sudo`, `su`, `doas`, or any privilege-elevation
+  mechanism;
+- it MUST NOT use `eval`, `source`, `sh -c`, `bash -c`, dynamically
+  constructed command strings, caller-supplied shell fragments, or indirect
+  command execution;
+- it MUST accept only the single validated run-directory path described above
+  and MUST NOT accept image names, commands, build arguments, runtime
+  arguments, mounts, devices, or environment assignments from positional
+  arguments, input files, or uncontrolled environment variables;
+- it MUST NOT use privileged containers, host PID/network/IPC/user namespaces,
+  host filesystem mounts, devices, added capabilities, security-policy
+  relaxation, or mount any Docker/Podman/containerd socket into the tested
+  image;
+- it MUST NOT publish, push, sign, or otherwise transfer the temporary image;
+- it MUST pass only `input/context/` as the Docker build context and only
+  `input/Dockerfile` as the Dockerfile, without executing any other input file;
+- it MUST configure its temporary files, tool state, vulnerability database,
+  and caches inside `evidence/` and MUST NOT write elsewhere except through
+  Docker's own private local image storage; and
+- cleanup MUST target only the exact run-specific image tag and MUST NOT use
+  globs, broad pruning, or deletion of unrelated images, containers, volumes,
+  files, or directories.
+
+The initial script requires explicit owner review before its first host
+execution. After that review, its content is controlled: an agent MUST NOT
+change it without prior, explicit owner permission for that specific change.
+The permission and subsequent owner review MUST be visible in the pull-request
+or equivalent review record. Generic permission to work on a phase, release,
+Dockerfile, or test suite does not authorize modification of the script.
+
+The host operator remains responsible for reviewing the script, supplied
+Dockerfile, input checksum manifest, and relevant source diff before every
+execution. Evidence describes only the immutable input tree identified by its
+recorded checksums and does not transfer trust to later input or source state.
+Container evidence generated for a dirty worktree MAY close an implementation
+phase gate when the dirty state and diff checksum are recorded, but it MUST NOT
+satisfy the clean-release requirement in AINFRA-REL-001.
+
+A future trusted execution service is a separate architectural decision. This
+specification neither assigns it to aibox nor expands aibox's current scope.
 
 ## Documentation release checklist
 
@@ -172,3 +278,9 @@ Review and update when applicable:
 - **AINFRA-REL-009:** agents MUST identify the active version line, source,
   target, intended version, and operation type before changing branches or
   opening a pull request.
+- **AINFRA-REL-010:** mandatory host container evidence MUST be produced only
+  through the owner-approved script from its single validated run-directory
+  argument and retained under that unique run identifier.
+- **AINFRA-REL-011:** the host script MUST satisfy every absolute restriction
+  above and MUST NOT change after initial owner review without prior, explicit
+  owner permission for the specific change.
