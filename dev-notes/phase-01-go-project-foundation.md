@@ -1124,3 +1124,40 @@ output. Documentation now corresponds to the corrected metadata.
 
 The wider T4/T7 environment blockers remain. This commit is an implementation
 checkpoint, not Phase 1 shipment; it does not change the roadmap status.
+
+## Third closing attempt — 2026-08-07
+
+The closing review was repeated against specification baseline `772fba4` in
+an isolated clean checkout. The complete local validation suite passed,
+including formatting, `goimports`, vet, static analysis, curated linting,
+unit and black-box tests, schema and example validation, CLI contract
+validation, `govulncheck`, and `gosec`. Race and coverage runs passed. All four
+Linux/macOS target binaries cross-built, the Dockerfile passed `hadolint`, and
+the native Linux arm64 binary returned schema-conforming version output.
+
+The retry also exposed one correctable release-tooling gap: `shellcheck`
+reported SC1007 for the five repository scripts that establish their project
+root. Those assignments now use explicit `CDPATH=''` syntax, and the complete
+shell-script set passes `shellcheck`.
+
+Phase 1 remains `in_progress` and no release or promotion was performed. The
+following mandatory closing evidence is still unresolved:
+
+- the full-history `gitleaks` finding for the synthetic API-key example was
+  resolved with exact fingerprint entries in `.gitleaksignore`; the follow-up
+  scan covered 131 commits and reported no leaks;
+- this harness cannot execute the optional Dockerfile through Docker or
+  rootless Podman, so container build, runtime smoke, SBOM, and image scan
+  evidence is absent;
+- native macOS amd64 and arm64 archive smoke evidence is absent;
+- processkit doctor and release-audit each report two errors because the
+  installed `changelog` and `git-branching` skills reference a missing
+  `release-semver` skill;
+- the primary worktree contains unrelated pre-existing changes and therefore
+  cannot satisfy `AINFRA-REL-001`; and
+- no intended Semantic Version release identity has been selected.
+
+Per `AINFRA-DEV-009`–`011`, `AINFRA-REL-001`–`004`, and the fail-closed test
+policy, these are blockers rather than skips. The release-evidence WorkItem
+records the same state and remains blocked pending remediation and independent
+requirement-complete conformance acceptance.

@@ -8,15 +8,32 @@ metadata:
     phase: '1'
     area: release-engineering
     blocked_by: validation-environment
+  updated: '2026-08-08T02:51:33+00:00'
 spec:
   title: Complete Phase 1 release-engineering evidence
-  state: backlog
+  state: blocked
   type: task
   priority: high
-  description: After aibox exposes Docker, hadolint, syft, grype, cosign, osv-scanner,
-    shellcheck, and gitleaks in the ainfra development container, run the fail-closed
-    Phase 1 Docker, SBOM, artifact scan, secret scan, OSV, shell, and release checks.
-    Obtain native macOS amd64 and arm64 smoke evidence. Re-run independent implementation
-    conformance review and keep roadmap Phase 1 in_progress until every required gate
-    passes.
+  description: Phase 1 closing was retried on 2026-08-07 against specification baseline
+    772fba4. Core validation, schema/example and CLI contract checks, lint/static
+    analysis, unit/black-box/race/coverage tests, govulncheck, gosec, four-target
+    cross-builds, Dockerfile lint, shellcheck after correction, native Linux arm64
+    version smoke, and a 131-commit full-history gitleaks scan passed. The synthetic
+    API-key example is narrowly ignored by its two exact historical fingerprints.
+    Release remains blocked by unavailable container-runtime execution in this harness,
+    missing native macOS amd64/arm64 smoke evidence, processkit release-semver reference
+    drift, a dirty primary worktree containing unrelated user changes, and no declared
+    intended SemVer release version. Keep roadmap Phase 1 in_progress until these
+    gates are resolved and the independent requirement-complete conformance review
+    accepts the final evidence.
+  started_at: '2026-08-07T19:55:41+00:00'
 ---
+
+## Transition note (2026-08-07T19:55:41+00:00)
+
+Phase 1 release evidence retry executed.
+
+
+## Transition note (2026-08-07T19:55:41+00:00)
+
+Blocked on unresolved normative release evidence and release identity, detailed in the WorkItem description.
