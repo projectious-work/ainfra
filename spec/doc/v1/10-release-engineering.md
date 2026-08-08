@@ -156,6 +156,7 @@ tmp/container-gate/<run-id>/
 │   ├── checksums.sha256
 │   ├── Dockerfile
 │   └── context/
+├── runtime/                # empty or absent before host execution
 └── evidence/               # absent before host execution
 ```
 
@@ -172,9 +173,10 @@ collision-resistant `<run-id>` basename, and reject symlinks, special files,
 hard-linked regular files, path traversal, unexpected entries, and
 world-writable input. It MUST verify `checksums.sha256` over the Dockerfile and
 complete context before doing any build work. It MUST treat `input/` as
-immutable and create `evidence/` itself with exclusive, restrictive
-permissions. Existing
-`evidence/` content MUST cause a fail-closed refusal rather than be reused or
+immutable, create or validate an empty `runtime/` directory for mutable
+per-run execution state, and create `evidence/` itself with exclusive,
+restrictive permissions. Existing `evidence/` content or non-empty
+`runtime/` content MUST cause a fail-closed refusal rather than be reused or
 overwritten.
 
 For every invocation, the script MUST:
@@ -186,7 +188,7 @@ For every invocation, the script MUST:
 3. validate and retain `provenance.json`, including the source commit, branch,
    dirty-worktree state and diff checksum; independently retain the verified
    input checksum manifest, host architecture, UTC timestamps, and versions of
-   Docker, Syft, and Grype;
+   the script runtime, Docker, Syft, and Grype;
 4. state every exact command immediately before execution, both on the
    terminal and in an append-only command log in that run directory;
 5. retain separate build, image-inspection, non-root runtime-smoke, SPDX JSON
@@ -216,12 +218,47 @@ absolute:
 - it MUST NOT publish, push, sign, or otherwise transfer the temporary image;
 - it MUST pass only `input/context/` as the Docker build context and only
   `input/Dockerfile` as the Dockerfile, without executing any other input file;
-- it MUST configure its temporary files, tool state, vulnerability database,
-  and caches inside `evidence/` and MUST NOT write elsewhere except through
-  Docker's own private local image storage; and
+- it MUST configure per-run mutable state inside `runtime/`, keep
+  authoritative logs and results inside `evidence/`, and MUST NOT write
+  elsewhere except through Docker's private local image storage and the fixed,
+  owner-controlled tool caches or managed runtimes permitted below; and
 - cleanup MUST target only the exact run-specific image tag and MUST NOT use
   globs, broad pruning, or deletion of unrelated images, containers, volumes,
   files, or directories.
+
+A host implementation MAY use an owner-installed bootstrap tool such as
+`uv` to execute a Python entry point. This is supporting infrastructure for
+this already-permitted container-validation phase, not an independent reason
+for host execution. A virtual environment MAY live under the run-specific
+`runtime/` directory. Persistent tool caches and a managed Python runtime MAY
+live in fixed, owner-controlled host-user locations outside the run directory.
+Those locations are execution infrastructure, not evidence.
+
+When such tool-managed state is used:
+
+- the owner MUST install and approve the bootstrap tool; the gate MUST NOT
+  install or update it;
+- the reviewed gate MUST fix the runtime, cache, and managed-interpreter
+  locations; the caller, run-directory input, and uncontrolled environment
+  MUST NOT select or override them;
+- the interpreter version MUST be precisely pinned, and dependencies MUST be
+  standard-library-only where practical or owner-reviewed and locked or
+  checksummed;
+- candidate-controlled project metadata, inline dependency metadata, tool
+  configuration, package indexes, executable search paths, and inherited
+  `UV_*`, Python, or package-manager variables MUST NOT change what executes;
+- project isolation such as `--no-project`, or an equivalent control for the
+  approved tool version, MUST prevent dependency resolution from the candidate
+  Docker context or repository metadata;
+- network acquisition MUST be disabled or restricted to explicitly permitted,
+  pinned, logged, and integrity-verified interpreter or dependency artifacts;
+- the evidence MUST record the bootstrap-tool version, resolved interpreter
+  version and path, dependency lock or checksums, cache and runtime locations,
+  network acquisitions, and exact invocation;
+- runtime state MUST NOT be treated as evidence or a release artifact; and
+- cleanup MAY remove only the unique run's `runtime/` content. Approved
+  persistent caches and managed runtimes MAY remain and MUST NOT be broadly
+  deleted.
 
 The initial script requires explicit owner review before its first host
 execution. After that review, its content is controlled: an agent MUST NOT
