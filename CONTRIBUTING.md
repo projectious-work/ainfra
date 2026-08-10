@@ -46,53 +46,19 @@ Review its immutable `input/`, the current source diff, and
 may then run the jointly reviewed launcher and Python entrypoint on a host with
 uv, Docker, Syft, and Grype.
 
-The gate pins Python 3.13.14. Install that exact uv-managed runtime once, then
-review and approve its executable digest. On macOS:
-
-```bash
-state="$HOME/Library/Caches/ainfra/container-gate"
-UV_CACHE_DIR="$state/uv-cache" UV_PYTHON_INSTALL_DIR="$state/python" \
-  /opt/homebrew/bin/uv python install 3.13.14
-python_path="$(UV_CACHE_DIR="$state/uv-cache" \
-  UV_PYTHON_INSTALL_DIR="$state/python" \
-  /opt/homebrew/bin/uv python find --managed-python 3.13.14)"
-shasum -a 256 "$python_path"
-mkdir -p -m 700 "$state"
-printf '%s  3.13.14\n' '<reviewed-sha256>' > \
-  "$state/approved-python.sha256"
-chmod 600 "$state/approved-python.sha256"
-```
-
-On Linux, use the fixed per-user cache and GNU checksum utility:
-
-```bash
-state="$HOME/.cache/ainfra/container-gate"
-UV_CACHE_DIR="$state/uv-cache" UV_PYTHON_INSTALL_DIR="$state/python" \
-  /usr/local/bin/uv python install 3.13.14
-python_path="$(UV_CACHE_DIR="$state/uv-cache" \
-  UV_PYTHON_INSTALL_DIR="$state/python" \
-  /usr/local/bin/uv python find --managed-python 3.13.14)"
-sha256sum "$python_path"
-mkdir -p -m 700 "$state"
-printf '%s  3.13.14\n' '<reviewed-sha256>' > \
-  "$state/approved-python.sha256"
-chmod 600 "$state/approved-python.sha256"
-```
-
-If uv is installed in `/usr/bin` or
-`/home/linuxbrew/.linuxbrew/bin`, substitute that reviewed fixed path in the
-setup commands. The launcher recognizes all three Linux locations.
-
-Replace `<reviewed-sha256>` with the displayed digest only after reviewing
-the selected artifact. The gate itself runs uv offline and refuses any other
-interpreter. Execute it with:
+The gate pins Python 3.13.14. The launcher asks uv to install or reuse that
+exact managed runtime and creates a private virtual environment inside the
+prepared run. No manual Python path or digest approval is required. The first
+run may access the network to acquire Python; later runs reuse uv's cache.
+Execute it with:
 
 ```bash
 scripts/container-gate-host tmp/container-gate/<run-id>
 ```
 
-The launcher creates `runtime/bootstrap/`, records its fixed uv handoff, and
-then directly executes the Python entrypoint. On macOS, one
+The launcher creates `runtime/bootstrap/`, records the selected uv and Python
+paths, versions, and executable digests, and then directly executes the Python
+entrypoint. On macOS, one
 installation possibility is:
 
 ```bash
@@ -103,9 +69,9 @@ brew install --cask docker
 Start Docker Desktop, install its CLI tools into `/usr/local/bin`, and enable
 the default Docker socket. The gate checks all required executables before it
 creates authoritative `evidence/` and prints OS-specific installation
-guidance when a container tool is missing. The approved managed Python and uv
-cache are the explicit bootstrap exception documented by the release
-specification; all per-run state remains below `runtime/`.
+guidance when a container tool is missing. uv's managed Python and download
+cache use the fixed per-user cache documented by the release specification;
+all other per-run state remains below `runtime/`.
 
 On Linux, install Docker Engine from the distribution or Docker's official
 repository, and install Syft and Grype into `/usr/local/bin`, `/usr/bin`, or

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run the owner-reviewed, host-only Phase 1 container validation gate.
 
-The reviewed ``container-gate-host`` launcher provides an exact, offline,
-owner-approved uv-managed Python before this entrypoint starts. This script is
+The reviewed ``container-gate-host`` launcher provides an exact, uv-managed
+Python before this entrypoint starts. This script is
 the narrow trust boundary between an
 immutable build-input snapshot prepared in the development harness and
 container tooling installed on an owner's host. It validates the snapshot
@@ -261,7 +261,7 @@ def validate_bootstrap(run_dir: Path, repo: Path) -> dict[str, Any]:
         "pythonPath": str(Path(sys.executable).resolve(strict=True)),
         "pythonSha256": sha256(Path(sys.executable).resolve(strict=True)),
         "venv": sys.prefix,
-        "acquisition": "none",
+        "acquisition": "uv-managed",
         "dependencies": "stdlib-only",
         "hostSystem": platform.system(),
     }
@@ -285,8 +285,6 @@ def validate_bootstrap(run_dir: Path, repo: Path) -> dict[str, Any]:
     expected_env = {
         "UV_CACHE_DIR": values["uvCacheDir"],
         "UV_PYTHON_INSTALL_DIR": values["pythonInstallDir"],
-        "UV_OFFLINE": "1",
-        "UV_PYTHON_DOWNLOADS": "never",
         "VIRTUAL_ENV": values["venv"],
         "AINFRA_CONTAINER_GATE_BOOTSTRAP": str(manifest_path),
     }

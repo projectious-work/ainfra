@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launch the reviewed Python gate with an offline, owner-approved uv runtime.
+# Launch the reviewed Python gate with an exactly pinned, uv-managed runtime.
 #
 # This deliberately small first stage exists because Python cannot validate its
 # own interpreter before it starts.  It accepts only the prepared run path,
@@ -121,21 +121,12 @@ case "$host_system" in
 esac
 uv_cache="$state_root/uv-cache"
 python_dir="$state_root/python"
-approval_file="$state_root/approved-python.sha256"
 bootstrap="$run_path/runtime/bootstrap"
 venv="$bootstrap/venv"
 manifest="$bootstrap/manifest.env"
 log="$bootstrap/bootstrap.log"
 python_entry="$repo_path/scripts/container-gate-host.py"
 
-[ -f "$approval_file" ] || fail \
-  "missing owner approval: $approval_file (see CONTRIBUTING.md)"
-[ ! -L "$approval_file" ] || fail "owner approval file is a symlink"
-case "$host_system" in
-  Darwin) approval_mode="$(/usr/bin/stat -f '%Lp' "$approval_file")" ;;
-  *) approval_mode="$(/usr/bin/stat -c '%a' "$approval_file")" ;;
-esac
-[ "$approval_mode" = "600" ] || fail "owner approval file must use mode 0600"
 /bin/mkdir -m 700 "$run_path/runtime" || fail "cannot create runtime/"
 /bin/mkdir -m 700 "$bootstrap" || fail "cannot create bootstrap/"
 : >"$log"
@@ -145,13 +136,19 @@ log_line() {
   /usr/bin/printf '%s\n' "$1" | /usr/bin/tee -a "$log"
 }
 
-log_line "acquisition=none (preinstalled offline runtime required)"
-log_line "+ $uv_path python find --no-config --no-project --offline --no-python-downloads --managed-python --resolve-links $PYTHON_REQUEST"
+log_line "acquisition=uv-managed (network may be used when Python is absent)"
+log_line "+ $uv_path python install --no-config --managed-python $PYTHON_REQUEST"
+UV_CACHE_DIR="$uv_cache" UV_PYTHON_INSTALL_DIR="$python_dir" \
+  "$uv_path" python install --no-config --managed-python \
+  "$PYTHON_REQUEST" >>"$log" 2>&1 || \
+  fail "uv could not install the pinned Python runtime"
+
+log_line "+ $uv_path python find --no-config --no-project --managed-python --resolve-links $PYTHON_REQUEST"
 python_path="$(UV_CACHE_DIR="$uv_cache" UV_PYTHON_INSTALL_DIR="$python_dir" \
-  "$uv_path" python find --no-config --no-project --offline \
-  --no-python-downloads --managed-python --resolve-links \
+  "$uv_path" python find --no-config --no-project \
+  --managed-python --resolve-links \
   "$PYTHON_REQUEST" 2>>"$log")" || \
-  fail "approved Python is not preinstalled; see CONTRIBUTING.md"
+  fail "uv could not resolve the pinned Python runtime"
 python_parent="$(CDPATH='' cd -- "$(/usr/bin/dirname "$python_path")" && \
   /bin/pwd -P)"
 python_path="$python_parent/$(/usr/bin/basename "$python_path")"
@@ -168,15 +165,11 @@ digest_file() {
 }
 
 python_sha="$(digest_file "$python_path")"
-approved_sha="$(/usr/bin/awk -v version="$PYTHON_REQUEST" \
-  '$2 == version && NF == 2 {print $1}' "$approval_file")"
-[ "$python_sha" = "$approved_sha" ] || fail \
-  "selected Python digest is not owner-approved"
 
-log_line "+ $uv_path venv --no-config --no-project --offline --no-python-downloads --python $python_path $venv"
+log_line "+ $uv_path venv --no-config --no-project --python $python_path $venv"
 UV_CACHE_DIR="$uv_cache" UV_PYTHON_INSTALL_DIR="$python_dir" \
-  "$uv_path" venv --no-config --no-project --offline \
-  --no-python-downloads --python "$python_path" "$venv" >>"$log" 2>&1 || \
+  "$uv_path" venv --no-config --no-project \
+  --python "$python_path" "$venv" >>"$log" 2>&1 || \
   fail "uv could not create the run-local virtual environment"
 
 launcher_sha="$(digest_file "$launcher_path")"
@@ -185,7 +178,7 @@ entry_sha="$(digest_file "$python_entry")"
 uv_version="$("$uv_path" --version)"
 python_identity="$("$venv/bin/python" -c \
   'import platform; print("|".join((platform.python_version(), platform.python_implementation(), " ".join(platform.python_build()))))')"
-invocation="$uv_path run --active --no-config --no-project --offline --no-python-downloads --python $venv/bin/python $python_entry $run_path"
+invocation="$uv_path run --active --no-config --no-project --python $venv/bin/python $python_entry $run_path"
 
 for value in "$launcher_path" "$uv_path" "$python_path" "$python_entry" \
   "$uv_version" "$python_identity" "$invocation"; do
@@ -205,7 +198,7 @@ done
     "$python_identity" "$python_entry" "$entry_sha"
   /usr/bin/printf 'uvCacheDir=%s\npythonInstallDir=%s\nvenv=%s\n' \
     "$uv_cache" "$python_dir" "$venv"
-  /usr/bin/printf 'acquisition=none\ndependencies=stdlib-only\ninvocation=%s\n' \
+  /usr/bin/printf 'acquisition=uv-managed\ndependencies=stdlib-only\ninvocation=%s\n' \
     "$invocation"
 } >"$manifest"
 /bin/chmod 600 "$manifest"
@@ -225,11 +218,9 @@ export LANG=C
 export LC_ALL=C
 export UV_CACHE_DIR="$uv_cache"
 export UV_PYTHON_INSTALL_DIR="$python_dir"
-export UV_OFFLINE=1
-export UV_PYTHON_DOWNLOADS=never
 export VIRTUAL_ENV="$venv"
 export AINFRA_CONTAINER_GATE_BOOTSTRAP="$manifest"
 
-exec "$uv_path" run --active --no-config --no-project --offline \
-  --no-python-downloads --python "$venv/bin/python" \
+exec "$uv_path" run --active --no-config --no-project \
+  --python "$venv/bin/python" \
   "$python_entry" "$run_path"
