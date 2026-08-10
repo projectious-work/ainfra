@@ -12,7 +12,7 @@ dev = [
   "ansible-lint==26.6.0",
   "check-jsonschema==0.37.3",
   "jsonschema[format-nongpl]==4.26.0",
-  "pytest==8.4.2",
+  "pytest==9.0.3",
   "ruff==0.13.1",
 ]
 
