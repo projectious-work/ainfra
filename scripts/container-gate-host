@@ -1,0 +1,234 @@
+#!/bin/bash
+# Launch the reviewed Python gate with an offline, owner-approved uv runtime.
+#
+# This deliberately small first stage exists because Python cannot validate its
+# own interpreter before it starts.  It accepts only the prepared run path,
+# creates the private bootstrap directory, records the selected runtime, clears
+# the caller's environment, and replaces itself with one fixed `uv run` call.
+
+set -eu
+umask 077
+
+readonly PYTHON_REQUEST="3.13.14"
+
+host_system="$(/usr/bin/uname -s)"
+case "$host_system" in
+  Darwin)
+    readonly TRUSTED_PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    ;;
+  Linux)
+    readonly TRUSTED_PATH="/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
+    ;;
+  *)
+    /usr/bin/printf 'container gate launcher failed: unsupported host OS: %s\n' \
+      "$host_system" >&2
+    exit 1
+    ;;
+esac
+
+fail() {
+  if [ -n "${log:-}" ] && [ -f "$log" ]; then
+    /usr/bin/printf 'failure=%s\n' "$1" >>"$log"
+  fi
+  /usr/bin/printf 'container gate launcher failed: %s\n' "$1" >&2
+  exit 1
+}
+
+case "$#" in
+  1) ;;
+  *) fail "usage: scripts/container-gate-host RUN_DIRECTORY" ;;
+esac
+case "$1" in
+  -* | *$'\n'* | *$'\r'*) fail "invalid run-directory argument" ;;
+esac
+
+# Resolve only reviewed installation locations. PATH is never consulted. The
+# Linuxbrew path is explicit rather than derived from caller-controlled state.
+uv_path=""
+for candidate in /opt/homebrew/bin/uv /home/linuxbrew/.linuxbrew/bin/uv \
+  /usr/local/bin/uv /usr/bin/uv; do
+  # Homebrew intentionally exposes versioned Cellar executables through
+  # symlinks. The fixed link path and resolved executable digest are both
+  # recorded, so those standard links remain reviewable without trusting PATH.
+  if [ -x "$candidate" ] && [ -f "$candidate" ]; then
+    uv_path="$candidate"
+    break
+  fi
+done
+if [ -z "$uv_path" ]; then
+  case "$host_system" in
+    Darwin) fail "uv is missing; install it with: brew install uv" ;;
+    Linux) fail "uv is missing; install it with your package manager or Linuxbrew" ;;
+  esac
+fi
+
+[ ! -L "$0" ] || fail "launcher symlinks are rejected"
+launcher_dir="$(CDPATH='' cd -- "$(/usr/bin/dirname "$0")" && /bin/pwd -P)"
+launcher_path="$launcher_dir/$(/usr/bin/basename "$0")"
+repo_path="$(/usr/bin/dirname "$(/usr/bin/dirname "$launcher_path")")"
+gate_root="$repo_path/tmp/container-gate"
+supplied_parent="$(/usr/bin/dirname "$1")"
+supplied_name="$(/usr/bin/basename "$1")"
+[ -d "$supplied_parent/$supplied_name" ] || \
+  fail "run directory does not exist"
+[ ! -L "$supplied_parent/$supplied_name" ] || \
+  fail "run-directory symlinks are rejected"
+canonical_parent="$(CDPATH='' cd -- "$supplied_parent" && /bin/pwd -P)"
+run_path="$canonical_parent/$supplied_name"
+[ "$(/usr/bin/dirname "$run_path")" = "$gate_root" ] || \
+  fail "run directory must be a direct child of tmp/container-gate"
+[ -d "$run_path/input" ] || fail "run directory lacks input/"
+[ ! -e "$run_path/runtime" ] || fail "runtime/ must be absent"
+[ ! -e "$run_path/evidence" ] || fail "evidence/ must be absent"
+
+# Determine the account's canonical home without trusting inherited HOME.
+user_name="$(/usr/bin/id -un)"
+case "$host_system" in
+  Darwin)
+    home_line="$(/usr/bin/dscl . -read "/Users/$user_name" \
+      NFSHomeDirectory 2>/dev/null)" || fail "cannot resolve canonical home"
+    canonical_home="${home_line#NFSHomeDirectory: }"
+    ;;
+  Linux)
+    # getent respects NSS (including LDAP); the fixed /etc/passwd fallback
+    # keeps minimal local-account distributions usable without trusting HOME.
+    getent_path=""
+    for candidate in /usr/bin/getent /bin/getent; do
+      if [ -x "$candidate" ] && [ -f "$candidate" ]; then
+        getent_path="$candidate"
+        break
+      fi
+    done
+    if [ -n "$getent_path" ]; then
+      canonical_home="$("$getent_path" passwd "$user_name" | \
+        /usr/bin/awk -F: 'NF == 7 {print $6}')"
+    else
+      canonical_home="$(/usr/bin/awk -F: -v user="$user_name" \
+        '$1 == user && NF == 7 {print $6}' /etc/passwd)"
+    fi
+    ;;
+esac
+[ -n "$canonical_home" ] && [ -d "$canonical_home" ] || \
+  fail "cannot resolve canonical home"
+case "$canonical_home" in
+  *$'\n'* | *$'\r'* | *'='*) fail "unsafe canonical home path" ;;
+esac
+
+case "$host_system" in
+  Darwin) state_root="$canonical_home/Library/Caches/ainfra/container-gate" ;;
+  Linux) state_root="$canonical_home/.cache/ainfra/container-gate" ;;
+esac
+uv_cache="$state_root/uv-cache"
+python_dir="$state_root/python"
+approval_file="$state_root/approved-python.sha256"
+bootstrap="$run_path/runtime/bootstrap"
+venv="$bootstrap/venv"
+manifest="$bootstrap/manifest.env"
+log="$bootstrap/bootstrap.log"
+python_entry="$repo_path/scripts/container-gate-host.py"
+
+[ -f "$approval_file" ] || fail \
+  "missing owner approval: $approval_file (see CONTRIBUTING.md)"
+[ ! -L "$approval_file" ] || fail "owner approval file is a symlink"
+case "$host_system" in
+  Darwin) approval_mode="$(/usr/bin/stat -f '%Lp' "$approval_file")" ;;
+  *) approval_mode="$(/usr/bin/stat -c '%a' "$approval_file")" ;;
+esac
+[ "$approval_mode" = "600" ] || fail "owner approval file must use mode 0600"
+/bin/mkdir -m 700 "$run_path/runtime" || fail "cannot create runtime/"
+/bin/mkdir -m 700 "$bootstrap" || fail "cannot create bootstrap/"
+: >"$log"
+/bin/chmod 600 "$log"
+
+log_line() {
+  /usr/bin/printf '%s\n' "$1" | /usr/bin/tee -a "$log"
+}
+
+log_line "acquisition=none (preinstalled offline runtime required)"
+log_line "+ $uv_path python find --no-config --no-project --offline --no-python-downloads --managed-python --resolve-links $PYTHON_REQUEST"
+python_path="$(UV_CACHE_DIR="$uv_cache" UV_PYTHON_INSTALL_DIR="$python_dir" \
+  "$uv_path" python find --no-config --no-project --offline \
+  --no-python-downloads --managed-python --resolve-links \
+  "$PYTHON_REQUEST" 2>>"$log")" || \
+  fail "approved Python is not preinstalled; see CONTRIBUTING.md"
+python_parent="$(CDPATH='' cd -- "$(/usr/bin/dirname "$python_path")" && \
+  /bin/pwd -P)"
+python_path="$python_parent/$(/usr/bin/basename "$python_path")"
+case "$python_path" in
+  "$python_dir"/*) ;;
+  *) fail "uv selected Python outside the fixed managed-runtime directory" ;;
+esac
+
+digest_file() {
+  case "$host_system" in
+    Darwin) /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}' ;;
+    Linux) /usr/bin/sha256sum "$1" | /usr/bin/awk '{print $1}' ;;
+  esac
+}
+
+python_sha="$(digest_file "$python_path")"
+approved_sha="$(/usr/bin/awk -v version="$PYTHON_REQUEST" \
+  '$2 == version && NF == 2 {print $1}' "$approval_file")"
+[ "$python_sha" = "$approved_sha" ] || fail \
+  "selected Python digest is not owner-approved"
+
+log_line "+ $uv_path venv --no-config --no-project --offline --no-python-downloads --python $python_path $venv"
+UV_CACHE_DIR="$uv_cache" UV_PYTHON_INSTALL_DIR="$python_dir" \
+  "$uv_path" venv --no-config --no-project --offline \
+  --no-python-downloads --python "$python_path" "$venv" >>"$log" 2>&1 || \
+  fail "uv could not create the run-local virtual environment"
+
+launcher_sha="$(digest_file "$launcher_path")"
+uv_sha="$(digest_file "$uv_path")"
+entry_sha="$(digest_file "$python_entry")"
+uv_version="$("$uv_path" --version)"
+python_identity="$("$venv/bin/python" -c \
+  'import platform; print("|".join((platform.python_version(), platform.python_implementation(), " ".join(platform.python_build()))))')"
+invocation="$uv_path run --active --no-config --no-project --offline --no-python-downloads --python $venv/bin/python $python_entry $run_path"
+
+for value in "$launcher_path" "$uv_path" "$python_path" "$python_entry" \
+  "$uv_version" "$python_identity" "$invocation"; do
+  case "$value" in *$'\n'* | *$'\r'* | *'='*) fail "unsafe bootstrap identity" ;; esac
+done
+
+{
+  /usr/bin/printf 'schemaVersion=1\n'
+  /usr/bin/printf 'hostSystem=%s\n' "$host_system"
+  /usr/bin/printf 'launcherPath=%s\nlauncherSha256=%s\n' \
+    "$launcher_path" "$launcher_sha"
+  /usr/bin/printf 'uvPath=%s\nuvSha256=%s\nuvVersion=%s\n' \
+    "$uv_path" "$uv_sha" "$uv_version"
+  /usr/bin/printf 'pythonRequest=%s\npythonPath=%s\npythonSha256=%s\n' \
+    "$PYTHON_REQUEST" "$python_path" "$python_sha"
+  /usr/bin/printf 'pythonIdentity=%s\npythonEntry=%s\npythonEntrySha256=%s\n' \
+    "$python_identity" "$python_entry" "$entry_sha"
+  /usr/bin/printf 'uvCacheDir=%s\npythonInstallDir=%s\nvenv=%s\n' \
+    "$uv_cache" "$python_dir" "$venv"
+  /usr/bin/printf 'acquisition=none\ndependencies=stdlib-only\ninvocation=%s\n' \
+    "$invocation"
+} >"$manifest"
+/bin/chmod 600 "$manifest"
+
+log_line "+ $invocation"
+
+# Strip inherited state before the direct handoff. Only this fixed allowlist is
+# exported to uv and the Python entrypoint.
+export -n canonical_home TRUSTED_PATH uv_cache python_dir venv manifest \
+  uv_path python_entry run_path host_system
+for inherited_name in $(compgen -e); do
+  unset "$inherited_name" 2>/dev/null || true
+done
+export HOME="$canonical_home"
+export PATH="$TRUSTED_PATH"
+export LANG=C
+export LC_ALL=C
+export UV_CACHE_DIR="$uv_cache"
+export UV_PYTHON_INSTALL_DIR="$python_dir"
+export UV_OFFLINE=1
+export UV_PYTHON_DOWNLOADS=never
+export VIRTUAL_ENV="$venv"
+export AINFRA_CONTAINER_GATE_BOOTSTRAP="$manifest"
+
+exec "$uv_path" run --active --no-config --no-project --offline \
+  --no-python-downloads --python "$venv/bin/python" \
+  "$python_entry" "$run_path"

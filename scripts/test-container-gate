@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+python3 -m unittest test/container_gate_test.py
+shellcheck scripts/container-gate-host
+python3 -m py_compile \
+  scripts/prepare-container-gate.py \
+  scripts/container-gate-host.py
+
+printf '%s\n' 'container gate validation tests passed'

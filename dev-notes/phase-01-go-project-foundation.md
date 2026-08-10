@@ -1161,3 +1161,42 @@ Per `AINFRA-DEV-009`–`011`, `AINFRA-REL-001`–`004`, and the fail-closed test
 policy, these are blockers rather than skips. The release-evidence WorkItem
 records the same state and remains blocked pending remediation and independent
 requirement-complete conformance acceptance.
+
+## Host container gate implementation — 2026-08-08
+
+PR #54 established the human-operated container-validation boundary. The
+implementation adds `scripts/prepare-container-gate.py` for the restricted
+development side and the jointly reviewed host launcher
+`scripts/container-gate-host` plus Python entrypoint
+`scripts/container-gate-host.py`. The preparer creates a collision-resistant
+run directory, records source provenance and dirty-state diff identity,
+cross-builds both Linux architectures, writes a complete SHA-256 manifest, and
+makes the complete input tree immutable.
+
+The host script accepts only that direct run-directory path. Before Docker
+execution it rejects malformed identifiers, traversal, symlinks, special
+files, hard links, writable input, unexpected entries, incomplete manifests,
+checksum drift, and malformed provenance. It resolves uv, Docker, Syft, and
+Grype only from fixed host tool directories; uses fixed argument arrays and
+isolated tool state; builds without network access; inspects and smoke-tests a
+non-root, read-only, capability-free container; creates SPDX and Grype JSON
+evidence; rechecks input checksums; and removes only its run-specific image
+even after a failure. Mutable post-entrypoint tool state remains beneath the
+unique `runtime/` directory; authoritative commands and results remain beneath
+`evidence/`.
+
+The PR #55-aligned runtime amendment uses a minimal launcher and a
+standard-library-only Python entrypoint. The owner installs uv and the pinned
+Python 3.13.14 runtime, then approves that interpreter's digest. During a gate
+run, the launcher works offline, creates only `runtime/bootstrap/`, records the
+fixed handoff, clears inherited configuration, and directly executes the
+entrypoint through uv. The Python stage validates the bootstrap identity and
+layout before producing evidence, then resolves Docker, Syft, and Grype from
+fixed tool directories and reports non-executing installation guidance when
+one is absent.
+
+Adversarial validation tests cover the accepted immutable snapshot and reject
+existing evidence, incomplete checksums, symlinks, hard links, world-writable
+input, and non-direct-child paths. The first host execution remains blocked on
+the explicit owner review required by `AINFRA-REL-011`; implementation does not
+grant the restricted harness container-runtime authority.

@@ -8,24 +8,26 @@ metadata:
     phase: '1'
     area: release-engineering
     blocked_by: validation-environment
-  updated: '2026-08-08T02:51:33+00:00'
+  updated: '2026-08-09T14:27:28+00:00'
 spec:
   title: Complete Phase 1 release-engineering evidence
   state: blocked
   type: task
   priority: high
-  description: Phase 1 closing was retried on 2026-08-07 against specification baseline
-    772fba4. Core validation, schema/example and CLI contract checks, lint/static
-    analysis, unit/black-box/race/coverage tests, govulncheck, gosec, four-target
-    cross-builds, Dockerfile lint, shellcheck after correction, native Linux arm64
-    version smoke, and a 131-commit full-history gitleaks scan passed. The synthetic
-    API-key example is narrowly ignored by its two exact historical fingerprints.
-    Release remains blocked by unavailable container-runtime execution in this harness,
-    missing native macOS amd64/arm64 smoke evidence, processkit release-semver reference
-    drift, a dirty primary worktree containing unrelated user changes, and no declared
-    intended SemVer release version. Keep roadmap Phase 1 in_progress until these
-    gates are resolved and the independent requirement-complete conformance review
-    accepts the final evidence.
+  description: 'Implemented the PR #55 two-stage host container gate locally for macOS
+    and Linux. The minimal Bash launcher selects an exact owner-approved uv-managed
+    Python 3.13.14 by digest, creates runtime/bootstrap exclusively, records its manifest/log
+    and host OS, clears inherited configuration, and hands off through a fixed offline
+    uv invocation. Platform policy now uses account-database home discovery, macOS
+    Library/Caches or Linux .cache state, shasum or sha256sum, fixed Homebrew/Linuxbrew/system
+    executable paths, and OS-specific installation guidance. Standard Homebrew symlinks
+    are accepted at reviewed fixed paths while executable digests remain recorded
+    and validated. The Python entrypoint validates bootstrap layout, identities, hashes,
+    environment, immutable input, and authoritative evidence. Documentation, normative
+    release text, ShellCheck, and 19 adversarial tests are integrated. scripts/test-all
+    and scripts/validate-all pass using isolated temporary Go caches. The controlled
+    bundle still requires renewed owner review and real execution on each supported
+    Docker-capable host; this restricted harness received no container-runtime authority.'
   started_at: '2026-08-07T19:55:41+00:00'
 ---
 

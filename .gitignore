@@ -12,6 +12,7 @@ crash.*.log
 tests/.tmp/
 coverage.out
 /ainfra
+/tmp/container-gate/
 
 
 # ── aibox generated ────────────────────────────────────────────────────────

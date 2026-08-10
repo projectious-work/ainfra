@@ -15,8 +15,8 @@ metadata:
     uses:
       - skill: git-workflow
         purpose: "Apply the chosen strategy through branch names, commits, pull requests, and merge methods."
-      - skill: release-semver
-        purpose: "Prepare, tag, publish, and verify releases on the strategy's designated release branch."
+      - skill: changelog
+        purpose: "Maintain release notes and version comparison links for the designated release branch."
     provides:
       processes: [branching-strategy-selection]
 ---
@@ -144,4 +144,4 @@ have been inspected.
 
 - [Strategy catalog](references/strategies.md)
 - `git-workflow` — naming, commits, pull requests, and merge methods
-- `release-semver` — changelog, tags, publishing, and release verification
+- `changelog` — release notes and version comparison links
