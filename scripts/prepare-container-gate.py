@@ -66,7 +66,7 @@ def main() -> int:
     global ACTIVE_RUN_DIR
     if len(sys.argv) != 2 or not sys.argv[1].startswith("--version="):
         fail("usage: prepare-container-gate.py --version=SEMVER")
-    release_version = sys.argv[1].removeprefix("--version=")
+    release_version = sys.argv[1].removeprefix("--version=").removeprefix("v")
     if not SEMVER.fullmatch(release_version):
         fail("release version is not strict SemVer")
 

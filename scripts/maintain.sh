@@ -52,6 +52,7 @@ parse_release_options() {
     esac
     shift
   done
+  release_version="${release_version#v}"
   case "$release_version" in
     "" | *[!0-9A-Za-z.+-]*)
       printf '%s\n' 'release-host failed: invalid or missing version' >&2
