@@ -278,6 +278,8 @@ class ContainerGateValidationTests(unittest.TestCase):
         self.assertIn("prepare-container-gate.py", launcher)
         self.assertIn("container-gate-host", launcher)
         self.assertIn("--dry-run", launcher)
+        self.assertIn("require_preparation_tools", launcher)
+        self.assertIn("brew install git go", launcher)
 
     def test_missing_tools_offer_macos_homebrew_guidance(self) -> None:
         def fake_resolve(name: str) -> Path:

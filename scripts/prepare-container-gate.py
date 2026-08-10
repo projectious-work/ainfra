@@ -31,13 +31,16 @@ def fail(message: str) -> None:
 def run(
     argv: list[str], *, cwd: Path, env: dict[str, str] | None = None
 ) -> bytes:
-    completed = subprocess.run(
-        argv,
-        cwd=cwd,
-        env=env,
-        check=False,
-        capture_output=True,
-    )
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=cwd,
+            env=env,
+            check=False,
+            capture_output=True,
+        )
+    except FileNotFoundError:
+        fail(f"required executable is unavailable: {argv[0]}")
     if completed.returncode != 0:
         detail = completed.stderr.decode("utf-8", "replace").strip()
         fail(f"{' '.join(argv)} failed: {detail}")
