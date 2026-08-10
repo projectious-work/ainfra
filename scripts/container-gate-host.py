@@ -271,6 +271,7 @@ def validate_bootstrap(run_dir: Path, repo: Path) -> dict[str, Any]:
     if sys.prefix == sys.base_prefix:
         raise GateError("bootstrap did not provide an isolated environment")
     approved_uv_prefixes = (
+        str(Path.home() / ".local" / "bin") + "/",
         "/opt/homebrew/bin/",
         "/home/linuxbrew/.linuxbrew/bin/",
         "/usr/local/bin/",

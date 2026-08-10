@@ -42,26 +42,6 @@ case "$1" in
   -* | *$'\n'* | *$'\r'*) fail "invalid run-directory argument" ;;
 esac
 
-# Resolve only reviewed installation locations. PATH is never consulted. The
-# Linuxbrew path is explicit rather than derived from caller-controlled state.
-uv_path=""
-for candidate in /opt/homebrew/bin/uv /home/linuxbrew/.linuxbrew/bin/uv \
-  /usr/local/bin/uv /usr/bin/uv; do
-  # Homebrew intentionally exposes versioned Cellar executables through
-  # symlinks. The fixed link path and resolved executable digest are both
-  # recorded, so those standard links remain reviewable without trusting PATH.
-  if [ -x "$candidate" ] && [ -f "$candidate" ]; then
-    uv_path="$candidate"
-    break
-  fi
-done
-if [ -z "$uv_path" ]; then
-  case "$host_system" in
-    Darwin) fail "uv is missing; install it with: brew install uv" ;;
-    Linux) fail "uv is missing; install it with your package manager or Linuxbrew" ;;
-  esac
-fi
-
 [ ! -L "$0" ] || fail "launcher symlinks are rejected"
 launcher_dir="$(CDPATH='' cd -- "$(/usr/bin/dirname "$0")" && /bin/pwd -P)"
 launcher_path="$launcher_dir/$(/usr/bin/basename "$0")"
@@ -113,6 +93,27 @@ esac
 case "$canonical_home" in
   *$'\n'* | *$'\r'* | *'='*) fail "unsafe canonical home path" ;;
 esac
+
+# Resolve only reviewed installation locations. PATH is never consulted.
+# The per-user location is derived from the account database above, never from
+# caller-controlled HOME. It is uv's standard standalone-installer location.
+uv_path=""
+for candidate in "$canonical_home/.local/bin/uv" /opt/homebrew/bin/uv \
+  /home/linuxbrew/.linuxbrew/bin/uv /usr/local/bin/uv /usr/bin/uv; do
+  # Package managers intentionally expose versioned executables through
+  # symlinks. The fixed link path and resolved executable digest are both
+  # recorded, so those standard links remain reviewable without trusting PATH.
+  if [ -x "$candidate" ] && [ -f "$candidate" ]; then
+    uv_path="$candidate"
+    break
+  fi
+done
+if [ -z "$uv_path" ]; then
+  case "$host_system" in
+    Darwin) fail "uv is missing; install it with: brew install uv" ;;
+    Linux) fail "uv is missing; install it with your package manager or Linuxbrew" ;;
+  esac
+fi
 
 case "$host_system" in
   Darwin) state_root="$canonical_home/Library/Caches/ainfra/container-gate" ;;
