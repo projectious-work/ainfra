@@ -269,6 +269,16 @@ class ContainerGateValidationTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertNotIn(token, source + launcher)
 
+    def test_maintainer_launcher_offers_one_command_host_gate(self) -> None:
+        launcher = (ROOT / "scripts" / "maintain.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("release-host-prepare", launcher)
+        self.assertIn("release-host", launcher)
+        self.assertIn("prepare-container-gate.py", launcher)
+        self.assertIn("container-gate-host", launcher)
+        self.assertIn("--dry-run", launcher)
+
     def test_missing_tools_offer_macos_homebrew_guidance(self) -> None:
         def fake_resolve(name: str) -> Path:
             if name in {"syft", "grype"}:

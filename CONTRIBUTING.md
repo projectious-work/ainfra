@@ -50,10 +50,19 @@ The gate pins Python 3.13.14. The launcher asks uv to install or reuse that
 exact managed runtime and creates a private virtual environment inside the
 prepared run. No manual Python path or digest approval is required. The first
 run may access the network to acquire Python; later runs reuse uv's cache.
-Execute it with:
+The normal one-command workflow prepares a unique run and executes it:
 
 ```bash
-scripts/container-gate-host tmp/container-gate/<run-id>
+scripts/maintain.sh release-host --dry-run
+```
+
+The host gate always creates evidence only; `--dry-run` makes that
+non-publishing behavior explicit. For a review pause between preparation and
+execution, use:
+
+```bash
+RUN_DIR="$(scripts/maintain.sh release-host-prepare)"
+scripts/maintain.sh release-host "$RUN_DIR" --dry-run
 ```
 
 The launcher creates `runtime/bootstrap/`, records the selected uv and Python
