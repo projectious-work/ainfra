@@ -150,7 +150,7 @@ The calling agent first creates a self-contained run directory with this fixed
 layout:
 
 ```text
-tmp/container-gate/<run-id>/
+tmp/container-gate/<release-semver>/<run-id>/
 ├── input/
 │   ├── provenance.json
 │   ├── checksums.sha256

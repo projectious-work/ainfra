@@ -33,11 +33,11 @@ Documentation changes must also pass a clean production build.
 
 ## Phase 1 host container gate
 
-The restricted development container prepares—but never executes—the Docker
-validation input:
+The restricted development container cross-builds all four supported targets
+and prepares—but never executes—the host-validation input:
 
 ```bash
-scripts/prepare-container-gate.py
+scripts/maintain.sh release-host-prepare --version=1.0.0-alpha.1
 ```
 
 The command prints a unique ignored directory below `tmp/container-gate/`.
@@ -50,20 +50,15 @@ The gate pins Python 3.13.14. The launcher asks uv to install or reuse that
 exact managed runtime and creates a private virtual environment inside the
 prepared run. No manual Python path or digest approval is required. The first
 run may access the network to acquire Python; later runs reuse uv's cache.
-The normal one-command workflow prepares a unique run and executes it:
+On the host, select the newest unused run for exactly that version:
 
 ```bash
-scripts/maintain.sh release-host --dry-run
+scripts/maintain.sh release-host --version=1.0.0-alpha.1 --dry-run
 ```
 
 The host gate always creates evidence only; `--dry-run` makes that
-non-publishing behavior explicit. For a review pause between preparation and
-execution, use:
-
-```bash
-RUN_DIR="$(scripts/maintain.sh release-host-prepare)"
-scripts/maintain.sh release-host "$RUN_DIR" --dry-run
-```
+non-publishing behavior explicit. The version-scoped handover removes any need
+to copy or type the generated timestamp/random run identifier.
 
 The launcher creates `runtime/bootstrap/`, records the selected uv and Python
 paths, versions, and executable digests, and then directly executes the Python
@@ -87,6 +82,9 @@ repository, and install Syft and Grype into `/usr/local/bin`, `/usr/bin`, or
 the fixed Linuxbrew prefix. Both conventional and rootless Docker daemons are
 supported because the gate invokes only the Docker CLI and does not select or
 mount a socket itself.
+
+Go is required only inside the development container. The host consumes the
+prepared Linux and macOS binaries and does not compile release artifacts.
 
 Do not give an agent container-runtime authority. Do not alter the host script
 after owner review without new, explicit owner permission. The host script

@@ -7,6 +7,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -14,6 +15,12 @@ import sys
 from pathlib import Path
 
 ACTIVE_RUN_DIR: Path | None = None
+SEMVER = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
+)
 
 
 def cleanup_incomplete_run() -> None:
@@ -57,8 +64,11 @@ def sha256(path: Path) -> str:
 
 def main() -> int:
     global ACTIVE_RUN_DIR
-    if len(sys.argv) != 1:
-        fail("this command accepts no arguments")
+    if len(sys.argv) != 2 or not sys.argv[1].startswith("--version="):
+        fail("usage: prepare-container-gate.py --version=SEMVER")
+    release_version = sys.argv[1].removeprefix("--version=")
+    if not SEMVER.fullmatch(release_version):
+        fail("release version is not strict SemVer")
 
     repo = Path(__file__).resolve().parent.parent
     discovered_repo = Path(
@@ -71,14 +81,15 @@ def main() -> int:
 
     now = dt.datetime.now(dt.UTC).replace(microsecond=0)
     run_id = now.strftime("%Y%m%dT%H%M%SZ-") + secrets.token_hex(16)
-    run_dir = repo / "tmp" / "container-gate" / run_id
+    version_dir = repo / "tmp" / "container-gate" / release_version
+    version_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+    run_dir = version_dir / run_id
     input_dir = run_dir / "input"
     context_dir = input_dir / "context"
-    platform_dir = context_dir / "dist" / "linux"
     run_dir.mkdir(parents=True, mode=0o700)
     ACTIVE_RUN_DIR = run_dir
     input_dir.mkdir(mode=0o700)
-    platform_dir.mkdir(parents=True, mode=0o700)
+    context_dir.mkdir(parents=True, mode=0o700)
 
     commit = run(["git", "rev-parse", "HEAD"], cwd=repo).decode().strip()
     branch = run(["git", "branch", "--show-current"], cwd=repo).decode().strip()
@@ -105,6 +116,7 @@ def main() -> int:
         "dirtyWorktree": bool(status),
         "diffSha256": diff_digest,
         "preparedAt": now.isoformat().replace("+00:00", "Z"),
+        "releaseVersion": release_version,
     }
     (input_dir / "provenance.json").write_text(
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
@@ -113,26 +125,33 @@ def main() -> int:
     shutil.copyfile(repo / "Dockerfile", input_dir / "Dockerfile")
 
     base_env = os.environ.copy()
-    for architecture in ("amd64", "arm64"):
-        output = platform_dir / architecture / "ainfra"
-        output.parent.mkdir(mode=0o700)
-        build_env = base_env | {
-            "CGO_ENABLED": "0",
-            "GOOS": "linux",
-            "GOARCH": architecture,
-        }
-        run(
-            [
-                "go",
-                "build",
-                "-trimpath",
-                "-o",
-                str(output),
-                "./cmd/ainfra",
-            ],
-            cwd=repo,
-            env=build_env,
-        )
+    for operating_system in ("linux", "darwin"):
+        for architecture in ("amd64", "arm64"):
+            output = (
+                context_dir
+                / "dist"
+                / operating_system
+                / architecture
+                / "ainfra"
+            )
+            output.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+            build_env = base_env | {
+                "CGO_ENABLED": "0",
+                "GOOS": operating_system,
+                "GOARCH": architecture,
+            }
+            run(
+                [
+                    "go",
+                    "build",
+                    "-trimpath",
+                    "-o",
+                    str(output),
+                    "./cmd/ainfra",
+                ],
+                cwd=repo,
+                env=build_env,
+            )
 
     checked_files = [input_dir / "Dockerfile"] + sorted(
         path for path in context_dir.rglob("*") if path.is_file()
@@ -146,12 +165,19 @@ def main() -> int:
     )
 
     for path in sorted(input_dir.rglob("*"), reverse=True):
-        path.chmod(0o555 if path.is_dir() else 0o444)
+        if path.is_dir():
+            mode = 0o555
+        elif path.name == "ainfra" and "dist" in path.parts:
+            mode = 0o555
+        else:
+            mode = 0o444
+        path.chmod(mode)
     input_dir.chmod(0o555)
 
     ACTIVE_RUN_DIR = None
     print(run_dir)
     print(f"run id: {run_id}", file=sys.stderr)
+    print(f"release version: {release_version}", file=sys.stderr)
     print(f"source commit: {commit}", file=sys.stderr)
     print(f"dirty worktree: {str(bool(status)).lower()}", file=sys.stderr)
     return 0

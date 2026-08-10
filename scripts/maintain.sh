@@ -11,8 +11,8 @@ repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)"
 usage() {
   printf '%s\n' \
     'usage:' \
-    '  scripts/maintain.sh release-host-prepare' \
-    '  scripts/maintain.sh release-host [RUN_DIRECTORY] [--dry-run]'
+    '  scripts/maintain.sh release-host-prepare --version=SEMVER' \
+    '  scripts/maintain.sh release-host --version=SEMVER [--dry-run]'
 }
 
 require_preparation_tools() {
@@ -38,41 +38,79 @@ require_preparation_tools() {
   }
 }
 
+parse_release_options() {
+  release_version=""
+  dry_run=false
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --version=*) release_version="${1#--version=}" ;;
+      --dry-run) dry_run=true ;;
+      *)
+        usage >&2
+        exit 2
+        ;;
+    esac
+    shift
+  done
+  case "$release_version" in
+    "" | *[!0-9A-Za-z.+-]*)
+      printf '%s\n' 'release-host failed: invalid or missing version' >&2
+      exit 2
+      ;;
+  esac
+}
+
+resolve_prepared_run() {
+  version_dir="$repo_root/tmp/container-gate/$release_version"
+  [ -d "$version_dir" ] || {
+    printf 'release-host failed: no prepared run for version %s\n' \
+      "$release_version" >&2
+    exit 1
+  }
+  newest=""
+  for candidate in "$version_dir"/*; do
+    [ -d "$candidate" ] || continue
+    candidate_name="${candidate##*/}"
+    case "$candidate_name" in
+      [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T*Z-*) ;;
+      *) continue ;;
+    esac
+    if [ -z "$newest" ] || [ "$candidate_name" \> "${newest##*/}" ]; then
+      newest="$candidate"
+    fi
+  done
+  [ -n "$newest" ] || {
+    printf 'release-host failed: no prepared run for version %s\n' \
+      "$release_version" >&2
+    exit 1
+  }
+  [ -d "$newest/input" ] || {
+    printf '%s\n' 'release-host failed: newest run is incomplete' >&2
+    exit 1
+  }
+  [ ! -e "$newest/runtime" ] && [ ! -e "$newest/evidence" ] || {
+    printf '%s\n' 'release-host failed: newest run was already attempted' >&2
+    exit 1
+  }
+  printf '%s\n' "$newest"
+}
+
 case "${1:-}" in
   release-host-prepare)
-    [ "$#" -eq 1 ] || {
+    shift
+    parse_release_options "$@"
+    [ "$dry_run" = false ] || {
       usage >&2
       exit 2
     }
     require_preparation_tools
-    exec "$repo_root/scripts/prepare-container-gate.py"
+    exec "$repo_root/scripts/prepare-container-gate.py" \
+      "--version=$release_version"
     ;;
   release-host)
     shift
-    run_dir=""
-    dry_run=false
-    while [ "$#" -gt 0 ]; do
-      case "$1" in
-        --dry-run) dry_run=true ;;
-        -*)
-          usage >&2
-          exit 2
-          ;;
-        *)
-          [ -z "$run_dir" ] || {
-            usage >&2
-            exit 2
-          }
-          run_dir="$1"
-          ;;
-      esac
-      shift
-    done
-
-    if [ -z "$run_dir" ]; then
-      require_preparation_tools
-      run_dir="$("$repo_root/scripts/prepare-container-gate.py")"
-    fi
+    parse_release_options "$@"
+    run_dir="$(resolve_prepared_run)"
     if [ "$dry_run" = true ]; then
       printf '%s\n' \
         'release-host dry-run: evidence only; no commit, tag, push, or publish' \

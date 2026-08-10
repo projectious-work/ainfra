@@ -36,6 +36,12 @@ from typing import IO, Any
 RUN_ID = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}$")
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 HEX_40 = re.compile(r"^[0-9a-f]{40}$")
+SEMVER = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
+)
 
 # Tool lookup is intentionally independent of PATH.  This prevents a caller
 # from injecting a different executable through its environment.  Both common
@@ -407,10 +413,13 @@ def validate_tree(
     """
 
     # Exact set comparisons fail closed on both missing and extra entries.
-    if run_dir.parent != gate_root:
+    if run_dir.parent.parent != gate_root:
         raise GateError(
-            "run directory must be a direct child of tmp/container-gate"
+            "run directory must be below one version directory"
         )
+    release_version = run_dir.parent.name
+    if not SEMVER.fullmatch(release_version):
+        raise GateError("run version directory is not strict SemVer")
     if not RUN_ID.fullmatch(run_dir.name):
         raise GateError(
             "run directory basename is not a collision-resistant run ID"
@@ -456,6 +465,7 @@ def validate_tree(
         "dirtyWorktree",
         "diffSha256",
         "preparedAt",
+        "releaseVersion",
     }
     if not isinstance(provenance, dict) or set(provenance) != expected_keys:
         raise GateError("provenance.json has missing or unknown fields")
@@ -465,6 +475,8 @@ def validate_tree(
         provenance["sourceCommit"]
     ):
         raise GateError("invalid provenance sourceCommit")
+    if provenance["releaseVersion"] != release_version:
+        raise GateError("provenance releaseVersion does not match run path")
     if not isinstance(provenance["branch"], str) or not provenance["branch"]:
         raise GateError("invalid provenance branch")
     if not isinstance(provenance["dirtyWorktree"], bool):
@@ -696,6 +708,27 @@ def main() -> int:
                     f"{target_arch}"
                 )
 
+            native_binary = (
+                input_dir
+                / "context"
+                / "dist"
+                / system.lower()
+                / target_arch
+                / "ainfra"
+            )
+            if not native_binary.is_file():
+                raise GateError(
+                    "handover lacks the native host binary: "
+                    f"{system.lower()}/{target_arch}"
+                )
+            native_result = execute(
+                command_log,
+                [str(native_binary), "--format", "json", "version"],
+                env=env,
+                output=evidence / "native-smoke.json",
+            )
+            json.loads(native_result.stdout.decode("utf-8"))
+
             # Capture versions through the same logged executor used for every
             # other external command.
             for tool, name in (
@@ -828,6 +861,7 @@ def main() -> int:
                 evidence / "runtime-smoke.json",
                 evidence / "sbom.spdx.json",
                 evidence / "grype.json",
+                evidence / "native-smoke.json",
             ):
                 if not json_file.is_file() or json_file.stat().st_size == 0:
                     raise GateError(f"missing evidence: {json_file.name}")

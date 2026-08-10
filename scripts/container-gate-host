@@ -55,8 +55,12 @@ supplied_name="$(/usr/bin/basename "$1")"
   fail "run-directory symlinks are rejected"
 canonical_parent="$(CDPATH='' cd -- "$supplied_parent" && /bin/pwd -P)"
 run_path="$canonical_parent/$supplied_name"
-[ "$(/usr/bin/dirname "$run_path")" = "$gate_root" ] || \
-  fail "run directory must be a direct child of tmp/container-gate"
+version_path="$(/usr/bin/dirname "$run_path")"
+[ "$(/usr/bin/dirname "$version_path")" = "$gate_root" ] || \
+  fail "run directory must be below one version directory"
+release_version="$(/usr/bin/basename "$version_path")"
+[[ "$release_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]] || \
+  fail "version directory is not SemVer"
 [ -d "$run_path/input" ] || fail "run directory lacks input/"
 [ ! -e "$run_path/runtime" ] || fail "runtime/ must be absent"
 [ ! -e "$run_path/evidence" ] || fail "evidence/ must be absent"
@@ -208,7 +212,7 @@ log_line "+ $invocation"
 # Strip inherited state before the direct handoff. Only this fixed allowlist is
 # exported to uv and the Python entrypoint.
 export -n canonical_home TRUSTED_PATH uv_cache python_dir venv manifest \
-  uv_path python_entry run_path host_system
+  uv_path python_entry run_path host_system version_path release_version
 for inherited_name in $(compgen -e); do
   unset "$inherited_name" 2>/dev/null || true
 done

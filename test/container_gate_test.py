@@ -25,7 +25,9 @@ class ContainerGateValidationTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.gate_root = Path(self.temporary.name) / "tmp" / "container-gate"
         self.run_dir = (
-            self.gate_root / "20260808T010203Z-0123456789abcdef0123456789abcdef"
+            self.gate_root
+            / "1.2.3"
+            / "20260808T010203Z-0123456789abcdef0123456789abcdef"
         )
         self.input_dir = self.run_dir / "input"
         context = self.input_dir / "context" / "dist" / "linux" / "arm64"
@@ -41,6 +43,7 @@ class ContainerGateValidationTests(unittest.TestCase):
             "dirtyWorktree": True,
             "diffSha256": "b" * 64,
             "preparedAt": "2026-08-08T01:02:03Z",
+            "releaseVersion": "1.2.3",
         }
         (self.input_dir / "provenance.json").write_text(
             json.dumps(provenance), encoding="utf-8"
@@ -94,7 +97,9 @@ class ContainerGateValidationTests(unittest.TestCase):
             del log, env
             commands.append(argv)
             stdout = b""
-            if len(argv) == 2 and argv[1] == "version":
+            if Path(argv[0]).name == "ainfra":
+                stdout = b'{"ok":true}\n'
+            elif len(argv) == 2 and argv[1] == "version":
                 stdout = b"fixture version\n"
             elif argv[1:3] == ["image", "ls"]:
                 stdout = b"image-id\n" if image_exists else b""
@@ -232,10 +237,20 @@ class ContainerGateValidationTests(unittest.TestCase):
             host.validate_tree(self.run_dir.resolve(), self.gate_root.resolve())
 
     def test_rejects_non_direct_child(self) -> None:
-        nested = self.gate_root / "nested" / self.run_dir.name
+        nested = self.gate_root / "nested" / "1.2.3" / self.run_dir.name
         nested.mkdir(parents=True)
-        with self.assertRaisesRegex(host.GateError, "direct child"):
+        with self.assertRaisesRegex(host.GateError, "version directory"):
             host.validate_tree(nested.resolve(), self.gate_root.resolve())
+
+    def test_rejects_provenance_version_mismatch(self) -> None:
+        self._make_mutable()
+        path = self.input_dir / "provenance.json"
+        provenance = json.loads(path.read_text(encoding="utf-8"))
+        provenance["releaseVersion"] = "1.2.4"
+        path.write_text(json.dumps(provenance), encoding="utf-8")
+        self._make_immutable()
+        with self.assertRaisesRegex(host.GateError, "does not match"):
+            host.validate_tree(self.run_dir.resolve(), self.gate_root.resolve())
 
     def test_host_script_uses_no_shell_or_privileged_escape(self) -> None:
         source = (ROOT / "scripts" / "container-gate-host.py").read_text(
