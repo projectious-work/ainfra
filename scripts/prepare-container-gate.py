@@ -58,7 +58,12 @@ def main() -> int:
         fail("this command accepts no arguments")
 
     repo = Path(__file__).resolve().parent.parent
-    if not (repo / ".git").is_dir():
+    discovered_repo = Path(
+        run(["git", "rev-parse", "--show-toplevel"], cwd=repo)
+        .decode()
+        .strip()
+    ).resolve()
+    if discovered_repo != repo:
         fail("repository root could not be resolved from the script path")
 
     now = dt.datetime.now(dt.UTC).replace(microsecond=0)
