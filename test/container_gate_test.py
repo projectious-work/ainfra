@@ -296,6 +296,17 @@ class ContainerGateValidationTests(unittest.TestCase):
         self.assertIn("require_preparation_tools", launcher)
         self.assertIn("brew install git go", launcher)
 
+    def test_tool_resolution_preserves_approved_symlink_name(self) -> None:
+        tool_dir = Path(self.temporary.name) / "tools"
+        tool_dir.mkdir()
+        target = tool_dir / "multicall-tools"
+        target.write_text("#!/bin/sh\n", encoding="utf-8")
+        target.chmod(0o755)
+        invocation = tool_dir / "docker"
+        invocation.symlink_to(target)
+        with mock.patch.object(host, "TOOL_DIRS", (tool_dir,)):
+            self.assertEqual(host.resolve_tool("docker"), invocation)
+
     def test_missing_tools_offer_macos_homebrew_guidance(self) -> None:
         def fake_resolve(name: str) -> Path:
             if name in {"syft", "grype"}:

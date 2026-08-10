@@ -89,7 +89,8 @@ def resolve_tool(name: str) -> Path:
         name: Basename of the required executable.
 
     Returns:
-        The canonical executable path.
+        The approved invocation path. Symlink targets are validated without
+        replacing the invocation name required by multicall tools.
 
     Raises:
         GateError: If no acceptable executable is available.
@@ -108,7 +109,7 @@ def resolve_tool(name: str) -> Path:
             raise GateError(f"{name} is world-writable: {resolved}")
         if not os.access(resolved, os.X_OK):
             raise GateError(f"{name} is not executable: {resolved}")
-        return resolved
+        return candidate
     raise GateError(f"required tool is unavailable in approved paths: {name}")
 
 
