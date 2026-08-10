@@ -256,8 +256,8 @@ When such tool-managed state is used:
   acquisition output in a bootstrap manifest and log under
   `runtime/bootstrap/` before and during the handoff;
 - the interpreter policy MAY name a bounded supported series, but each run MUST
-  select an owner-approved exact version and build whose identity and digest
-  are verified and recorded;
+  select an exactly pinned version and record the selected build's identity and
+  digest;
 - dependencies MUST be standard-library-only where practical or
   owner-reviewed and locked or checksummed;
 - inline dependency metadata is permitted only inside the controlled gate,
@@ -284,9 +284,9 @@ When such tool-managed state is used:
   persistent caches and managed runtimes MAY remain and MUST NOT be broadly
   deleted.
 
-A fully preinstalled, offline, owner-approved interpreter is the simplest
-conforming bootstrap path. Managed acquisition remains permitted only when the
-launcher records enough contemporaneous output for the Python entrypoint to
+A fully preinstalled, offline interpreter remains a conforming bootstrap path.
+Managed acquisition is the standard path when the launcher pins the exact
+version and records enough contemporaneous output for the Python entrypoint to
 validate and summarize it as evidence.
 
 The initial script requires explicit owner review before its first host
