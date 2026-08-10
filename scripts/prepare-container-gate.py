@@ -125,6 +125,15 @@ def main() -> int:
     shutil.copyfile(repo / "Dockerfile", input_dir / "Dockerfile")
 
     base_env = os.environ.copy()
+    build_cache = repo / "tmp" / "container-gate" / ".build-cache"
+    (build_cache / "go-build").mkdir(parents=True, exist_ok=True)
+    (build_cache / "go-mod").mkdir(parents=True, exist_ok=True)
+    base_env.update(
+        {
+            "GOCACHE": str(build_cache / "go-build"),
+            "GOMODCACHE": str(build_cache / "go-mod"),
+        }
+    )
     for operating_system in ("linux", "darwin"):
         for architecture in ("amd64", "arm64"):
             output = (
