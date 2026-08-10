@@ -98,7 +98,7 @@ class ContainerGateValidationTests(unittest.TestCase):
             commands.append(argv)
             stdout = b""
             if Path(argv[0]).name == "ainfra":
-                stdout = b'{"ok":true}\n'
+                stdout = b'{"ok":true,"result":{"version":"1.2.3"}}\n'
             elif len(argv) == 2 and argv[1] == "version":
                 stdout = b"fixture version\n"
             elif argv[1:3] == ["image", "ls"]:
@@ -113,7 +113,7 @@ class ContainerGateValidationTests(unittest.TestCase):
             elif argv[1:3] == ["image", "inspect"]:
                 stdout = b"65532\n" if "--format" in argv else b"{}\n"
             elif argv[1] == "run":
-                stdout = b"{}\n"
+                stdout = b'{"result":{"version":"1.2.3"}}\n'
             elif Path(argv[0]).name == "syft":
                 sbom = Path(argv[argv.index("-o") + 1].split("=", 1)[1])
                 sbom.write_text("{}\n", encoding="utf-8")

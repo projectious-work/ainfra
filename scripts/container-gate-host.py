@@ -727,7 +727,12 @@ def main() -> int:
                 env=env,
                 output=evidence / "native-smoke.json",
             )
-            json.loads(native_result.stdout.decode("utf-8"))
+            native_payload = json.loads(native_result.stdout.decode("utf-8"))
+            if (
+                native_payload.get("result", {}).get("version")
+                != provenance["releaseVersion"]
+            ):
+                raise GateError("native binary version does not match release")
 
             # Capture versions through the same logged executor used for every
             # other external command.
@@ -815,7 +820,7 @@ def main() -> int:
                 )
             # Runtime hardening is fixed here: no network, writable root
             # filesystem, capabilities, mounts, devices, or relaxed policy.
-            execute(
+            runtime_result = execute(
                 command_log,
                 [
                     str(docker),
@@ -833,6 +838,16 @@ def main() -> int:
                 env=env,
                 output=evidence / "runtime-smoke.json",
             )
+            runtime_payload = json.loads(
+                runtime_result.stdout.decode("utf-8")
+            )
+            if (
+                runtime_payload.get("result", {}).get("version")
+                != provenance["releaseVersion"]
+            ):
+                raise GateError(
+                    "container binary version does not match release"
+                )
             # Syft writes the SPDX document directly; its own diagnostic output
             # is retained separately so neither stream obscures the other.
             execute(

@@ -16,6 +16,8 @@ const (
 	reproducibleEpoch  = "1970-01-01T00:00:00Z"
 )
 
+var injectedVersion string
+
 func main() {
 	build := readBuild()
 	code := command.Run(os.Args[1:], command.Options{
@@ -51,6 +53,9 @@ func readBuild() app.Build {
 				build.BuiltAt = setting.Value
 			}
 		}
+	}
+	if injectedVersion != "" {
+		build.Version = injectedVersion
 	}
 	return build
 }

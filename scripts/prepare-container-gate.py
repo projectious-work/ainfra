@@ -145,6 +145,8 @@ def main() -> int:
                     "go",
                     "build",
                     "-trimpath",
+                    "-ldflags",
+                    f"-X main.injectedVersion={release_version}",
                     "-o",
                     str(output),
                     "./cmd/ainfra",
