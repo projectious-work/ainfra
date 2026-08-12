@@ -38,7 +38,7 @@ The disposition values are:
 | `AINFRA-INIT-001`–`003` | implement | Conflict-first initialization, idempotent marked `.gitignore` block, and no credentials, keys, backends, or infrastructure; repeated-init and no-partial-write tests. |
 | `AINFRA-CONTRACT-001`–`003` | implement | Strict ainfra-owned document parsing, unknown-field and inline-secret rejection, and deployment-schema validation. |
 | `AINFRA-CONTRACT-010`–`015` | implement | Provider-neutral deployment/template validation, compatibility checks, contained regular paths, native dependency ownership, OpenTofu requirement, and Ansible applicability. |
-| `AINFRA-CONTRACT-020`–`029` | implement | Preserve ordered native pointers and opaque bytes; never translate variables or interpret provider-specific input; prove argv/order/byte preservation with fake tools and fixtures. |
+| `AINFRA-CONTRACT-020`–`029` | partial | Preserve ordered native pointers and opaque bytes without translation or provider interpretation. Child-engine argv execution and plan bindings remain lifecycle-owned in Phases 4–6. |
 | `AINFRA-CONTRACT-030`–`038` | partial | Validate declared standardized-output and inventory contracts locally. Output collection and inventory execution remain in Phases 4 and 5. |
 | `AINFRA-DOCTOR-001`–`011` | implement | Registry of checks with stable scope, prerequisites, capabilities, applicability, status, code, severity, explanation, and next action; deterministic complete reports for `environment`, `deployment`, `template`, `run`, and `all`. |
 | `AINFRA-RECON-001`–`004` | implement | Plan-before-write local reconciliation under a deployment lock, explicit confirmation, per-fix precondition checks, retained failure evidence, post-checks, containment, idempotency, and redaction. |
@@ -103,9 +103,12 @@ remain with the primary agent as required by repository policy.
 
 ### Open evidence and gaps
 
-Implementation evidence will be appended as each work item reaches review.
-Until then, every **implement** row above remains open. No Phase 2 completion
-claim is made by the roadmap transition alone.
+Phase 2 local contract, doctor, initialization, and reconciliation behavior is
+implemented and validated. Later-phase dependencies remain explicit: source
+acquisition and locks are Phase 3; saved plans and detailed retained-run
+semantics are Phase 4; standardized output/inventory execution is Phase 5; and
+full operational logging is Phase 6. Their Phase 2 portions do not claim those
+future execution outcomes.
 
 #### 2026-08-12 — Discovery and deployment-loader foundation
 
