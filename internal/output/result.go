@@ -16,6 +16,8 @@ const (
 	CommandInvocation Command = "invocation"
 	// CommandDoctorEnvironment identifies local environment diagnostics.
 	CommandDoctorEnvironment Command = "doctor.environment"
+	// CommandDoctorDeployment identifies local deployment diagnostics.
+	CommandDoctorDeployment Command = "doctor.deployment"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )

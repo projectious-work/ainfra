@@ -228,3 +228,29 @@ by this command yet.
   discovered executable provenance. CLI schema and black-box tests accept both
   healthy exit 0 and missing-dependency exit 3 while always validating the
   complete machine result.
+
+#### 2026-08-12 — Deployment doctor
+
+- Added `ainfra doctor deployment [TARGET]` with canonical
+  `doctor.deployment` text and JSON results. Omitted targets use the normative
+  project flag, environment, or nearest-ancestor resolution path.
+- A positional target conflicts with `--project` or `AINFRA_PROJECT`; the CLI
+  refuses ambiguity before loading a manifest.
+- Deployment diagnosis is built only from the strict loader's validated facts:
+  one canonical identity/root, a structurally valid ainfra-owned manifest, and
+  ordered native pointers that resolve to contained non-symlink regular files.
+  Native bytes remain unread and uninterpreted.
+- Added stable deployment checks for identity, manifest, and native inputs.
+  The registry produces three deterministic pass findings after successful
+  loading; contract loading failures retain the `doctor.deployment`
+  discriminator rather than falling back to an invocation error.
+- Missing and malformed input contracts return exit code 2 with
+  `AINFRA-E2300`. Typed security refusals such as traversal and symlink paths
+  return exit code 4 with `AINFRA-E2304`.
+- Deployment-bound configuration uses the same resolver and precedence as the
+  environment doctor, including the deployment's project layer. The deployment
+  result does not duplicate the environment-only effective-configuration
+  payload.
+- Added unit, registry, CLI-dispatch, compiled black-box, and machine-schema
+  validation for valid deployments, target conflicts, missing targets, and
+  unsafe native pointers.

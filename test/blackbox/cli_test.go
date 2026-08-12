@@ -172,6 +172,81 @@ func TestDoctorEnvironmentJSONIsOneCleanResult(t *testing.T) {
 	}
 }
 
+func TestDoctorDeploymentJSONAndContractFailure(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "ainfra.yaml"), []byte(`apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: blackbox
+spec:
+  template:
+    source: local:../template
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run := func(target string) (int, []byte, string) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		invocation := exec.CommandContext(
+			ctx, binary, "doctor", "deployment", target, "--format=json",
+		)
+		invocation.Dir = t.TempDir()
+		invocation.Env = []string{
+			"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+		}
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		invocation.Stdout = &stdout
+		invocation.Stderr = &stderr
+		err := invocation.Run()
+		if err == nil {
+			return 0, stdout.Bytes(), stderr.String()
+		}
+		exitError, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatalf("run: %v", err)
+		}
+		return exitError.ExitCode(), stdout.Bytes(), stderr.String()
+	}
+	code, stdout, stderr := run(root)
+	if code != 0 || stderr != "" {
+		t.Fatalf("valid deployment exit=%d stderr=%q", code, stderr)
+	}
+	var success struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Result  struct {
+			Scope    string `json:"scope"`
+			Findings []any  `json:"findings"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(stdout, &success); err != nil {
+		t.Fatal(err)
+	}
+	if success.Command != "doctor.deployment" || !success.OK ||
+		success.Result.Scope != "deployment" || len(success.Result.Findings) != 3 {
+		t.Fatalf("success=%+v", success)
+	}
+
+	code, stdout, stderr = run(filepath.Join(t.TempDir(), "missing"))
+	if code != 2 || stderr != "" {
+		t.Fatalf("invalid deployment exit=%d stderr=%q", code, stderr)
+	}
+	var failure struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+	}
+	if err := json.Unmarshal(stdout, &failure); err != nil {
+		t.Fatal(err)
+	}
+	if failure.Command != "doctor.deployment" || failure.OK {
+		t.Fatalf("failure=%+v", failure)
+	}
+}
+
 func TestHelpAndInvalidInvocationJSON(t *testing.T) {
 	tests := []struct {
 		name      string

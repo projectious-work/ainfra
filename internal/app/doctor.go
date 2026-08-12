@@ -71,29 +71,7 @@ func DoctorEnvironment(
 	if err != nil {
 		return DoctorEnvironmentResponse{}, err
 	}
-	explicitConfig := request.ConfigPath
-	if explicitConfig == "" {
-		explicitConfig = options.Environment["AINFRA_CONFIG"]
-	}
-	if explicitConfig != "" && !filepath.IsAbs(explicitConfig) {
-		explicitConfig = filepath.Join(options.WorkingDirectory, explicitConfig)
-	}
-	files, err := config.Files(config.LocationOptions{
-		GOOS: options.GOOS, HomeDirectory: options.HomeDirectory,
-		XDGConfigHome: options.XDGConfigHome, DeploymentRoot: projectRoot,
-		ExplicitPath: explicitConfig,
-	})
-	if err != nil {
-		return DoctorEnvironmentResponse{}, err
-	}
-	flags := config.Patch{UI: config.UIPatch{
-		Format: request.Format, OutputStyle: request.OutputStyle, Color: request.Color,
-	}}
-	effective, err := config.Resolve(config.ResolveOptions{
-		Defaults: config.Defaults(options.CacheDirectory, options.RunDirectory),
-		Files:    files, Environment: options.Environment, Flags: flags,
-		DiagnosticProject: true,
-	})
+	effective, err := resolveDoctorConfiguration(request, options, projectRoot)
 	if err != nil {
 		return DoctorEnvironmentResponse{}, err
 	}
@@ -125,6 +103,40 @@ func DoctorEnvironment(
 		OutputStyle: effective.Settings.UI.OutputStyle,
 		Color:       effective.Settings.UI.Color,
 	}, nil
+}
+
+func resolveDoctorConfiguration(
+	request DoctorEnvironmentRequest,
+	options DoctorEnvironmentOptions,
+	projectRoot string,
+) (config.Effective, error) {
+	explicitConfig := request.ConfigPath
+	if explicitConfig == "" {
+		explicitConfig = options.Environment["AINFRA_CONFIG"]
+	}
+	if explicitConfig != "" && !filepath.IsAbs(explicitConfig) {
+		explicitConfig = filepath.Join(options.WorkingDirectory, explicitConfig)
+	}
+	files, err := config.Files(config.LocationOptions{
+		GOOS: options.GOOS, HomeDirectory: options.HomeDirectory,
+		XDGConfigHome: options.XDGConfigHome, DeploymentRoot: projectRoot,
+		ExplicitPath: explicitConfig,
+	})
+	if err != nil {
+		return config.Effective{}, err
+	}
+	flags := config.Patch{UI: config.UIPatch{
+		Format: request.Format, OutputStyle: request.OutputStyle, Color: request.Color,
+	}}
+	effective, err := config.Resolve(config.ResolveOptions{
+		Defaults: config.Defaults(options.CacheDirectory, options.RunDirectory),
+		Files:    files, Environment: options.Environment, Flags: flags,
+		DiagnosticProject: true,
+	})
+	if err != nil {
+		return config.Effective{}, err
+	}
+	return effective, nil
 }
 
 func applyDiscoveredExecutables(

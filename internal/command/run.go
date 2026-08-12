@@ -24,6 +24,7 @@ type Options struct {
 	Build             app.Build
 	IO                IO
 	DoctorEnvironment func(app.DoctorEnvironmentRequest) (app.DoctorEnvironmentResponse, error)
+	DoctorDeployment  func(app.DoctorDeploymentRequest) (app.DoctorEnvironmentResponse, error)
 }
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
@@ -54,6 +55,12 @@ func Run(arguments []string, options Options) ExitCode {
 			arguments, renderArguments, controlArguments, renderOptions, options,
 		)
 	}
+	if len(positional) >= 2 && len(positional) <= 3 &&
+		positional[0] == "doctor" && positional[1] == "deployment" {
+		return runDoctorDeployment(
+			arguments, renderArguments, controlArguments, positional, renderOptions, options,
+		)
+	}
 
 	if len(positional) != 1 || (positional[0] != "version" && positional[0] != "--version") {
 		return failInvocation(arguments, "invalid command invocation", options.IO)
@@ -64,6 +71,54 @@ func Run(arguments []string, options Options) ExitCode {
 		if _, writeErr := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: render result: %s\n", err); writeErr != nil {
 			return ExitOperationFailed
 		}
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runDoctorDeployment(
+	arguments, renderArguments, controlArguments, positional []string,
+	renderOptions output.RenderOptions,
+	options Options,
+) ExitCode {
+	if options.DoctorDeployment == nil {
+		return failDoctor(
+			arguments, output.CommandDoctorDeployment,
+			"deployment doctor is unavailable", options.IO,
+		)
+	}
+	common, err := parseDoctorEnvironmentRequest(renderArguments, controlArguments)
+	if err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	target := ""
+	if len(positional) == 3 {
+		target = positional[2]
+	}
+	response, err := options.DoctorDeployment(app.DoctorDeploymentRequest{
+		Target: target, ConfigPath: common.ConfigPath, ProjectPath: common.ProjectPath,
+		Format: common.Format, OutputStyle: common.OutputStyle, Color: common.Color,
+	})
+	if err != nil {
+		exit := ExitInvalidInput
+		code := "AINFRA-E2300"
+		var doctorError *app.DoctorError
+		if errors.As(err, &doctorError) && doctorError.Kind == "security" {
+			exit = ExitSecurity
+			code = "AINFRA-E2304"
+		}
+		return failDoctorWithExit(
+			arguments, output.CommandDoctorDeployment, code, err.Error(), options.IO, exit,
+		)
+	}
+	if err := output.Render(
+		options.IO.Stdout,
+		output.Success(output.CommandDoctorDeployment, response.Result),
+		output.RenderOptions{
+			Format: output.Format(response.Format), Style: output.Style(response.OutputStyle),
+			Color: output.ColorMode(response.Color), IsTerminal: renderOptions.IsTerminal,
+		},
+	); err != nil {
 		return ExitOperationFailed
 	}
 	return ExitSuccess
@@ -123,7 +178,7 @@ func runDoctorEnvironment(
 	options Options,
 ) ExitCode {
 	if options.DoctorEnvironment == nil {
-		return failDoctorEnvironment(arguments, "environment doctor is unavailable", options.IO)
+		return failDoctor(arguments, output.CommandDoctorEnvironment, "environment doctor is unavailable", options.IO)
 	}
 	request, err := parseDoctorEnvironmentRequest(renderArguments, controlArguments)
 	if err != nil {
@@ -131,7 +186,7 @@ func runDoctorEnvironment(
 	}
 	response, err := options.DoctorEnvironment(request)
 	if err != nil {
-		return failDoctorEnvironment(arguments, err.Error(), options.IO)
+		return failDoctor(arguments, output.CommandDoctorEnvironment, err.Error(), options.IO)
 	}
 	renderOptions.Format = output.Format(response.Format)
 	renderOptions.Style = output.Style(response.OutputStyle)
@@ -188,27 +243,45 @@ func explicitOption(arguments []string, name string) *string {
 	return nil
 }
 
-func failDoctorEnvironment(arguments []string, message string, streams IO) ExitCode {
+func failDoctor(arguments []string, command output.Command, message string, streams IO) ExitCode {
+	return failDoctorWithExit(
+		arguments, command, "AINFRA-E2001", message, streams, ExitInvalidInput,
+	)
+}
+
+func failDoctorWithExit(
+	arguments []string,
+	command output.Command,
+	code, message string,
+	streams IO,
+	exit ExitCode,
+) ExitCode {
+	scope := "environment"
+	check := "environment.configuration"
+	if command == output.CommandDoctorDeployment {
+		scope = "deployment"
+		check = "deployment.contract"
+	}
 	diagnosticValue := diagnostic.Diagnostic{
-		Code: "AINFRA-E2001", Severity: diagnostic.SeverityError,
-		Check: "environment.configuration", Scope: "environment", Status: "fail",
+		Code: code, Severity: diagnostic.SeverityError,
+		Check: check, Scope: scope, Status: "fail",
 		Reconciliation: "not_available", Component: "configuration",
 		Message: message, NextAction: "Correct the configuration and rerun 'ainfra doctor environment'.",
 	}
 	if requestedJSON(arguments) {
 		if err := output.Render(
 			streams.Stdout,
-			output.Failure(output.CommandDoctorEnvironment, diagnosticValue),
+			output.Failure(command, diagnosticValue),
 			output.RenderOptions{Format: output.FormatJSON},
 		); err != nil {
 			return ExitOperationFailed
 		}
-		return ExitInvalidInput
+		return exit
 	}
 	if _, err := fmt.Fprintf(streams.Stderr, "%s: %s\n", diagnosticValue.Code, message); err != nil {
 		return ExitOperationFailed
 	}
-	return ExitInvalidInput
+	return exit
 }
 
 func stringsHasRenderPrefix(argument string) bool {
