@@ -1,0 +1,134 @@
+# Phase 2: Contracts and doctor
+
+## Planning entry — 2026-08-12
+
+Phase 2 implements the local contracts-and-doctor boundary defined by the
+canonical v1 specification under `spec/doc/v1/`. It starts from the shipped
+Phase 1 Go foundation on `v1.x-dev` and is implemented on
+`feat/phase-02-contracts-doctor`.
+
+Phase 1 shipped as `v1.0.0-alpha.1`. Phase 2 is now `in_progress`.
+
+### Outcome and boundary
+
+At the Phase 2 completion gate, a user can point `ainfra doctor` at a local
+deployment or already-resolved template and receive deterministic, actionable
+text or JSON findings. The user may explicitly approve repairs only for
+contained, ainfra-owned local artifacts.
+
+Phase 2 does not acquire template sources, contact providers, mutate native
+engine inputs, run infrastructure lifecycle operations, or implement MCP mode.
+Source locking and materialization belong to Phase 3; OpenTofu and Ansible
+lifecycle execution belongs to Phases 4 through 6.
+
+### Requirement and disposition matrix
+
+The disposition values are:
+
+- **implement**: required for the Phase 2 completion gate;
+- **supporting**: a cross-cutting contract exercised by Phase 2;
+- **partial**: Phase 2 implements the local validation portion while later
+  lifecycle phases own execution; and
+- **deferred**: explicitly outside the Phase 2 boundary.
+
+| Normative requirement | Disposition | Phase 2 implementation and evidence |
+|---|---|---|
+| `AINFRA-CLI-001`, `008`–`010` | implement | Deterministic explicit path, `--project`, `AINFRA_PROJECT`, and nearest-ancestor discovery; canonical directory/file equivalence; ambiguity, missing-manifest, and no-descendant-search black-box tests. |
+| `AINFRA-CLI-002`–`004`, `007`, `011`–`013` | supporting | Shared text/JSON selection, stream separation, confirmation rules, side-effect-free static help, and the exact pre-dispatch invocation envelope and exit code. |
+| `AINFRA-INIT-001`–`003` | implement | Conflict-first initialization, idempotent marked `.gitignore` block, and no credentials, keys, backends, or infrastructure; repeated-init and no-partial-write tests. |
+| `AINFRA-CONTRACT-001`–`003` | implement | Strict ainfra-owned document parsing, unknown-field and inline-secret rejection, and deployment-schema validation. |
+| `AINFRA-CONTRACT-010`–`015` | implement | Provider-neutral deployment/template validation, compatibility checks, contained regular paths, native dependency ownership, OpenTofu requirement, and Ansible applicability. |
+| `AINFRA-CONTRACT-020`–`029` | implement | Preserve ordered native pointers and opaque bytes; never translate variables or interpret provider-specific input; prove argv/order/byte preservation with fake tools and fixtures. |
+| `AINFRA-CONTRACT-030`–`038` | partial | Validate declared standardized-output and inventory contracts locally. Output collection and inventory execution remain in Phases 4 and 5. |
+| `AINFRA-DOCTOR-001`–`011` | implement | Registry of checks with stable scope, prerequisites, capabilities, applicability, status, code, severity, explanation, and next action; deterministic complete reports for `environment`, `deployment`, `template`, `run`, and `all`. |
+| `AINFRA-RECON-001`–`004` | implement | Plan-before-write local reconciliation under a deployment lock, explicit confirmation, per-fix precondition checks, retained failure evidence, post-checks, containment, idempotency, and redaction. |
+| `AINFRA-MIGRATE-001`–`003` | deferred | Template migration is outside Phase 2. Any shared analysis types must remain deterministic and machine-readable without exposing a migration command. |
+| `AINFRA-CONFIG-001`–`010` | implement | Immutable typed effective configuration, exact precedence, project-layer restrictions, unknown/secret/version rejection, and redacted sorted provenance through doctor environment. |
+| `AINFRA-OUTPUT-001`–`008`, `010`–`015` | supporting | Shared semantic results, one versioned JSON object, plain non-TTY output, central redaction, schema-valid fixtures, stable renderer goldens, and engine attribution where child checks apply. |
+| `AINFRA-LOG-001`–`005` | partial | Phase 2 uses pre-redacted structured events and preserves correlation. Durable operational sinks and full concurrent lifecycle logging mature in Phase 6. |
+| `AINFRA-SEC-010`–`015` | implement | Validate regular executables and versions; use argv without a shell, allowlisted environment, contained working directories, sanitized streams, and no secrets in arguments. |
+| `AINFRA-SEC-020`–`027` | supporting | Reject inline secrets, classify/redact sensitive values including chunk boundaries, secret-scan examples and evidence, and enforce owner-only operational permissions. |
+| `AINFRA-SEC-030`–`032` | supporting | Keep OpenTofu state opaque and engine-owned; retain native input bytes and ordering as future plan bindings. |
+| `AINFRA-SEC-001`–`006`, `040`–`043` | deferred | Immutable acquisition/cache and SSH lifecycle controls belong to Phase 3 or later. Doctor must not implement provider, host, key-generation, or bastion behavior. |
+| `AINFRA-TEST-001`–`003`, `010`–`018` | supporting | Offline deterministic unit, component, black-box, adversarial, race, fuzz, schema, secret, Linux, and macOS evidence with no unexpected skips. |
+| `AINFRA-DOC-010`–`013` | implement | Maintain this append-only phase note with boundaries, decisions, evidence, deviations, security/compatibility effects, documentation changes, gaps, and linked follow-up work. |
+| `AINFRA-DOC-001`–`005` | partial | Document user-visible discovery, configuration, diagnostics, output, exit, and security behavior as it ships. Full template-authoring documentation belongs to Phase 8. |
+
+### Prioritized implementation work
+
+The processkit epic is
+`BACK-20260812_0749-SparklingCliff-deliver-phase-two-contracts-doctor`.
+Its ordered children are:
+
+| Order | Priority | WorkItem | Deliverable |
+|---:|---|---|---|
+| 1 | high | `BACK-20260812_0749-DeepLeaf-establish-config-project-discovery` | Effective configuration and deterministic project discovery. |
+| 2 | high | `BACK-20260812_0749-BraveCedar-implement-deployment-native-contract-loader` | Strict deployment and opaque native-file loader. |
+| 3 | high | `BACK-20260812_0749-CuriousBloom-validate-local-template-contracts` | Validation of already-local resolved templates. |
+| 4 | high | `BACK-20260812_0749-ActiveShore-build-deterministic-doctor-check-registry` | Capability-aware, deterministic doctor checks and reports. |
+| 5 | high | `BACK-20260812_0749-TallBeacon-expose-doctor-cli-stable-diagnostics` | Doctor CLI, stable text/JSON, streams, and exits. |
+| 6 | medium | `BACK-20260812_0749-TrustyCharm-add-safe-local-doctor-reconciliation` | Narrow local repair plans and guarded execution. |
+| 7 | medium | `BACK-20260812_0749-DaringTrail-add-phase-two-adversarial-coverage` | Negative, component, black-box, race, and fuzz coverage. |
+| 8 | low | `BACK-20260812_0749-KindSpruce-complete-phase-two-conformance-docs` | Final conformance matrix, documentation, and release gate. |
+
+### Implementation sequence
+
+Implementation proceeds in dependency order: discovery and configuration,
+contract loaders, local template validation, doctor registry, CLI rendering,
+safe reconciliation, adversarial coverage, and conformance closure. Each slice
+must be independently testable and may not introduce lifecycle placeholders.
+
+### Parallel planning review
+
+Three read-only agents reviewed the normative requirements, current Go
+architecture, and implementation breakdown using the cost-efficient
+`gpt-5.6-luna` model at low effort. Their independent conclusions agreed on
+the boundary and dependency order captured above. All repository mutations
+remain with the primary agent as required by repository policy.
+
+### Evidence log
+
+#### 2026-08-12 — Phase transition and planning
+
+- Phase 1 marked `shipped` and linked to its developer note.
+- Phase 2 marked `in_progress` and this developer note registered in the
+  normative roadmap.
+- The Phase 2 requirement/disposition matrix was derived from every applicable
+  normative chapter, including contracts, CLI/lifecycle, security, output,
+  configuration/logging, testing, quality, and documentation.
+- One epic and eight ordered implementation WorkItems were created. The epic
+  and first discovery/configuration slice entered `in-progress`.
+- Decision `DEC-20260812_0746-PluckyRaven-ship-phase-1-and-begin-contracts`
+  records the accepted phase transition and implementation boundary.
+
+### Open evidence and gaps
+
+Implementation evidence will be appended as each work item reaches review.
+Until then, every **implement** row above remains open. No Phase 2 completion
+claim is made by the roadmap transition alone.
+
+#### 2026-08-12 — Discovery and deployment-loader foundation
+
+- Added `internal/project` with canonical explicit target resolution and
+  nearest-ancestor discovery. Explicit directory and manifest-file forms have
+  one identity, and explicit directories never trigger descendant searches.
+- Implemented the normative target precedence as immutable inputs: positional
+  explicit path, `--project`, `AINFRA_PROJECT`, then nearest ancestor.
+- Added a strict YAML deployment loader with unknown-field, API version, kind,
+  name, required template source, duplicate path, traversal, symlink, special
+  file, and containment enforcement.
+- Native input paths retain declaration order. Their contents are deliberately
+  not read or interpreted by the loader.
+- Added unit coverage for equivalence, precedence, nearest-ancestor selection,
+  no descendant search, unknown fields, traversal, duplicate inputs, symlinks,
+  and ordered opaque native inputs.
+- `scripts/validate-all` passed, including formatting, imports, vet,
+  staticcheck, golangci-lint, unit tests, schema/spec validation, container-gate
+  tests, govulncheck, and gosec.
+- `scripts/test-all` passed, including unit, race, coverage, and container-gate
+  suites. The new `internal/project` package reports 77.2% statement coverage
+  in this initial slice.
+
+This slice establishes internal contracts only. Wiring the resolver into CLI
+options, effective configuration provenance, and doctor results remains open
+under the first and subsequent WorkItems.
