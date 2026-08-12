@@ -285,7 +285,7 @@ enabled = [
 
 # Documentation/docs-hugo — Hugo static site generator (Go)
 [addons.docs-hugo.tools]
-# hugo = { enabled = true } # Fast Go-based static site generator; default off; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+hugo = { enabled = true } # Fast Go-based static site generator; default off; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
 # Documentation/docs-mdbook — mdBook – Rust-powered book builder
 # [addons.docs-mdbook.tools]
