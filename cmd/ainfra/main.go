@@ -40,6 +40,15 @@ func main() {
 			}
 			return app.DoctorDeployment(request, options)
 		},
+		DoctorTemplate: func(
+			request app.DoctorTemplateRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorTemplate(request, options)
+		},
 		IO: command.IO{
 			Stdout:     os.Stdout,
 			Stderr:     os.Stderr,

@@ -13,6 +13,7 @@ failure="$temporary/version-failure.json"
 help="$temporary/help.json"
 doctor="$temporary/doctor-environment.json"
 deployment_doctor="$temporary/doctor-deployment.json"
+template_doctor="$temporary/doctor-template.json"
 
 mkdir -p "$temporary/home" "$temporary/config"
 mkdir -p "$temporary/deployment"
@@ -41,6 +42,9 @@ fi
 HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
   "$binary" --format json doctor deployment "$temporary/deployment" \
   >"$deployment_doctor"
+HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
+  "$binary" --format json doctor template \
+  "$repo_root/spec/examples/v1/template-example" >"$template_doctor"
 
 for topic in ainfra doctor template init doctor.all doctor.deployment \
   doctor.template doctor.run doctor.environment template.lock \

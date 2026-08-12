@@ -25,6 +25,7 @@ type Options struct {
 	IO                IO
 	DoctorEnvironment func(app.DoctorEnvironmentRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorDeployment  func(app.DoctorDeploymentRequest) (app.DoctorEnvironmentResponse, error)
+	DoctorTemplate    func(app.DoctorTemplateRequest) (app.DoctorEnvironmentResponse, error)
 }
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
@@ -61,6 +62,12 @@ func Run(arguments []string, options Options) ExitCode {
 			arguments, renderArguments, controlArguments, positional, renderOptions, options,
 		)
 	}
+	if len(positional) >= 2 && len(positional) <= 3 &&
+		positional[0] == "doctor" && positional[1] == "template" {
+		return runDoctorTemplate(
+			arguments, renderArguments, controlArguments, positional, renderOptions, options,
+		)
+	}
 
 	if len(positional) != 1 || (positional[0] != "version" && positional[0] != "--version") {
 		return failInvocation(arguments, "invalid command invocation", options.IO)
@@ -71,6 +78,57 @@ func Run(arguments []string, options Options) ExitCode {
 		if _, writeErr := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: render result: %s\n", err); writeErr != nil {
 			return ExitOperationFailed
 		}
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runDoctorTemplate(
+	arguments, renderArguments, controlArguments, positional []string,
+	renderOptions output.RenderOptions,
+	options Options,
+) ExitCode {
+	if options.DoctorTemplate == nil {
+		return failDoctor(
+			arguments, output.CommandDoctorTemplate,
+			"template doctor is unavailable", options.IO,
+		)
+	}
+	common, err := parseDoctorEnvironmentRequest(renderArguments, controlArguments)
+	if err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if common.ProjectPath != "" {
+		return failInvocation(arguments, "doctor template does not accept --project", options.IO)
+	}
+	target := ""
+	if len(positional) == 3 {
+		target = positional[2]
+	}
+	response, err := options.DoctorTemplate(app.DoctorTemplateRequest{
+		Target: target, ConfigPath: common.ConfigPath, Format: common.Format,
+		OutputStyle: common.OutputStyle, Color: common.Color,
+	})
+	if err != nil {
+		exit := ExitInvalidInput
+		code := "AINFRA-E2400"
+		var doctorError *app.DoctorError
+		if errors.As(err, &doctorError) && doctorError.Kind == "security" {
+			exit = ExitSecurity
+			code = "AINFRA-E2405"
+		}
+		return failDoctorWithExit(
+			arguments, output.CommandDoctorTemplate, code, err.Error(), options.IO, exit,
+		)
+	}
+	if err := output.Render(
+		options.IO.Stdout,
+		output.Success(output.CommandDoctorTemplate, response.Result),
+		output.RenderOptions{
+			Format: output.Format(response.Format), Style: output.Style(response.OutputStyle),
+			Color: output.ColorMode(response.Color), IsTerminal: renderOptions.IsTerminal,
+		},
+	); err != nil {
 		return ExitOperationFailed
 	}
 	return ExitSuccess
@@ -261,6 +319,10 @@ func failDoctorWithExit(
 	if command == output.CommandDoctorDeployment {
 		scope = "deployment"
 		check = "deployment.contract"
+	}
+	if command == output.CommandDoctorTemplate {
+		scope = "template"
+		check = "template.contract"
 	}
 	diagnosticValue := diagnostic.Diagnostic{
 		Code: code, Severity: diagnostic.SeverityError,

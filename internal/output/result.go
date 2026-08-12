@@ -18,6 +18,8 @@ const (
 	CommandDoctorEnvironment Command = "doctor.environment"
 	// CommandDoctorDeployment identifies local deployment diagnostics.
 	CommandDoctorDeployment Command = "doctor.deployment"
+	// CommandDoctorTemplate identifies local resolved-template diagnostics.
+	CommandDoctorTemplate Command = "doctor.template"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )

@@ -254,3 +254,37 @@ by this command yet.
 - Added unit, registry, CLI-dispatch, compiled black-box, and machine-schema
   validation for valid deployments, target conflicts, missing targets, and
   unsafe native pointers.
+
+#### 2026-08-12 — Local template doctor
+
+- Added `ainfra doctor template [TARGET]` with canonical `doctor.template`
+  text and JSON results. The target is an already-resolved local template
+  directory; omitted target means the current directory. `--project` is
+  rejected because this command does not resolve a deployment source.
+- Added `internal/template`, a strict known-field loader for
+  `ainfra-template.yaml`. It validates API version, kind, normalized name and
+  directory-basename identity, semantic version syntax, mandatory OpenTofu,
+  and closed inventory/Ansible applicability.
+- Declared engine directories, playbooks, documentation, native dependency
+  files, and the minimal example must be contained non-symlink paths of the
+  required type. Absolute and traversing declarations are refused.
+- Ansible templates require native `requirements.yml`, the declared playbook,
+  and a minimal native Ansible variables file through the deployment example.
+  Infrastructure-only templates must omit Ansible when inventory is `none`.
+- The minimal example is loaded through the same strict deployment loader, so
+  its ainfra-owned contract and native input pointers receive identical
+  validation without interpreting native bytes.
+- Template README and variables documentation are mandatory. The README must
+  expose equivalent direct OpenTofu commands and, when applicable, direct
+  Ansible commands.
+- Template source containing `.ainfra`, `.terraform`, `*.tfstate`, or
+  `*.tfstate.*` runtime/infrastructure state is refused before checks pass.
+- Added stable checks for template identity, layout, native engine ownership,
+  and inventory applicability, plus loader, application, registry, command,
+  compiled black-box, and machine-schema evidence.
+- Missing or malformed template contracts return exit 2 with `AINFRA-E2400`;
+  containment, symlink, file-type, and state-policy refusals return exit 4 with
+  `AINFRA-E2405`.
+
+No source URL is parsed, cloned, updated, locked, or cached in this slice.
+Immutable acquisition remains Phase 3.

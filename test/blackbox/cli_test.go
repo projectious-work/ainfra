@@ -247,6 +247,47 @@ spec:
 	}
 }
 
+func TestDoctorTemplateJSON(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.Abs("../../spec/examples/v1/template-example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	invocation := exec.CommandContext(
+		ctx, binary, "doctor", "template", root, "--format=json",
+	)
+	invocation.Dir = t.TempDir()
+	invocation.Env = []string{
+		"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	invocation.Stdout = &stdout
+	invocation.Stderr = &stderr
+	if err := invocation.Run(); err != nil {
+		t.Fatalf("run: %v stderr=%q", err, stderr.String())
+	}
+	var envelope struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Result  struct {
+			Scope    string `json:"scope"`
+			Findings []any  `json:"findings"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Command != "doctor.template" || !envelope.OK ||
+		envelope.Result.Scope != "template" || len(envelope.Result.Findings) != 4 ||
+		stderr.Len() != 0 {
+		t.Fatalf("envelope=%+v stderr=%q", envelope, stderr.String())
+	}
+}
+
 func TestHelpAndInvalidInvocationJSON(t *testing.T) {
 	tests := []struct {
 		name      string

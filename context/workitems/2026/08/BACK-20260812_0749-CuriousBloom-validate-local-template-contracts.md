@@ -4,9 +4,10 @@ kind: WorkItem
 metadata:
   id: BACK-20260812_0749-CuriousBloom-validate-local-template-contracts
   created: '2026-08-12T07:49:15+00:00'
+  updated: '2026-08-12T10:18:09+00:00'
 spec:
   title: Validate local resolved template contracts
-  state: backlog
+  state: in-progress
   type: story
   priority: high
   description: 'Validate only already-local resolved template layout and manifest
@@ -15,4 +16,9 @@ spec:
     with capability-aware non-mutating child checks.'
   parent: BACK-20260812_0749-SparklingCliff-deliver-phase-two-contracts-doctor
   scope: Phase 2
+  started_at: '2026-08-12T10:18:09+00:00'
 ---
+
+## Transition note (2026-08-12T10:18:09+00:00)
+
+Strict local template loader and doctor template CLI are implemented without source acquisition.

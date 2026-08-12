@@ -125,6 +125,34 @@ func TestDoctorDeploymentDispatchesCanonicalResult(t *testing.T) {
 	}
 }
 
+func TestDoctorTemplateDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var received app.DoctorTemplateRequest
+	code := command.Run(
+		[]string{"doctor", "template", "/template", "--format=json"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			DoctorTemplate: func(
+				request app.DoctorTemplateRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				received = request
+				return app.DoctorEnvironmentResponse{
+					Format: "json", OutputStyle: "auto", Color: "auto",
+					Result: output.Doctor{
+						Scope: "template", Summary: output.DoctorSummary{Pass: 1},
+						Findings: []diagnostic.Diagnostic{},
+					},
+				}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || received.Target != "/template" ||
+		!strings.Contains(stdout.String(), `"command":"doctor.template"`) {
+		t.Fatalf("exit=%d request=%#v stdout=%q", code, received, stdout.String())
+	}
+}
+
 func TestStaticHelpDoesNotConstructDoctor(t *testing.T) {
 	t.Parallel()
 	called := false
