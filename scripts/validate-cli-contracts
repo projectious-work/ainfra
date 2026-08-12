@@ -16,6 +16,7 @@ deployment_doctor="$temporary/doctor-deployment.json"
 template_doctor="$temporary/doctor-template.json"
 run_doctor="$temporary/doctor-run.json"
 all_doctor="$temporary/doctor-all.json"
+init_result="$temporary/init.json"
 
 mkdir -p "$temporary/home" "$temporary/config"
 mkdir -p "$temporary/deployment"
@@ -30,6 +31,7 @@ spec:
 EOF
 
 go build -o "$binary" ./cmd/ainfra
+"$binary" --format json init "$temporary/initialized" >"$init_result"
 "$binary" --format json version >"$success"
 "$binary" --format json help version >"$help"
 set +e

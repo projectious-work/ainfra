@@ -68,6 +68,20 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 	}
 
 	switch result := envelope.Result.(type) {
+	case Init:
+		_, err := fmt.Fprintf(
+			writer, "initialized deployment %s at %s\n", result.Deployment.Name,
+			result.Deployment.Root,
+		)
+		if err != nil {
+			return err
+		}
+		for _, path := range result.CreatedPaths {
+			if _, err = fmt.Fprintf(writer, "created %s\n", path); err != nil {
+				return err
+			}
+		}
+		return nil
 	case Doctor:
 		_, err := fmt.Fprintf(
 			writer,

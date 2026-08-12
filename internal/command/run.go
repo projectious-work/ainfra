@@ -10,6 +10,7 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
+	"github.com/projectious-work/ainfra/internal/initialize"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/reconcile"
 )
@@ -31,6 +32,7 @@ type Options struct {
 	DoctorTemplate    func(app.DoctorTemplateRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorRun         func(app.DoctorRunRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorAll         func(app.DoctorAllRequest) (app.DoctorEnvironmentResponse, error)
+	Initialize        func(string) (initialize.Result, error)
 }
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
@@ -60,6 +62,12 @@ func Run(arguments []string, options Options) ExitCode {
 		return runDoctorEnvironment(
 			arguments, renderArguments, controlArguments, renderOptions, options,
 		)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "init" {
+		if len(controlArguments) != 0 {
+			return failInvocation(arguments, "init does not accept configuration options", options.IO)
+		}
+		return runInit(positional, renderOptions, options)
 	}
 	if len(positional) >= 2 && len(positional) <= 3 &&
 		positional[0] == "doctor" && positional[1] == "deployment" {
@@ -98,6 +106,47 @@ func Run(arguments []string, options Options) ExitCode {
 		if _, writeErr := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: render result: %s\n", err); writeErr != nil {
 			return ExitOperationFailed
 		}
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runInit(
+	positional []string,
+	renderOptions output.RenderOptions,
+	options Options,
+) ExitCode {
+	if options.Initialize == nil {
+		return failInvocation(positional, "init is unavailable", options.IO)
+	}
+	target := "."
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Initialize(target)
+	if err != nil {
+		diagnosticValue := diagnostic.Diagnostic{
+			Code: "AINFRA-E1001", Severity: diagnostic.SeverityError,
+			Message: err.Error(), Component: "initialization",
+			NextAction: "Choose an empty deployment path and rerun 'ainfra init'.",
+		}
+		if renderOptions.Format == output.FormatJSON {
+			if renderErr := output.Render(
+				options.IO.Stdout, output.Failure(output.CommandInit, diagnosticValue),
+				renderOptions,
+			); renderErr != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return ExitInvalidInput
+	}
+	envelope := output.Success(output.CommandInit, output.Init{
+		Deployment:   output.Deployment{Name: result.Name, Root: result.Root},
+		CreatedPaths: result.CreatedPaths,
+	})
+	if err := output.Render(options.IO.Stdout, envelope, renderOptions); err != nil {
 		return ExitOperationFailed
 	}
 	return ExitSuccess

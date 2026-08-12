@@ -10,6 +10,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/command"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
+	"github.com/projectious-work/ainfra/internal/initialize"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/reconcile"
 )
@@ -69,6 +70,29 @@ func TestVersionJSON(t *testing.T) {
 	}
 	if stderr != "" {
 		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestInitDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var target string
+	code := command.Run(
+		[]string{"init", "/tmp/example", "--format=json"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			Initialize: func(path string) (initialize.Result, error) {
+				target = path
+				return initialize.Result{
+					Name: "example", Root: path,
+					CreatedPaths: []string{path + "/ainfra.yaml"},
+				}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || target != "/tmp/example" ||
+		!strings.Contains(stdout.String(), `"command":"init"`) {
+		t.Fatalf("exit=%d target=%q stdout=%q", code, target, stdout.String())
 	}
 }
 

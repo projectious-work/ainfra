@@ -14,6 +14,8 @@ const (
 	CommandHelp Command = "help"
 	// CommandInvocation identifies a failure before command dispatch.
 	CommandInvocation Command = "invocation"
+	// CommandInit identifies local deployment initialization.
+	CommandInit Command = "init"
 	// CommandDoctorEnvironment identifies local environment diagnostics.
 	CommandDoctorEnvironment Command = "doctor.environment"
 	// CommandDoctorDeployment identifies local deployment diagnostics.
@@ -112,6 +114,18 @@ type DoctorSummary struct {
 	Skip    int `json:"skip"`
 	Warning int `json:"warning"`
 	Fail    int `json:"fail"`
+}
+
+// Init is the semantic result of creating a minimal deployment contract.
+type Init struct {
+	Deployment   Deployment `json:"deployment"`
+	CreatedPaths []string   `json:"createdPaths"`
+}
+
+// Deployment identifies one canonical local deployment.
+type Deployment struct {
+	Name string `json:"name"`
+	Root string `json:"root"`
 }
 
 // EffectiveConfiguration is the display-safe configuration/provenance view.

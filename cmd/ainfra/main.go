@@ -8,6 +8,7 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/command"
+	"github.com/projectious-work/ainfra/internal/initialize"
 )
 
 const (
@@ -21,7 +22,8 @@ var injectedVersion string
 func main() {
 	build := readBuild()
 	code := command.Run(os.Args[1:], command.Options{
-		Build: build,
+		Build:      build,
+		Initialize: initialize.Create,
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,
 		) (app.DoctorEnvironmentResponse, error) {

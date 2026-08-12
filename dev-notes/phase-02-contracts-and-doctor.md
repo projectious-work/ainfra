@@ -363,3 +363,20 @@ evidence, state, credentials, or remote infrastructure.
 - Corrected the deployment black-box expectation to include the new runtime
   permission finding and forced an uncached execution while developing the
   fixture, avoiding false confidence from the external-binary test cache.
+
+#### 2026-08-12 — Minimal deployment initialization
+
+- Added `ainfra init [DEPLOYMENT]` with canonical text and JSON results. An
+  omitted target selects the current directory; the directory basename must be
+  a valid deployment name.
+- Initialization checks the target type, existing `ainfra.yaml`, and malformed
+  ainfra ownership markers in `.gitignore` before its first write. Existing
+  manifests are never overwritten.
+- The generated deployment contains only the v1 deployment identity and a
+  placeholder local template reference. It creates no credentials, keys,
+  backend configuration, engine state, or infrastructure.
+- `.gitignore` receives only the clearly marked ainfra block for `.ainfra/`.
+  Existing unrelated content is preserved and complete existing ainfra blocks
+  are not duplicated.
+- Added package, command-dispatch, compiled CLI schema, no-overwrite, and
+  conflict-before-write coverage for the initializer.
