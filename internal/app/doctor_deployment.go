@@ -8,6 +8,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/doctor"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 	"github.com/projectious-work/ainfra/internal/security"
 )
 
@@ -23,12 +24,14 @@ func (failure *DoctorError) Error() string { return failure.Message }
 
 // DoctorDeploymentRequest identifies one local deployment diagnosis.
 type DoctorDeploymentRequest struct {
-	Target      string
-	ConfigPath  string
-	ProjectPath string
-	Format      *string
-	OutputStyle *string
-	Color       *string
+	Target              string
+	ConfigPath          string
+	ProjectPath         string
+	Format              *string
+	OutputStyle         *string
+	Color               *string
+	Reconcile           bool
+	ApplyReconciliation bool
 }
 
 // DoctorDeployment diagnoses a local deployment without resolving its template
@@ -78,10 +81,47 @@ func DoctorDeployment(
 	if deployment.SSH.KnownHosts != "" {
 		nativeFiles++
 	}
+	runtimePlan, err := (reconcile.Planner{}).RuntimeDirectory(deployment.Target.Root)
+	if err != nil {
+		return DoctorEnvironmentResponse{}, classifyDoctorLoad("runtime directory", err)
+	}
+	applied := false
+	if request.ApplyReconciliation && len(runtimePlan.Actions) > 0 {
+		results, applyErr := (reconcile.Planner{}).Apply(
+			runtimePlan, reconcile.FileLocker{},
+		)
+		if applyErr != nil {
+			return DoctorEnvironmentResponse{}, fmt.Errorf("apply reconciliation: %w", applyErr)
+		}
+		for _, result := range results {
+			if result.Status != "applied" {
+				return DoctorEnvironmentResponse{}, fmt.Errorf(
+					"apply reconciliation action: %s", result.Error,
+				)
+			}
+		}
+		applied = true
+		runtimePlan, err = (reconcile.Planner{}).RuntimeDirectory(deployment.Target.Root)
+		if err != nil {
+			return DoctorEnvironmentResponse{}, err
+		}
+	}
 	report := doctor.DeploymentRegistry(doctor.DeploymentInput{
 		Name: deployment.Metadata.Name, Root: deployment.Target.Root,
 		ManifestPath: deployment.Target.ManifestPath, NativeFiles: nativeFiles,
+		RuntimeSafe: len(runtimePlan.Actions) == 0,
 	}).Run(context.Background(), doctor.ScopeDeployment, doctor.Input{}, doctor.Capabilities{})
+	if applied {
+		for index := range report.Findings {
+			if report.Findings[index].Check == "deployment.runtime-permissions" {
+				report.Findings[index].Reconciliation = "applied"
+			}
+		}
+	}
+	plan := []reconcile.Action{}
+	if request.Reconcile {
+		plan = runtimePlan.Actions
+	}
 	return DoctorEnvironmentResponse{
 		Result: output.Doctor{
 			Scope: "deployment",
@@ -91,8 +131,9 @@ func DoctorDeployment(
 			},
 			Findings: report.Findings,
 		},
-		Format:      configuration.Settings.UI.Format,
-		OutputStyle: configuration.Settings.UI.OutputStyle,
-		Color:       configuration.Settings.UI.Color,
+		Format:             configuration.Settings.UI.Format,
+		OutputStyle:        configuration.Settings.UI.OutputStyle,
+		Color:              configuration.Settings.UI.Color,
+		ReconciliationPlan: plan,
 	}, nil
 }

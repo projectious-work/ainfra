@@ -19,16 +19,20 @@ import (
 	childexec "github.com/projectious-work/ainfra/internal/exec"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 	"github.com/projectious-work/ainfra/internal/security"
 )
 
 // DoctorEnvironmentRequest contains explicit CLI selections after parsing.
 type DoctorEnvironmentRequest struct {
-	ConfigPath  string
-	ProjectPath string
-	Format      *string
-	OutputStyle *string
-	Color       *string
+	ConfigPath     string
+	ProjectPath    string
+	Format         *string
+	OutputStyle    *string
+	Color          *string
+	Reconcile      bool
+	NonInteractive bool
+	Yes            bool
 }
 
 // DoctorEnvironmentOptions supplies immutable host facts to the use case.
@@ -49,10 +53,11 @@ type DoctorEnvironmentOptions struct {
 // DoctorEnvironmentResponse carries the semantic result and resolved display
 // settings. Rendering remains owned by the command/output layers.
 type DoctorEnvironmentResponse struct {
-	Result      output.Doctor
-	Format      string
-	OutputStyle string
-	Color       string
+	Result             output.Doctor
+	Format             string
+	OutputStyle        string
+	Color              string
+	ReconciliationPlan []reconcile.Action
 }
 
 // DoctorEnvironment validates local configuration and host support without

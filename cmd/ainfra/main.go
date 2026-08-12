@@ -68,6 +68,7 @@ func main() {
 			return app.DoctorAll(request, options)
 		},
 		IO: command.IO{
+			Stdin:      os.Stdin,
 			Stdout:     os.Stdout,
 			Stderr:     os.Stderr,
 			IsTerminal: isTerminal(os.Stdout),

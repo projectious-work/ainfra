@@ -11,9 +11,9 @@ func TestDeploymentRegistryReportsValidatedFacts(t *testing.T) {
 	t.Parallel()
 	report := doctor.DeploymentRegistry(doctor.DeploymentInput{
 		Name: "example", Root: "/deployment",
-		ManifestPath: "/deployment/ainfra.yaml", NativeFiles: 3,
+		ManifestPath: "/deployment/ainfra.yaml", NativeFiles: 3, RuntimeSafe: true,
 	}).Run(context.Background(), doctor.ScopeDeployment, doctor.Input{}, doctor.Capabilities{})
-	if report.Summary.Pass != 3 || len(report.Findings) != 3 {
+	if report.Summary.Pass != 4 || len(report.Findings) != 4 {
 		t.Fatalf("report = %#v", report)
 	}
 	for _, finding := range report.Findings {

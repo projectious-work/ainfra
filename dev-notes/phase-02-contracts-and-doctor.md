@@ -314,3 +314,29 @@ This retained-run slice establishes local layout and availability evidence.
 Saved-plan bindings, executable drift, interruption semantics, output and
 inventory provenance, and deeper event integrity depend on the Phase 4 run
 lifecycle artifacts and remain explicitly deferred rather than inferred.
+
+#### 2026-08-12 — Guarded local runtime reconciliation
+
+- Added `internal/reconcile` with an ordered, reviewable action model and a
+  single registered repair for the ainfra-owned deployment runtime directory.
+  The repair creates `.ainfra` with mode `0700` or restricts an existing
+  non-symlink directory to that mode; it cannot edit manifests or native files.
+- Planning is read-only and records the check ID, exact path, intended mode,
+  action kind, and rollback limitation. Unsafe file types and symlinks are
+  security refusals rather than repair candidates.
+- Applying a plan takes an exclusive advisory deployment-operation lock on
+  the existing `ainfra.yaml`, recomputes the complete plan under that lock,
+  and refuses stale preconditions before writing.
+- Doctor deployment and doctor all expose the runtime-permission finding as
+  `warning` with reconciliation `available`. After successful application they
+  rerun the check and report `pass` with reconciliation `applied`.
+- Interactive reconciliation prints the full ordered plan and requires a
+  terminal confirmation. Automation must provide all three of `--reconcile`,
+  `--non-interactive`, and `--yes`; `--yes` cannot be used on its own.
+- Tests cover plan purity, creation, restrictive permissions, idempotency,
+  stale-plan refusal, symlink refusal, missing automation approval, approved
+  two-phase execution, post-application checks, and schema-valid doctor output.
+
+This slice intentionally registers no repair for executable installation,
+configuration, deployment manifests, native inputs, templates, retained run
+evidence, state, credentials, or remote infrastructure.

@@ -51,7 +51,8 @@ func DoctorAll(
 			EffectiveConfiguration: environment.Result.EffectiveConfiguration,
 		},
 		Format: environment.Format, OutputStyle: environment.OutputStyle,
-		Color: environment.Color,
+		Color:              environment.Color,
+		ReconciliationPlan: deployment.ReconciliationPlan,
 	}, nil
 }
 

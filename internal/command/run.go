@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,10 +11,12 @@ import (
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/output"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 )
 
 // IO supplies explicit process streams and terminal capabilities.
 type IO struct {
+	Stdin      io.Reader
 	Stdout     io.Writer
 	Stderr     io.Writer
 	IsTerminal bool
@@ -122,6 +125,7 @@ func runDoctorTarget(
 	request := app.DoctorDeploymentRequest{
 		Target: target, ConfigPath: common.ConfigPath, ProjectPath: common.ProjectPath,
 		Format: common.Format, OutputStyle: common.OutputStyle, Color: common.Color,
+		Reconcile: common.Reconcile,
 	}
 	var response app.DoctorEnvironmentResponse
 	if commandName == output.CommandDoctorRun {
@@ -149,7 +153,53 @@ func runDoctorTarget(
 		}
 		return failDoctorWithExit(arguments, commandName, code, err.Error(), options.IO, exit)
 	}
+	if common.Reconcile && len(response.ReconciliationPlan) > 0 {
+		if !confirmReconciliation(response.ReconciliationPlan, common, options.IO) {
+			return failDoctorWithExit(
+				arguments, commandName, "AINFRA-E2002",
+				"reconciliation requires confirmation", options.IO, ExitInvalidInput,
+			)
+		}
+		request.ApplyReconciliation = true
+		if commandName == output.CommandDoctorAll {
+			response, err = options.DoctorAll(request)
+		} else {
+			response, err = options.DoctorRun(request)
+		}
+		if err != nil {
+			return failDoctorWithExit(
+				arguments, commandName, "AINFRA-E2003", err.Error(),
+				options.IO, ExitOperationFailed,
+			)
+		}
+	}
 	return renderDoctorResponse(commandName, response, renderOptions, options.IO)
+}
+
+func confirmReconciliation(
+	plan []reconcile.Action,
+	request app.DoctorEnvironmentRequest,
+	streams IO,
+) bool {
+	for _, action := range plan {
+		_, _ = fmt.Fprintf(
+			streams.Stderr, "reconcile %s: %s (%04o)\n  rollback: %s\n",
+			action.CheckID, action.Path, action.Mode.Perm(), action.RollbackLimitation,
+		)
+	}
+	if request.NonInteractive {
+		return request.Yes
+	}
+	if !streams.IsTerminal || streams.Stdin == nil {
+		return false
+	}
+	_, _ = io.WriteString(streams.Stderr, "Apply reconciliation plan? [y/N] ")
+	answer, err := bufio.NewReader(streams.Stdin).ReadString('\n')
+	if err != nil && len(answer) == 0 {
+		return false
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "y" || answer == "yes"
 }
 
 func renderDoctorResponse(
@@ -252,6 +302,7 @@ func runDoctorDeployment(
 	response, err := options.DoctorDeployment(app.DoctorDeploymentRequest{
 		Target: target, ConfigPath: common.ConfigPath, ProjectPath: common.ProjectPath,
 		Format: common.Format, OutputStyle: common.OutputStyle, Color: common.Color,
+		Reconcile: common.Reconcile,
 	})
 	if err != nil {
 		exit := ExitInvalidInput
@@ -264,6 +315,25 @@ func runDoctorDeployment(
 		return failDoctorWithExit(
 			arguments, output.CommandDoctorDeployment, code, err.Error(), options.IO, exit,
 		)
+	}
+	if common.Reconcile && len(response.ReconciliationPlan) > 0 {
+		if !confirmReconciliation(response.ReconciliationPlan, common, options.IO) {
+			return failDoctorWithExit(
+				arguments, output.CommandDoctorDeployment, "AINFRA-E2002",
+				"reconciliation requires confirmation", options.IO, ExitInvalidInput,
+			)
+		}
+		response, err = options.DoctorDeployment(app.DoctorDeploymentRequest{
+			Target: target, ConfigPath: common.ConfigPath, ProjectPath: common.ProjectPath,
+			Format: common.Format, OutputStyle: common.OutputStyle, Color: common.Color,
+			Reconcile: true, ApplyReconciliation: true,
+		})
+		if err != nil {
+			return failDoctorWithExit(
+				arguments, output.CommandDoctorDeployment, "AINFRA-E2306",
+				err.Error(), options.IO, ExitOperationFailed,
+			)
+		}
 	}
 	if err := output.Render(
 		options.IO.Stdout,
@@ -310,6 +380,11 @@ func splitInvocation(arguments []string) (
 				index++
 				controlArguments = append(controlArguments, arguments[index])
 			}
+			continue
+		}
+		if argument == "--reconcile" || argument == "--non-interactive" ||
+			argument == "--yes" {
+			controlArguments = append(controlArguments, argument)
 			continue
 		}
 		if stringsHasControlPrefix(argument) {
@@ -372,11 +447,25 @@ func parseDoctorEnvironmentRequest(
 	flags.SetOutput(io.Discard)
 	configPath := flags.String("config", "", "explicit configuration file")
 	projectPath := flags.String("project", "", "deployment target")
+	reconcileRequested := flags.Bool("reconcile", false, "apply safe local reconciliation")
+	nonInteractive := flags.Bool("non-interactive", false, "disable prompts")
+	yes := flags.Bool("yes", false, "confirm in non-interactive mode")
 	if err := flags.Parse(controlArguments); err != nil {
 		return app.DoctorEnvironmentRequest{}, err
 	}
 	request := app.DoctorEnvironmentRequest{
 		ConfigPath: *configPath, ProjectPath: *projectPath,
+		Reconcile: *reconcileRequested, NonInteractive: *nonInteractive, Yes: *yes,
+	}
+	if request.Yes && !request.NonInteractive {
+		return app.DoctorEnvironmentRequest{}, errors.New(
+			"--yes requires --non-interactive",
+		)
+	}
+	if request.Yes && !request.Reconcile {
+		return app.DoctorEnvironmentRequest{}, errors.New(
+			"--yes requires --reconcile",
+		)
 	}
 	request.Format = explicitOption(renderArguments, "--format")
 	request.OutputStyle = explicitOption(renderArguments, "--output-style")

@@ -11,6 +11,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/command"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/output"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 )
 
 func run(arguments ...string) (command.ExitCode, string, string) {
@@ -182,6 +183,52 @@ func TestBareDoctorIsExactAliasForDoctorAll(t *testing.T) {
 	allCode, all := invoke("doctor", "all", "/deployment", "--format=json")
 	if bareCode != command.ExitSuccess || allCode != command.ExitSuccess || bare != all {
 		t.Fatalf("bare=(%d,%q) all=(%d,%q)", bareCode, bare, allCode, all)
+	}
+}
+
+func TestDoctorReconciliationRequiresPairedAutomationApproval(t *testing.T) {
+	t.Parallel()
+	invoke := func(arguments ...string) (command.ExitCode, int) {
+		calls := 0
+		code := command.Run(arguments, command.Options{
+			IO: command.IO{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
+			DoctorDeployment: func(
+				request app.DoctorDeploymentRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				calls++
+				response := app.DoctorEnvironmentResponse{
+					Format: "text", OutputStyle: "plain", Color: "never",
+					Result: output.Doctor{
+						Scope: "deployment", Summary: output.DoctorSummary{Warning: 1},
+						Findings: []diagnostic.Diagnostic{},
+					},
+				}
+				if request.ApplyReconciliation {
+					response.Result.Summary = output.DoctorSummary{Pass: 1}
+					return response, nil
+				}
+				response.ReconciliationPlan = []reconcile.Action{{
+					CheckID: "deployment.runtime-permissions", Path: "/deployment/.ainfra",
+					Kind: reconcile.ActionCreateRuntimeDirectory, Mode: 0o700,
+					RollbackLimitation: "remove manually",
+				}}
+				return response, nil
+			},
+		})
+		return code, calls
+	}
+	denied, deniedCalls := invoke(
+		"doctor", "deployment", "/deployment", "--reconcile", "--non-interactive",
+	)
+	if denied != command.ExitInvalidInput || deniedCalls != 1 {
+		t.Fatalf("denied exit=%d calls=%d", denied, deniedCalls)
+	}
+	approved, approvedCalls := invoke(
+		"doctor", "deployment", "/deployment", "--reconcile",
+		"--non-interactive", "--yes",
+	)
+	if approved != command.ExitSuccess || approvedCalls != 2 {
+		t.Fatalf("approved exit=%d calls=%d", approved, approvedCalls)
 	}
 }
 
