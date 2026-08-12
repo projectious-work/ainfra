@@ -49,6 +49,24 @@ func main() {
 			}
 			return app.DoctorTemplate(request, options)
 		},
+		DoctorRun: func(
+			request app.DoctorRunRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorRun(request, options)
+		},
+		DoctorAll: func(
+			request app.DoctorAllRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorAll(request, options)
+		},
 		IO: command.IO{
 			Stdout:     os.Stdout,
 			Stderr:     os.Stderr,

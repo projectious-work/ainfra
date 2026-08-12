@@ -14,6 +14,8 @@ help="$temporary/help.json"
 doctor="$temporary/doctor-environment.json"
 deployment_doctor="$temporary/doctor-deployment.json"
 template_doctor="$temporary/doctor-template.json"
+run_doctor="$temporary/doctor-run.json"
+all_doctor="$temporary/doctor-all.json"
 
 mkdir -p "$temporary/home" "$temporary/config"
 mkdir -p "$temporary/deployment"
@@ -45,6 +47,17 @@ HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
 HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
   "$binary" --format json doctor template \
   "$repo_root/spec/examples/v1/template-example" >"$template_doctor"
+HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
+  "$binary" --format json doctor run "$temporary/deployment" >"$run_doctor"
+set +e
+HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
+  "$binary" --format json doctor all "$temporary/deployment" >"$all_doctor"
+all_status=$?
+set -e
+if [ "$all_status" -ne 0 ] && [ "$all_status" -ne 3 ]; then
+  echo "doctor all returned $all_status, expected 0 or 3" >&2
+  exit 1
+fi
 
 for topic in ainfra doctor template init doctor.all doctor.deployment \
   doctor.template doctor.run doctor.environment template.lock \

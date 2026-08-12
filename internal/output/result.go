@@ -20,6 +20,10 @@ const (
 	CommandDoctorDeployment Command = "doctor.deployment"
 	// CommandDoctorTemplate identifies local resolved-template diagnostics.
 	CommandDoctorTemplate Command = "doctor.template"
+	// CommandDoctorRun identifies retained local run diagnostics.
+	CommandDoctorRun Command = "doctor.run"
+	// CommandDoctorAll identifies the complete applicable diagnostic set.
+	CommandDoctorAll Command = "doctor.all"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )

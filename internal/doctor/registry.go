@@ -120,8 +120,14 @@ func (registry Registry) Run(
 		report.Findings = append(report.Findings, finding)
 		increment(&report.Summary, finding.Status)
 	}
-	sort.SliceStable(report.Findings, func(left, right int) bool {
-		leftFinding, rightFinding := report.Findings[left], report.Findings[right]
+	SortFindings(report.Findings)
+	return report
+}
+
+// SortFindings applies the stable machine-result order across doctor scopes.
+func SortFindings(findings []diagnostic.Diagnostic) {
+	sort.SliceStable(findings, func(left, right int) bool {
+		leftFinding, rightFinding := findings[left], findings[right]
 		if statusOrder(leftFinding.Status) != statusOrder(rightFinding.Status) {
 			return statusOrder(leftFinding.Status) < statusOrder(rightFinding.Status)
 		}
@@ -133,7 +139,6 @@ func (registry Registry) Run(
 		}
 		return leftFinding.Code < rightFinding.Code
 	})
-	return report
 }
 
 func increment(summary *Summary, status string) {

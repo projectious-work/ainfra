@@ -26,6 +26,8 @@ type Options struct {
 	DoctorEnvironment func(app.DoctorEnvironmentRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorDeployment  func(app.DoctorDeploymentRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorTemplate    func(app.DoctorTemplateRequest) (app.DoctorEnvironmentResponse, error)
+	DoctorRun         func(app.DoctorRunRequest) (app.DoctorEnvironmentResponse, error)
+	DoctorAll         func(app.DoctorAllRequest) (app.DoctorEnvironmentResponse, error)
 }
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
@@ -68,6 +70,21 @@ func Run(arguments []string, options Options) ExitCode {
 			arguments, renderArguments, controlArguments, positional, renderOptions, options,
 		)
 	}
+	if len(positional) >= 2 && len(positional) <= 3 &&
+		positional[0] == "doctor" && positional[1] == "run" {
+		return runDoctorTarget(
+			arguments, renderArguments, controlArguments, positional,
+			renderOptions, options, output.CommandDoctorRun,
+		)
+	}
+	if (len(positional) >= 1 && len(positional) <= 2 && positional[0] == "doctor") ||
+		(len(positional) >= 2 && len(positional) <= 3 &&
+			positional[0] == "doctor" && positional[1] == "all") {
+		return runDoctorTarget(
+			arguments, renderArguments, controlArguments, positional,
+			renderOptions, options, output.CommandDoctorAll,
+		)
+	}
 
 	if len(positional) != 1 || (positional[0] != "version" && positional[0] != "--version") {
 		return failInvocation(arguments, "invalid command invocation", options.IO)
@@ -81,6 +98,85 @@ func Run(arguments []string, options Options) ExitCode {
 		return ExitOperationFailed
 	}
 	return ExitSuccess
+}
+
+func runDoctorTarget(
+	arguments, renderArguments, controlArguments, positional []string,
+	renderOptions output.RenderOptions,
+	options Options,
+	commandName output.Command,
+) ExitCode {
+	common, err := parseDoctorEnvironmentRequest(renderArguments, controlArguments)
+	if err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	targetIndex := 2
+	if commandName == output.CommandDoctorAll && len(positional) > 0 &&
+		(len(positional) == 1 || positional[1] != "all") {
+		targetIndex = 1
+	}
+	target := ""
+	if len(positional) > targetIndex {
+		target = positional[targetIndex]
+	}
+	request := app.DoctorDeploymentRequest{
+		Target: target, ConfigPath: common.ConfigPath, ProjectPath: common.ProjectPath,
+		Format: common.Format, OutputStyle: common.OutputStyle, Color: common.Color,
+	}
+	var response app.DoctorEnvironmentResponse
+	if commandName == output.CommandDoctorRun {
+		if options.DoctorRun == nil {
+			return failDoctor(arguments, commandName, "run doctor is unavailable", options.IO)
+		}
+		response, err = options.DoctorRun(request)
+	} else {
+		if options.DoctorAll == nil {
+			return failDoctor(arguments, commandName, "all doctor is unavailable", options.IO)
+		}
+		response, err = options.DoctorAll(request)
+	}
+	if err != nil {
+		exit, code := ExitInvalidInput, "AINFRA-E2500"
+		if commandName == output.CommandDoctorAll {
+			code = "AINFRA-E2600"
+		}
+		var doctorError *app.DoctorError
+		if errors.As(err, &doctorError) && doctorError.Kind == "security" {
+			exit, code = ExitSecurity, "AINFRA-E2504"
+			if commandName == output.CommandDoctorAll {
+				code = "AINFRA-E2604"
+			}
+		}
+		return failDoctorWithExit(arguments, commandName, code, err.Error(), options.IO, exit)
+	}
+	return renderDoctorResponse(commandName, response, renderOptions, options.IO)
+}
+
+func renderDoctorResponse(
+	commandName output.Command,
+	response app.DoctorEnvironmentResponse,
+	renderOptions output.RenderOptions,
+	streams IO,
+) ExitCode {
+	renderOptions.Format = output.Format(response.Format)
+	renderOptions.Style = output.Style(response.OutputStyle)
+	renderOptions.Color = output.ColorMode(response.Color)
+	envelope := output.Success(commandName, response.Result)
+	exit := ExitSuccess
+	if response.Result.Summary.Fail > 0 {
+		failed := make([]diagnostic.Diagnostic, 0, response.Result.Summary.Fail)
+		for _, finding := range response.Result.Findings {
+			if finding.Status == "fail" {
+				failed = append(failed, finding)
+			}
+		}
+		envelope = output.PartialFailure(commandName, response.Result, failed...)
+		exit = ExitOperationFailed
+	}
+	if err := output.Render(streams.Stdout, envelope, renderOptions); err != nil {
+		return ExitOperationFailed
+	}
+	return exit
 }
 
 func runDoctorTemplate(
@@ -323,6 +419,14 @@ func failDoctorWithExit(
 	if command == output.CommandDoctorTemplate {
 		scope = "template"
 		check = "template.contract"
+	}
+	if command == output.CommandDoctorRun {
+		scope = "run"
+		check = "run.contract"
+	}
+	if command == output.CommandDoctorAll {
+		scope = "all"
+		check = "doctor.all"
 	}
 	diagnosticValue := diagnostic.Diagnostic{
 		Code: code, Severity: diagnostic.SeverityError,

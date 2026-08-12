@@ -153,6 +153,38 @@ func TestDoctorTemplateDispatchesCanonicalResult(t *testing.T) {
 	}
 }
 
+func TestBareDoctorIsExactAliasForDoctorAll(t *testing.T) {
+	t.Parallel()
+	invoke := func(arguments ...string) (command.ExitCode, string) {
+		var stdout bytes.Buffer
+		code := command.Run(arguments, command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			DoctorAll: func(
+				request app.DoctorAllRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				return app.DoctorEnvironmentResponse{
+					Format: "json", OutputStyle: "auto", Color: "auto",
+					Result: output.Doctor{
+						Scope: "all", Summary: output.DoctorSummary{Skip: 1},
+						Findings: []diagnostic.Diagnostic{{
+							Code: "AINFRA-E2601", Severity: diagnostic.SeverityInfo,
+							Check: "template.resolved-source", Scope: "template",
+							Status: "skip", Component: request.Target,
+							Reconciliation: "not_available",
+						}},
+					},
+				}, nil
+			},
+		})
+		return code, stdout.String()
+	}
+	bareCode, bare := invoke("doctor", "/deployment", "--format=json")
+	allCode, all := invoke("doctor", "all", "/deployment", "--format=json")
+	if bareCode != command.ExitSuccess || allCode != command.ExitSuccess || bare != all {
+		t.Fatalf("bare=(%d,%q) all=(%d,%q)", bareCode, bare, allCode, all)
+	}
+}
+
 func TestStaticHelpDoesNotConstructDoctor(t *testing.T) {
 	t.Parallel()
 	called := false

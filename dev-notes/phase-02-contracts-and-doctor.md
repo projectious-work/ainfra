@@ -288,3 +288,29 @@ by this command yet.
 
 No source URL is parsed, cloned, updated, locked, or cached in this slice.
 Immutable acquisition remains Phase 3.
+
+#### 2026-08-12 — Retained-run and aggregate doctor
+
+- Added `ainfra doctor run [TARGET]`. It locates the latest retained local run
+  deterministically and validates the required `run.json` and `events.jsonl`
+  regular files through a deployment-rooted filesystem handle.
+- A deployment with no retained runs reports an explained `skip`, never a
+  pass. An incomplete latest run reports a failed finding while preserving the
+  complete machine result for troubleshooting.
+- Added `ainfra doctor all [TARGET]` as the aggregate of the environment,
+  deployment, resolved-template, and latest-run scopes. Findings are sorted by
+  the same stable registry ordering and receive a recomputed aggregate summary.
+- Until Phase 3 has resolved and locked a deployment template, the aggregate
+  emits an explicit template-scope skip with remediation. It does not acquire
+  source content or falsely claim that an unresolved template passed.
+- Bare `ainfra doctor [TARGET]` dispatches the exact same application function
+  and canonical `doctor.all` result as `ainfra doctor all [TARGET]`. A command
+  test compares their complete JSON bytes for the same target.
+- Extended the compiled CLI contract gate to validate schema-conforming
+  `doctor.run` and `doctor.all` envelopes, including the allowed partial
+  dependency-failure result from aggregate environment checks.
+
+This retained-run slice establishes local layout and availability evidence.
+Saved-plan bindings, executable drift, interruption semantics, output and
+inventory provenance, and deeper event integrity depend on the Phase 4 run
+lifecycle artifacts and remain explicitly deferred rather than inferred.
