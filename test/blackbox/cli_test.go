@@ -141,8 +141,12 @@ func TestDoctorEnvironmentJSONIsOneCleanResult(t *testing.T) {
 	var stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
-	if err := command.Run(); err != nil {
-		t.Fatalf("run: %v, stderr: %s", err, stderr.String())
+	err := command.Run()
+	if err != nil {
+		exitError, ok := err.(*exec.ExitError)
+		if !ok || exitError.ExitCode() != 3 {
+			t.Fatalf("run: %v, stderr: %s", err, stderr.String())
+		}
 	}
 	var envelope struct {
 		Command string `json:"command"`
@@ -161,7 +165,7 @@ func TestDoctorEnvironmentJSONIsOneCleanResult(t *testing.T) {
 	if decoder.More() {
 		t.Fatal("doctor wrote more than one JSON value")
 	}
-	if envelope.Command != "doctor.environment" || !envelope.OK ||
+	if envelope.Command != "doctor.environment" ||
 		envelope.Result.Scope != "environment" ||
 		len(envelope.Result.EffectiveConfiguration.Values) != 12 || stderr.Len() != 0 {
 		t.Fatalf("unexpected result: %+v, stderr=%q", envelope, stderr.String())

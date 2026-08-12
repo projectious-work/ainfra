@@ -136,14 +136,24 @@ func runDoctorEnvironment(
 	renderOptions.Format = output.Format(response.Format)
 	renderOptions.Style = output.Style(response.OutputStyle)
 	renderOptions.Color = output.ColorMode(response.Color)
-	if err := output.Render(
-		options.IO.Stdout,
-		output.Success(output.CommandDoctorEnvironment, response.Result),
-		renderOptions,
-	); err != nil {
+	envelope := output.Success(output.CommandDoctorEnvironment, response.Result)
+	exitCode := ExitSuccess
+	if response.Result.Summary.Fail > 0 {
+		failed := make([]diagnostic.Diagnostic, 0, response.Result.Summary.Fail)
+		for _, finding := range response.Result.Findings {
+			if finding.Status == "fail" {
+				failed = append(failed, finding)
+			}
+		}
+		envelope = output.PartialFailure(
+			output.CommandDoctorEnvironment, response.Result, failed...,
+		)
+		exitCode = ExitDependency
+	}
+	if err := output.Render(options.IO.Stdout, envelope, renderOptions); err != nil {
 		return ExitOperationFailed
 	}
-	return ExitSuccess
+	return exitCode
 }
 
 func parseDoctorEnvironmentRequest(

@@ -1,11 +1,13 @@
 package app_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/projectious-work/ainfra/internal/app"
+	"github.com/projectious-work/ainfra/internal/doctor"
 )
 
 func TestDoctorEnvironmentUsesProjectConfigSafely(t *testing.T) {
@@ -33,6 +35,13 @@ paths:
 			GOOS: "linux", GOARCH: "arm64", WorkingDirectory: t.TempDir(),
 			HomeDirectory: home, CacheDirectory: "/cache", RunDirectory: "/runs",
 			Environment: map[string]string{},
+			InspectExecutable: func(
+				_ context.Context, name, _ string,
+			) (doctor.ExecutableFact, error) {
+				return doctor.ExecutableFact{
+					Path: "/tools/" + name, Version: name + " 1.0",
+				}, nil
+			},
 		},
 	)
 	if err != nil {
@@ -46,6 +55,10 @@ paths:
 	}
 	if configuration.Values["paths.cache"].DisplayValue != "/cache" {
 		t.Fatal("prohibited project path was applied")
+	}
+	if configuration.Values["executables.tofu"].Source != "discovered" ||
+		configuration.Values["executables.tofu"].DisplayValue != "/tools/tofu" {
+		t.Fatal("discovered executable provenance is missing")
 	}
 }
 

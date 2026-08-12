@@ -18,8 +18,15 @@ mkdir -p "$temporary/home" "$temporary/config"
 go build -o "$binary" ./cmd/ainfra
 "$binary" --format json version >"$success"
 "$binary" --format json help version >"$help"
+set +e
 HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
   "$binary" --format json doctor environment >"$doctor"
+doctor_status=$?
+set -e
+if [ "$doctor_status" -ne 0 ] && [ "$doctor_status" -ne 3 ]; then
+  echo "doctor environment returned $doctor_status, expected 0 or 3" >&2
+  exit 1
+fi
 
 for topic in ainfra doctor template init doctor.all doctor.deployment \
   doctor.template doctor.run doctor.environment template.lock \

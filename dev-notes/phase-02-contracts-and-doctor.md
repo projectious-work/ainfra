@@ -197,3 +197,34 @@ This first doctor slice deliberately performs only local configuration and
 supported-platform checks. Executable discovery and version checks will enter
 through the capability-aware doctor registry; no child executable is invoked
 by this command yet.
+
+#### 2026-08-12 — Doctor registry and executable capabilities
+
+- Added `internal/doctor` with validated check definitions, stable IDs,
+  explicit scopes, declared prerequisites and child-tool needs, applicability,
+  and injected capabilities. Checks receive no implicit filesystem, process,
+  environment, or network authority.
+- Registry construction rejects incomplete and duplicate checks. Execution
+  does not stop after failures and sorts complete findings failures-first,
+  followed by warnings, skips, and passes with stable check/path/code order.
+- Added environment checks for the supported OS/architecture matrix and the
+  `tofu`, `ansible-runner`, `git`, and `ssh` executables. OpenTofu is a required
+  v1 dependency; an unavailable OpenTofu check fails. Tools whose applicability
+  depends on later deployment/template facts are reported as skipped, never
+  passed, when unavailable.
+- Host executable discovery validates absolute, regular, executable files and
+  fingerprints them through the Phase 1 security boundary. Version queries run
+  with structured argv, an empty allowlisted environment, a contained working
+  directory, redacted streams, and a five-second timeout through the sole
+  subprocess runner.
+- Successful executable findings record canonical path and reported version.
+  Auto-discovered paths appear in effective configuration with `discovered`
+  provenance; explicitly configured paths retain their actual winning layer.
+- Doctor reports with failed checks now use a partial-failure envelope: the
+  complete schema-valid result and failed diagnostics are retained while the
+  command returns exit code 3 for a missing or incompatible dependency.
+- Added registry tests for deterministic ordering, pass/skip/fail summaries,
+  duplicate refusal, non-short-circuit behavior, remediation on skips, and
+  discovered executable provenance. CLI schema and black-box tests accept both
+  healthy exit 0 and missing-dependency exit 3 while always validating the
+  complete machine result.

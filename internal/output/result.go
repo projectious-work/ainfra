@@ -57,6 +57,22 @@ func Failure(command Command, diagnostics ...diagnostic.Diagnostic) Envelope {
 	}
 }
 
+// PartialFailure constructs an unsuccessful command that still produced a
+// schema-valid meaningful result, such as a complete doctor report.
+func PartialFailure(
+	command Command,
+	result any,
+	diagnostics ...diagnostic.Diagnostic,
+) Envelope {
+	if result == nil || len(diagnostics) == 0 {
+		panic("partial failure requires a result and diagnostic")
+	}
+	return Envelope{
+		APIVersion: APIVersion, Command: command, OK: false, Result: result,
+		Diagnostics: diagnostics,
+	}
+}
+
 // Version is the semantic result for the version command.
 type Version struct {
 	Version                   string                    `json:"version"`

@@ -79,11 +79,13 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 			return err
 		}
 		for _, finding := range result.Findings {
-			if _, err = fmt.Fprintf(
-				writer, "%s %s: %s\n  next: %s\n",
-				finding.Status, finding.Code, finding.Message, finding.NextAction,
-			); err != nil {
+			if _, err = fmt.Fprintf(writer, "%s %s: %s\n", finding.Status, finding.Code, finding.Message); err != nil {
 				return err
+			}
+			if finding.NextAction != "" {
+				if _, err = fmt.Fprintf(writer, "  next: %s\n", finding.NextAction); err != nil {
+					return err
+				}
 			}
 		}
 		if result.EffectiveConfiguration != nil {
