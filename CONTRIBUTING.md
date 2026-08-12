@@ -131,6 +131,21 @@ GitHub email configuration and Cosign installation are one-time setup. The
 interactive approval, short-lived Fulcio certificate, Rekor entry, signature,
 and verification are intentionally repeated for every release.
 
+After the exact release commit has been promoted to `v1.x-release`, validate
+publication without changing GitHub:
+
+```bash
+scripts/maintain.sh release-publish --version=1.0.0-alpha.1 --dry-run
+```
+
+The real command creates the immutable annotated tag, uploads the ten prepared
+assets as a GitHub prerelease, downloads them into a private temporary
+directory, and independently re-verifies checksums and the Sigstore identity:
+
+```bash
+scripts/maintain.sh release-publish --version=1.0.0-alpha.1
+```
+
 Do not give an agent container-runtime authority. Do not alter the host script
 after owner review without new, explicit owner permission. The host script
 creates `evidence/`, fails rather than overwriting an existing run, removes

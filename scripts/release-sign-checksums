@@ -69,6 +69,31 @@ bundle="$release_dir/checksums.sha256.sigstore.json"
   fail "missing or unsafe checksum manifest: $manifest"
 [ -s "$manifest" ] || fail 'checksum manifest is empty'
 
+verify_checksums() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    (cd "$release_dir" && sha256sum --check checksums.sha256)
+  elif command -v shasum >/dev/null 2>&1; then
+    (cd "$release_dir" && shasum -a 256 --check checksums.sha256)
+  else
+    fail 'missing checksum tool: install sha256sum or shasum'
+  fi
+}
+verify_checksums
+
+host_os=$(uname -s)
+host_arch=$(uname -m)
+case "$host_os/$host_arch" in
+  Darwin/x86_64) native_target='darwin_amd64' ;;
+  Darwin/arm64) native_target='darwin_arm64' ;;
+  Linux/x86_64) native_target='linux_amd64' ;;
+  Linux/aarch64 | Linux/arm64) native_target='linux_arm64' ;;
+  *) fail "unsupported host platform for native smoke test: $host_os/$host_arch" ;;
+esac
+native_base="ainfra_${version}_${native_target}"
+native_archive="$release_dir/$native_base.tar.gz"
+[ -f "$native_archive" ] && [ ! -L "$native_archive" ] || \
+  fail "missing or unsafe native archive: $native_archive"
+
 printf '%s\n' \
   "release signing identity: $signing_identity" \
   "release signing issuer: $oidc_issuer" \
@@ -81,6 +106,23 @@ if [ "$dry_run" = true ]; then
 fi
 
 [ ! -e "$bundle" ] || fail "signature bundle already exists: $bundle"
+
+# Execute the packaged native binary before signing the manifest. Extraction
+# occurs in a private temporary directory and is removed on every exit path.
+smoke_dir=$(mktemp -d "${TMPDIR:-/tmp}/ainfra-release-smoke.XXXXXX")
+cleanup_smoke() {
+  rm -rf -- "$smoke_dir"
+}
+trap cleanup_smoke EXIT HUP INT TERM
+tar -xzf "$native_archive" -C "$smoke_dir"
+native_binary="$smoke_dir/$native_base/ainfra"
+[ -x "$native_binary" ] || fail 'native archive does not contain ainfra'
+"$native_binary" --format json version | grep -F '"version":"'"$version"'"' \
+  >/dev/null || fail 'native binary reports the wrong release version'
+"$native_binary" help >/dev/null || fail 'native binary help smoke test failed'
+cleanup_smoke
+trap - EXIT HUP INT TERM
+printf 'native archive smoke test passed: %s\n' "$native_target"
 
 # GH_TOKEN is deliberately irrelevant here. Cosign opens Sigstore's OIDC flow;
 # the operator selects GitHub and signs in as the projectious user. Fulcio then

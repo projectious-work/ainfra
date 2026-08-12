@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import unittest
 
@@ -24,8 +26,24 @@ class ReleaseSigningTest(unittest.TestCase):
         self.release_dir = REPO / "dist" / "release" / self.version
         self.release_dir.mkdir(parents=True)
         self.manifest = self.release_dir / "checksums.sha256"
-        self.manifest.write_text("0" * 64 + "  artifact.tar.gz\n")
+        self.native_target = self._native_target()
+        self.native_base = f"ainfra_{self.version}_{self.native_target}"
         self.temp_dir = Path(tempfile.mkdtemp(prefix="ainfra-sign-test-"))
+        package_root = self.temp_dir / self.native_base
+        package_root.mkdir()
+        binary = package_root / "ainfra"
+        binary.write_text(
+            "#!/bin/sh\n"
+            f"if [ \"$1\" = --format ]; then printf '%s\\n' "
+            f"'{{\"version\":\"{self.version}\"}}'; fi\n"
+            "exit 0\n"
+        )
+        binary.chmod(0o755)
+        native_archive = self.release_dir / f"{self.native_base}.tar.gz"
+        with tarfile.open(native_archive, "w:gz") as archive:
+            archive.add(package_root, arcname=self.native_base)
+        digest = hashlib.sha256(native_archive.read_bytes()).hexdigest()
+        self.manifest.write_text(f"{digest}  {native_archive.name}\n")
         self.log = self.temp_dir / "cosign.log"
         fake = self.temp_dir / "cosign"
         fake.write_text(
@@ -47,6 +65,16 @@ class ReleaseSigningTest(unittest.TestCase):
             "PATH": f"{self.temp_dir}:{os.environ['PATH']}",
             "COSIGN_TEST_LOG": str(self.log),
         }
+
+    @staticmethod
+    def _native_target() -> str:
+        """Return the release target matching the current test host."""
+        import platform
+
+        os_name = "darwin" if platform.system() == "Darwin" else "linux"
+        machine = platform.machine()
+        arch = "amd64" if machine in {"x86_64", "AMD64"} else "arm64"
+        return f"{os_name}_{arch}"
 
     def tearDown(self) -> None:
         """Remove only the test's unique ignored output and temporary tools."""

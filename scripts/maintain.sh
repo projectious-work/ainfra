@@ -14,7 +14,8 @@ usage() {
     '  scripts/maintain.sh release-package --version=SEMVER [--dry-run]' \
     '  scripts/maintain.sh release-host-prepare --version=SEMVER' \
     '  scripts/maintain.sh release-host --version=SEMVER [--dry-run]' \
-    '  scripts/maintain.sh release-sign --version=SEMVER [--dry-run]'
+    '  scripts/maintain.sh release-sign --version=SEMVER [--dry-run]' \
+    '  scripts/maintain.sh release-publish --version=SEMVER [--dry-run]'
 }
 
 require_preparation_tools() {
@@ -139,6 +140,16 @@ case "${1:-}" in
         "--version=$release_version" --dry-run
     fi
     exec "$repo_root/scripts/release-sign-checksums" \
+      "--version=$release_version"
+    ;;
+  release-publish)
+    shift
+    parse_release_options "$@"
+    if [ "$dry_run" = true ]; then
+      exec "$repo_root/scripts/publish-release.sh" \
+        "--version=$release_version" --dry-run
+    fi
+    exec "$repo_root/scripts/publish-release.sh" \
       "--version=$release_version"
     ;;
   *)

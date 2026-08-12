@@ -9,6 +9,7 @@ python3 -m unittest test/release_signing_test.py
 shellcheck scripts/container-gate-host scripts/maintain.sh
 shellcheck scripts/release-sign-checksums
 shellcheck scripts/package-release.sh
+shellcheck scripts/publish-release.sh
 python3 -m py_compile \
   scripts/prepare-container-gate.py \
   scripts/container-gate-host.py
