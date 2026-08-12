@@ -5,60 +5,60 @@
 
 declare -gA THEME_COLORS=(
     # Core
-    [background]="#2E3440"
+    [background]="#101010"
 
     # Status bar
-    [statusbar-bg]="#3B4252"
-    [statusbar-fg]="#D8DEE9"
+    [statusbar-bg]="#313244"
+    [statusbar-fg]="#FFFFFF"
 
     # Session (status-left)
-    [session-bg]="#88C0D0"
-    [session-fg]="#2E3440"
-    [session-prefix-bg]="#BF616A"
-    [session-copy-bg]="#81A1C1"
-    [session-search-bg]="#EBCB8B"
-    [session-command-bg]="#A98792"
+    [session-bg]="#FF7B00"
+    [session-fg]="#101010"
+    [session-prefix-bg]="#F44747"
+    [session-copy-bg]="#FFC799"
+    [session-search-bg]="#FF7B00"
+    [session-command-bg]="#F85B2A"
 
     # Windows
-    [window-active-base]="#88C0D0"
+    [window-active-base]="#FF7B00"
     [window-active-style]="bold"
-    [window-inactive-base]="#4C566A"
+    [window-inactive-base]="#5C5C5C"
     [window-inactive-style]="none"
     [window-activity-style]="italics"
     [window-bell-style]="bold"
-    [window-zoomed-bg]="#81A1C1"
+    [window-zoomed-bg]="#FFC799"
 
     # Panes
-    [pane-border-active]="#88C0D0"
-    [pane-border-inactive]="#4C566A"
+    [pane-border-active]="#FF7B00"
+    [pane-border-inactive]="#5C5C5C"
 
     # Health / state segments (chevron color rotation source)
-    [ok-base]="#617B8D"
-    [good-base]="#A3BE8C"
-    [info-base]="#81A1C1"
-    [warning-base]="#EBCB8B"
-    [error-base]="#BF616A"
-    [disabled-base]="#4C566A"
+    [ok-base]="#95663B"
+    [good-base]="#99FFE4"
+    [info-base]="#FFC799"
+    [warning-base]="#FF7B00"
+    [error-base]="#F44747"
+    [disabled-base]="#5C5C5C"
 
     # Messages
-    [message-bg]="#3B4252"
-    [message-fg]="#D8DEE9"
+    [message-bg]="#313244"
+    [message-fg]="#FFFFFF"
 
     # Popup & menu
-    [popup-bg]="#3B4252"
-    [popup-fg]="#D8DEE9"
-    [popup-border]="#88C0D0"
-    [menu-bg]="#3B4252"
-    [menu-fg]="#D8DEE9"
-    [menu-selected-bg]="#88C0D0"
-    [menu-selected-fg]="#2E3440"
-    [menu-border]="#88C0D0"
+    [popup-bg]="#313244"
+    [popup-fg]="#FFFFFF"
+    [popup-border]="#FF7B00"
+    [menu-bg]="#313244"
+    [menu-fg]="#FFFFFF"
+    [menu-selected-bg]="#FF7B00"
+    [menu-selected-fg]="#101010"
+    [menu-border]="#FF7B00"
 )
 
 # Extra slots some plugins read directly — also derived from the palette so
 # every chevron lands on a known-good bg.
 declare -gA THEME_EXTRA=(
-    [orange]="#D08770"
-    [magenta]="#A98792"
-    [surface]="#3B4252"
+    [orange]="#FFC799"
+    [magenta]="#F85B2A"
+    [surface]="#313244"
 )

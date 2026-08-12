@@ -7,6 +7,6 @@ set -g 'status-format[1]' '#[align=left]#(~/.local/bin/aibox-powerkit-render-lis
 # PowerKit's renderer owns status-format and pane styles when it loads. Keep
 # the aibox two-row status shape and pane surfaces authoritative after that
 # render pass.
-set -g pane-border-style "fg=#4C566A,bg=#2E3440"
-set -g pane-active-border-style "fg=#88C0D0,bg=#2E3440"
-set -g pane-border-format "#[bg=#2E3440]#{?pane_active,#[fg=#94C4D3]#[bold],#[fg=#929AA9]} #{?client_prefix,PREFIX,NORMAL} #{pane_title} #{pane_current_command} #[bg=#2E3440,fg=#2E3440] "
+set -g pane-border-style "fg=#5C5C5C,bg=#101010"
+set -g pane-active-border-style "fg=#FF7B00,bg=#101010"
+set -g pane-border-format "#[bg=#101010]#{?pane_active,#[fg=#FF8E26]#[bold],#[fg=#ADADAD]} #{?client_prefix,PREFIX,NORMAL} #{pane_title} #{pane_current_command} #[bg=#101010,fg=#101010] "

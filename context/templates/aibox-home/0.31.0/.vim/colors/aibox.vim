@@ -9,117 +9,117 @@ let g:colors_name = "aibox"
 set background=dark
 
 " ── UI chrome ──────────────────────────────────────────────────────────────
-hi Normal         guifg=#D8DEE9     guibg=#2E3440     ctermfg=NONE ctermbg=NONE
-hi NormalNC       guifg=#D8DEE9     guibg=#2E3440
-hi LineNr         guifg=#4C566A  guibg=#2E3440
-hi CursorLineNr   guifg=#88C0D0 guibg=#3B4252 gui=bold
-hi CursorLine     guibg=#3B4252
-hi CursorColumn   guibg=#3B4252
-hi ColorColumn    guibg=#3B4252
-hi VertSplit      guifg=#4C566A  guibg=#2E3440
-hi WinSeparator   guifg=#4C566A  guibg=#2E3440
-hi StatusLine     guifg=#2E3440     guibg=#88C0D0 gui=bold
-hi StatusLineNC   guifg=#4C566A  guibg=#3B4252
-hi TabLine        guifg=#4C566A  guibg=#3B4252
-hi TabLineFill    guibg=#2E3440
-hi TabLineSel     guifg=#2E3440     guibg=#88C0D0 gui=bold
-hi SignColumn     guifg=#4C566A  guibg=#2E3440
-hi FoldColumn     guifg=#4C566A  guibg=#2E3440
-hi Folded         guifg=#4C566A  guibg=#3B4252
-hi NonText        guifg=#4C566A
-hi EndOfBuffer    guifg=#2E3440     guibg=#2E3440
-hi SpecialKey     guifg=#4C566A
-hi MatchParen     guifg=#88C0D0 guibg=#3B4252 gui=bold,underline
-hi Conceal        guifg=#4C566A  guibg=#2E3440
-hi Directory      guifg=#88C0D0 gui=bold
+hi Normal         guifg=#FFFFFF     guibg=#101010     ctermfg=NONE ctermbg=NONE
+hi NormalNC       guifg=#FFFFFF     guibg=#101010
+hi LineNr         guifg=#5C5C5C  guibg=#101010
+hi CursorLineNr   guifg=#FF7B00 guibg=#313244 gui=bold
+hi CursorLine     guibg=#313244
+hi CursorColumn   guibg=#313244
+hi ColorColumn    guibg=#313244
+hi VertSplit      guifg=#5C5C5C  guibg=#101010
+hi WinSeparator   guifg=#5C5C5C  guibg=#101010
+hi StatusLine     guifg=#101010     guibg=#FF7B00 gui=bold
+hi StatusLineNC   guifg=#5C5C5C  guibg=#313244
+hi TabLine        guifg=#5C5C5C  guibg=#313244
+hi TabLineFill    guibg=#101010
+hi TabLineSel     guifg=#101010     guibg=#FF7B00 gui=bold
+hi SignColumn     guifg=#5C5C5C  guibg=#101010
+hi FoldColumn     guifg=#5C5C5C  guibg=#101010
+hi Folded         guifg=#5C5C5C  guibg=#313244
+hi NonText        guifg=#5C5C5C
+hi EndOfBuffer    guifg=#101010     guibg=#101010
+hi SpecialKey     guifg=#5C5C5C
+hi MatchParen     guifg=#FF7B00 guibg=#313244 gui=bold,underline
+hi Conceal        guifg=#5C5C5C  guibg=#101010
+hi Directory      guifg=#FF7B00 gui=bold
 
 " ── Selection / search ────────────────────────────────────────────────────
-hi Visual         guibg=#3B4252
-hi VisualNOS      guibg=#3B4252
-hi Search         guifg=#2E3440     guibg=#EBCB8B gui=bold
-hi IncSearch      guifg=#2E3440     guibg=#D08770 gui=bold
-hi CurSearch      guifg=#2E3440     guibg=#88C0D0 gui=bold
-hi QuickFixLine   guibg=#3B4252 gui=bold
+hi Visual         guibg=#313244
+hi VisualNOS      guibg=#313244
+hi Search         guifg=#101010     guibg=#FF7B00 gui=bold
+hi IncSearch      guifg=#101010     guibg=#FFC799 gui=bold
+hi CurSearch      guifg=#101010     guibg=#FF7B00 gui=bold
+hi QuickFixLine   guibg=#313244 gui=bold
 
 " ── Popup menu ────────────────────────────────────────────────────────────
-hi Pmenu          guifg=#D8DEE9     guibg=#3B4252
-hi PmenuSel       guifg=#2E3440     guibg=#88C0D0 gui=bold
-hi PmenuSbar      guibg=#3B4252
-hi PmenuThumb     guibg=#4C566A
-hi WildMenu       guifg=#2E3440     guibg=#88C0D0 gui=bold
+hi Pmenu          guifg=#FFFFFF     guibg=#313244
+hi PmenuSel       guifg=#101010     guibg=#FF7B00 gui=bold
+hi PmenuSbar      guibg=#313244
+hi PmenuThumb     guibg=#5C5C5C
+hi WildMenu       guifg=#101010     guibg=#FF7B00 gui=bold
 
 " ── Messages ──────────────────────────────────────────────────────────────
-hi ErrorMsg       guifg=#BF616A    gui=bold
-hi WarningMsg     guifg=#EBCB8B
-hi ModeMsg        guifg=#88C0D0 gui=bold
-hi MoreMsg        guifg=#A3BE8C
-hi Question       guifg=#88C0D0
-hi Title          guifg=#88C0D0 gui=bold
+hi ErrorMsg       guifg=#F44747    gui=bold
+hi WarningMsg     guifg=#FF7B00
+hi ModeMsg        guifg=#FF7B00 gui=bold
+hi MoreMsg        guifg=#99FFE4
+hi Question       guifg=#FF7B00
+hi Title          guifg=#FF7B00 gui=bold
 
 " ── Syntax (linked groups) ────────────────────────────────────────────────
-hi Comment        guifg=#4C566A    gui=italic
-hi Constant       guifg=#D08770
-hi String         guifg=#A3BE8C
-hi Character      guifg=#A3BE8C
-hi Number         guifg=#D08770
-hi Boolean        guifg=#D08770
-hi Float          guifg=#D08770
-hi Identifier     guifg=#D8DEE9
-hi Function       guifg=#88C0D0
-hi Statement      guifg=#BF616A
-hi Conditional    guifg=#BF616A
-hi Repeat         guifg=#BF616A
-hi Label          guifg=#EBCB8B
-hi Operator       guifg=#81A1C1
-hi Keyword        guifg=#BF616A
-hi Exception      guifg=#BF616A
-hi PreProc        guifg=#EBCB8B
-hi Include        guifg=#BF616A
-hi Define         guifg=#BF616A
-hi Macro          guifg=#88C0D0
-hi PreCondit      guifg=#EBCB8B
-hi Type           guifg=#EBCB8B
-hi StorageClass   guifg=#EBCB8B
-hi Structure      guifg=#EBCB8B
-hi Typedef        guifg=#EBCB8B
-hi Special        guifg=#81A1C1
-hi SpecialChar    guifg=#D08770
-hi Tag            guifg=#88C0D0
-hi Delimiter      guifg=#D8DEE9
-hi SpecialComment guifg=#4C566A    gui=italic
-hi Debug          guifg=#D08770
-hi Underlined     guifg=#88C0D0   gui=underline
-hi Ignore         guifg=#4C566A
-hi Error          guifg=#BF616A      gui=bold
-hi Todo           guifg=#EBCB8B   guibg=#3B4252 gui=bold
+hi Comment        guifg=#5C5C5C    gui=italic
+hi Constant       guifg=#FFC799
+hi String         guifg=#99FFE4
+hi Character      guifg=#99FFE4
+hi Number         guifg=#FFC799
+hi Boolean        guifg=#FFC799
+hi Float          guifg=#FFC799
+hi Identifier     guifg=#FFFFFF
+hi Function       guifg=#FF7B00
+hi Statement      guifg=#F44747
+hi Conditional    guifg=#F44747
+hi Repeat         guifg=#F44747
+hi Label          guifg=#FF7B00
+hi Operator       guifg=#FFC799
+hi Keyword        guifg=#F44747
+hi Exception      guifg=#F44747
+hi PreProc        guifg=#FF7B00
+hi Include        guifg=#F44747
+hi Define         guifg=#F44747
+hi Macro          guifg=#FF7B00
+hi PreCondit      guifg=#FF7B00
+hi Type           guifg=#FF7B00
+hi StorageClass   guifg=#FF7B00
+hi Structure      guifg=#FF7B00
+hi Typedef        guifg=#FF7B00
+hi Special        guifg=#FFC799
+hi SpecialChar    guifg=#FFC799
+hi Tag            guifg=#FF7B00
+hi Delimiter      guifg=#FFFFFF
+hi SpecialComment guifg=#5C5C5C    gui=italic
+hi Debug          guifg=#FFC799
+hi Underlined     guifg=#FF7B00   gui=underline
+hi Ignore         guifg=#5C5C5C
+hi Error          guifg=#F44747      gui=bold
+hi Todo           guifg=#FF7B00   guibg=#313244 gui=bold
 
 " ── Diff ──────────────────────────────────────────────────────────────────
-hi DiffAdd        guifg=#A3BE8C    guibg=#2E3440
-hi DiffChange     guifg=#EBCB8B   guibg=#2E3440
-hi DiffDelete     guifg=#BF616A      guibg=#2E3440
-hi DiffText       guifg=#88C0D0   guibg=#2E3440    gui=bold
-hi diffAdded      guifg=#A3BE8C
-hi diffRemoved    guifg=#BF616A
-hi diffChanged    guifg=#EBCB8B
-hi diffFile       guifg=#88C0D0   gui=bold
-hi diffNewFile    guifg=#A3BE8C    gui=bold
-hi diffOldFile    guifg=#BF616A      gui=bold
-hi diffLine       guifg=#4C566A
+hi DiffAdd        guifg=#99FFE4    guibg=#101010
+hi DiffChange     guifg=#FF7B00   guibg=#101010
+hi DiffDelete     guifg=#F44747      guibg=#101010
+hi DiffText       guifg=#FF7B00   guibg=#101010    gui=bold
+hi diffAdded      guifg=#99FFE4
+hi diffRemoved    guifg=#F44747
+hi diffChanged    guifg=#FF7B00
+hi diffFile       guifg=#FF7B00   gui=bold
+hi diffNewFile    guifg=#99FFE4    gui=bold
+hi diffOldFile    guifg=#F44747      gui=bold
+hi diffLine       guifg=#5C5C5C
 
 " ── Spelling ──────────────────────────────────────────────────────────────
-hi SpellBad       gui=undercurl guisp=#BF616A
-hi SpellCap       gui=undercurl guisp=#EBCB8B
-hi SpellLocal     gui=undercurl guisp=#81A1C1
-hi SpellRare      gui=undercurl guisp=#A98792
+hi SpellBad       gui=undercurl guisp=#F44747
+hi SpellCap       gui=undercurl guisp=#FF7B00
+hi SpellLocal     gui=undercurl guisp=#FFC799
+hi SpellRare      gui=undercurl guisp=#F85B2A
 
 " ── Git plugins / gitgutter / signify ────────────────────────────────────
-hi GitGutterAdd          guifg=#A3BE8C    guibg=#2E3440
-hi GitGutterChange       guifg=#EBCB8B   guibg=#2E3440
-hi GitGutterDelete       guifg=#BF616A      guibg=#2E3440
-hi GitGutterChangeDelete guifg=#D08770   guibg=#2E3440
-hi SignifySignAdd        guifg=#A3BE8C    guibg=#2E3440
-hi SignifySignChange     guifg=#EBCB8B   guibg=#2E3440
-hi SignifySignDelete     guifg=#BF616A      guibg=#2E3440
+hi GitGutterAdd          guifg=#99FFE4    guibg=#101010
+hi GitGutterChange       guifg=#FF7B00   guibg=#101010
+hi GitGutterDelete       guifg=#F44747      guibg=#101010
+hi GitGutterChangeDelete guifg=#FFC799   guibg=#101010
+hi SignifySignAdd        guifg=#99FFE4    guibg=#101010
+hi SignifySignChange     guifg=#FF7B00   guibg=#101010
+hi SignifySignDelete     guifg=#F44747      guibg=#101010
 
 " ── Markdown ──────────────────────────────────────────────────────────────
 hi link markdownH1        Title
@@ -129,7 +129,7 @@ hi link markdownH4        Title
 hi link markdownCode      String
 hi link markdownCodeBlock String
 hi link markdownLinkText  Function
-hi markdownUrl   guifg=#81A1C1  gui=underline
+hi markdownUrl   guifg=#FFC799  gui=underline
 
 " ── Vim help ──────────────────────────────────────────────────────────────
 hi link helpHyperTextEntry Underlined
@@ -143,5 +143,5 @@ hi link helpVim            Identifier
 hi link NvimTreeFolderName Directory
 hi link NvimTreeRootFolder Title
 hi link TelescopeBorder    FloatBorder
-hi FloatBorder    guifg=#4C566A    guibg=#2E3440
-hi NormalFloat    guifg=#D8DEE9       guibg=#3B4252
+hi FloatBorder    guifg=#5C5C5C    guibg=#101010
+hi NormalFloat    guifg=#FFFFFF       guibg=#313244

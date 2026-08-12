@@ -2,18 +2,18 @@
 # Exports keep ANSI-colored tools (bat, delta, fzf, eza, less) aligned with
 # the active aibox theme.
 
-export BAT_THEME="Nord"
-export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --color=bg+:#3B4252,bg:#2E3440,fg:#D8DEE9,fg+:#D8DEE9,hl:#88C0D0,hl+:#88C0D0,pointer:#88C0D0,marker:#A3BE8C,spinner:#88C0D0,info:#4C566A,header:#4C566A,border:#4C566A,prompt:#88C0D0,query:#D8DEE9,disabled:#4C566A,gutter:#2E3440,preview-bg:#2E3440,preview-fg:#D8DEE9,separator:#4C566A,label:#88C0D0"
-export EZA_COLORS="di=38;2;136;192;208;1:ex=38;2;163;190;140:ln=38;2;129;161;193:fi=0:or=38;2;191;97;106:mi=38;2;191;97;106:da=38;2;76;86;106:sn=38;2;136;192;208:sb=38;2;136;192;208:uu=38;2;76;86;106:un=38;2;76;86;106:gu=38;2;76;86;106:gn=38;2;76;86;106:ga=38;2;163;190;140:gm=38;2;235;203;139:gd=38;2;191;97;106:gv=38;2;235;203;139:gt=38;2;208;135;112:xx=38;2;76;86;106:da=38;2;76;86;106"
+export BAT_THEME="Coldark-Dark"
+export FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --color=bg+:#313244,bg:#101010,fg:#FFFFFF,fg+:#FFFFFF,hl:#FF7B00,hl+:#FF7B00,pointer:#FF7B00,marker:#99FFE4,spinner:#FF7B00,info:#5C5C5C,header:#5C5C5C,border:#5C5C5C,prompt:#FF7B00,query:#FFFFFF,disabled:#5C5C5C,gutter:#101010,preview-bg:#101010,preview-fg:#FFFFFF,separator:#5C5C5C,label:#FF7B00"
+export EZA_COLORS="di=38;2;255;123;0;1:ex=38;2;153;255;228:ln=38;2;255;199;153:fi=0:or=38;2;244;71;71:mi=38;2;244;71;71:da=38;2;92;92;92:sn=38;2;255;123;0:sb=38;2;255;123;0:uu=38;2;92;92;92:un=38;2;92;92;92:gu=38;2;92;92;92:gn=38;2;92;92;92:ga=38;2;153;255;228:gm=38;2;255;123;0:gd=38;2;244;71;71:gv=38;2;255;123;0:gt=38;2;255;199;153:xx=38;2;92;92;92:da=38;2;92;92;92"
 
 # `less` headings / search hits — match prompt accent / warnings.
-export LESS_TERMCAP_md=$'\e[38;2;136;192;208m'    # bold (section headers, command names)
-export LESS_TERMCAP_us=$'\e[38;2;235;203;139m'    # underline (options, args)
-export LESS_TERMCAP_so=$'\e[38;2;136;192;208;7m'  # reverse (search / status line)
+export LESS_TERMCAP_md=$'\e[38;2;255;123;0m'    # bold (section headers, command names)
+export LESS_TERMCAP_us=$'\e[38;2;255;123;0m'    # underline (options, args)
+export LESS_TERMCAP_so=$'\e[38;2;255;123;0;7m'  # reverse (search / status line)
 export LESS_TERMCAP_me=$'\e[0m'
 export LESS_TERMCAP_ue=$'\e[0m'
 export LESS_TERMCAP_se=$'\e[0m'
 export GROFF_NO_SGR=1                  # tell groff to emit ANSI, not SGR-bypass
 unset LESS_TERMCAP_mb || true
 # Keep an obvious error color available for tools that look for $AIBOX_ERROR_COLOR.
-export AIBOX_ERROR_SGR='38;2;191;97;106'
+export AIBOX_ERROR_SGR='38;2;244;71;71'
