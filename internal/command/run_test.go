@@ -9,6 +9,8 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/command"
+	"github.com/projectious-work/ainfra/internal/diagnostic"
+	"github.com/projectious-work/ainfra/internal/output"
 )
 
 func run(arguments ...string) (command.ExitCode, string, string) {
@@ -25,6 +27,35 @@ func run(arguments ...string) (command.ExitCode, string, string) {
 	return code, stdout.String(), stderr.String()
 }
 
+func runWithDoctor(arguments ...string) (command.ExitCode, string, string) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := command.Run(arguments, command.Options{
+		IO: command.IO{Stdout: &stdout, Stderr: &stderr},
+		DoctorEnvironment: func(
+			request app.DoctorEnvironmentRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			format := "text"
+			if request.Format != nil {
+				format = *request.Format
+			}
+			return app.DoctorEnvironmentResponse{
+				Format: format, OutputStyle: "auto", Color: "auto",
+				Result: output.Doctor{
+					Scope: "environment", Summary: output.DoctorSummary{Pass: 1},
+					Findings: []diagnostic.Diagnostic{},
+					EffectiveConfiguration: &output.EffectiveConfiguration{
+						Values:                  map[string]output.EffectiveConfigurationValue{},
+						Files:                   []output.ConfigurationFile{},
+						RejectedProjectSettings: []output.RejectedProjectSetting{},
+					},
+				},
+			}, nil
+		},
+	})
+	return code, stdout.String(), stderr.String()
+}
+
 func TestVersionJSON(t *testing.T) {
 	t.Parallel()
 	code, stdout, stderr := run("version", "--format", "json")
@@ -37,6 +68,50 @@ func TestVersionJSON(t *testing.T) {
 	}
 	if stderr != "" {
 		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestDoctorEnvironmentDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	code, stdout, stderr := runWithDoctor(
+		"doctor", "environment", "--config=/tmp/config.yaml",
+		"--project", "/tmp/deployment", "--format=json",
+	)
+	if code != command.ExitSuccess || stderr != "" {
+		t.Fatalf("exit=%d stderr=%q", code, stderr)
+	}
+	var envelope struct {
+		Command string `json:"command"`
+		Result  struct {
+			Scope string `json:"scope"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Command != "doctor.environment" || envelope.Result.Scope != "environment" {
+		t.Fatalf("unexpected envelope: %+v", envelope)
+	}
+}
+
+func TestStaticHelpDoesNotConstructDoctor(t *testing.T) {
+	t.Parallel()
+	called := false
+	var stdout bytes.Buffer
+	code := command.Run(
+		[]string{"doctor", "environment", "--help"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			DoctorEnvironment: func(
+				app.DoctorEnvironmentRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				called = true
+				return app.DoctorEnvironmentResponse{}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || called {
+		t.Fatalf("exit=%d called=%v", code, called)
 	}
 }
 

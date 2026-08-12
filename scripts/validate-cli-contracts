@@ -11,10 +11,15 @@ binary="$temporary/ainfra"
 success="$temporary/version-success.json"
 failure="$temporary/version-failure.json"
 help="$temporary/help.json"
+doctor="$temporary/doctor-environment.json"
+
+mkdir -p "$temporary/home" "$temporary/config"
 
 go build -o "$binary" ./cmd/ainfra
 "$binary" --format json version >"$success"
 "$binary" --format json help version >"$help"
+HOME="$temporary/home" XDG_CONFIG_HOME="$temporary/config" \
+  "$binary" --format json doctor environment >"$doctor"
 
 for topic in ainfra doctor template init doctor.all doctor.deployment \
   doctor.template doctor.run doctor.environment template.lock \

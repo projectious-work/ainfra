@@ -123,6 +123,51 @@ func TestUnknownCommand(t *testing.T) {
 	}
 }
 
+func TestDoctorEnvironmentJSONIsOneCleanResult(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	home := t.TempDir()
+	command := exec.CommandContext(
+		ctx, binary, "doctor", "environment", "--format=json",
+	)
+	command.Dir = t.TempDir()
+	command.Env = []string{
+		"HOME=" + home,
+		"XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+		"XDG_CACHE_HOME=" + filepath.Join(home, "cache"),
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		t.Fatalf("run: %v, stderr: %s", err, stderr.String())
+	}
+	var envelope struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Result  struct {
+			Scope                  string `json:"scope"`
+			EffectiveConfiguration struct {
+				Values map[string]any `json:"values"`
+			} `json:"effectiveConfiguration"`
+		} `json:"result"`
+	}
+	decoder := json.NewDecoder(&stdout)
+	if err := decoder.Decode(&envelope); err != nil {
+		t.Fatalf("decode result: %v", err)
+	}
+	if decoder.More() {
+		t.Fatal("doctor wrote more than one JSON value")
+	}
+	if envelope.Command != "doctor.environment" || !envelope.OK ||
+		envelope.Result.Scope != "environment" ||
+		len(envelope.Result.EffectiveConfiguration.Values) != 12 || stderr.Len() != 0 {
+		t.Fatalf("unexpected result: %+v, stderr=%q", envelope, stderr.String())
+	}
+}
+
 func TestHelpAndInvalidInvocationJSON(t *testing.T) {
 	tests := []struct {
 		name      string

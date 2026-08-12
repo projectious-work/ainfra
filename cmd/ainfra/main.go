@@ -22,6 +22,15 @@ func main() {
 	build := readBuild()
 	code := command.Run(os.Args[1:], command.Options{
 		Build: build,
+		DoctorEnvironment: func(
+			request app.DoctorEnvironmentRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorEnvironment(request, options)
+		},
 		IO: command.IO{
 			Stdout:     os.Stdout,
 			Stderr:     os.Stderr,

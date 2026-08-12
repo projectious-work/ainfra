@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
@@ -67,6 +68,40 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 	}
 
 	switch result := envelope.Result.(type) {
+	case Doctor:
+		_, err := fmt.Fprintf(
+			writer,
+			"doctor %s: %d pass, %d skip, %d warning, %d fail\n",
+			result.Scope, result.Summary.Pass, result.Summary.Skip,
+			result.Summary.Warning, result.Summary.Fail,
+		)
+		if err != nil {
+			return err
+		}
+		for _, finding := range result.Findings {
+			if _, err = fmt.Fprintf(
+				writer, "%s %s: %s\n  next: %s\n",
+				finding.Status, finding.Code, finding.Message, finding.NextAction,
+			); err != nil {
+				return err
+			}
+		}
+		if result.EffectiveConfiguration != nil {
+			keys := make([]string, 0, len(result.EffectiveConfiguration.Values))
+			for key := range result.EffectiveConfiguration.Values {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				value := result.EffectiveConfiguration.Values[key]
+				if _, err = fmt.Fprintf(
+					writer, "%s = %s (%s)\n", key, value.DisplayValue, value.Source,
+				); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	case Help:
 		_, err := fmt.Fprintf(writer, "%s\n\nUsage:\n  %s\n", result.Summary, result.Usage)
 		if err != nil {

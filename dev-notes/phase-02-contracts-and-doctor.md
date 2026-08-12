@@ -163,3 +163,37 @@ static-help side-effect rules, then exposing the redacted result through
 `doctor environment`. Log-file, log-format, and local-syslog environment
 overrides will be completed with that composition because their semantics
 operate on the effective destination list rather than an isolated scalar.
+
+#### 2026-08-12 — CLI composition and environment doctor
+
+- Added the first executable Phase 2 command, `ainfra doctor environment`.
+  Its JSON discriminator is `doctor.environment`; its result contains scope,
+  summary, findings, and the complete effective-configuration view required by
+  the machine-result schema.
+- Added command parsing for `--config` and `--project`, including `--option`
+  and `--option=value` forms, with typed application requests. Explicit
+  `--project` conflicts with a different `AINFRA_PROJECT` instead of silently
+  winning.
+- Configuration and project discovery occur only after a canonical command is
+  dispatched. Static root, group, and leaf help remain independent of host
+  configuration and discovery.
+- The application composition loads the project layer only when a deployment
+  is explicitly selected or found as the nearest ancestor. Commands without
+  an applicable deployment have no project layer.
+- Added closed environment handling for log format, file, and local-syslog
+  destinations. File paths must be absolute; environment destination order is
+  deterministic; rotation defaults are 10 MiB, five backups, seven days, and
+  compression enabled.
+- Extended semantic diagnostics with doctor check, scope, status, and
+  reconciliation fields while preserving the existing invocation contract.
+- Added deterministic plain-text rendering and one-object JSON rendering for
+  doctor results.
+- Extended the CLI schema-validation gate to execute and validate a real
+  `doctor environment` result. Unit and compiled black-box tests cover command
+  dispatch, static-help isolation, project restrictions, conflicting
+  selectors, clean streams, and the complete 12-key configuration result.
+
+This first doctor slice deliberately performs only local configuration and
+supported-platform checks. Executable discovery and version checks will enter
+through the capability-aware doctor registry; no child executable is invoked
+by this command yet.

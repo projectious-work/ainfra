@@ -246,7 +246,9 @@ func apply(settings *Settings, values map[string]provenance, patch Patch, layer 
 	}
 	setString(&settings.Logging.Level, patch.Logging.Level, "logging.level", layer, values, base, false)
 	if patch.Logging.Destinations != nil {
-		settings.Logging.Destinations = append([]Destination(nil), (*patch.Logging.Destinations)...)
+		settings.Logging.Destinations = resolveDestinations(
+			*patch.Logging.Destinations, base,
+		)
 		setProvenance(values, "logging.destinations", fmt.Sprintf("%d configured", len(*patch.Logging.Destinations)), layer)
 	}
 	setString(&settings.Paths.Cache, patch.Paths.Cache, "paths.cache", layer, values, base, true)
@@ -255,6 +257,17 @@ func apply(settings *Settings, values map[string]provenance, patch Patch, layer 
 	setString(&settings.Executables.AnsibleRunner, patch.Executables.AnsibleRunner, "executables.ansibleRunner", layer, values, base, true)
 	setString(&settings.Executables.Git, patch.Executables.Git, "executables.git", layer, values, base, true)
 	setString(&settings.Executables.SSH, patch.Executables.SSH, "executables.ssh", layer, values, base, true)
+}
+
+func resolveDestinations(destinations []Destination, base string) []Destination {
+	resolved := append([]Destination(nil), destinations...)
+	for index := range resolved {
+		if resolved[index].Type == "file" && base != "" &&
+			!filepath.IsAbs(resolved[index].Path) {
+			resolved[index].Path = filepath.Join(base, resolved[index].Path)
+		}
+	}
+	return resolved
 }
 
 func setString(target *string, value *string, key string, layer Layer, values map[string]provenance, base string, path bool) {

@@ -107,6 +107,7 @@ secret: forbidden
 	}
 	for name, environment := range map[string]map[string]string{
 		"empty boolean": {"AINFRA_NON_INTERACTIVE": ""},
+		"empty path":    {"AINFRA_CACHE_DIR": ""},
 		"loose boolean": {"AINFRA_NON_INTERACTIVE": "yes"},
 		"relative path": {"AINFRA_TOFU_PATH": "bin/tofu"},
 		"bad enum":      {"AINFRA_FORMAT": "yaml"},
@@ -117,6 +118,26 @@ secret: forbidden
 				t.Fatal("invalid environment unexpectedly accepted")
 			}
 		})
+	}
+}
+
+func TestEnvironmentLoggingDestinationsAreClosedAndDeterministic(t *testing.T) {
+	t.Parallel()
+	patch, err := config.EnvironmentPatch(map[string]string{
+		"AINFRA_LOG_FORMAT": "json",
+		"AINFRA_LOG_FILE":   "/logs/ainfra.jsonl",
+		"AINFRA_LOG_SYSLOG": "true",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if patch.Logging.Destinations == nil || len(*patch.Logging.Destinations) != 3 {
+		t.Fatalf("destinations = %#v", patch.Logging.Destinations)
+	}
+	destinations := *patch.Logging.Destinations
+	if destinations[0].Type != "stderr" || destinations[1].Type != "file" ||
+		destinations[2].Type != "syslog" || destinations[1].Rotation.MaxSizeMiB != 10 {
+		t.Fatalf("destinations = %#v", destinations)
 	}
 }
 

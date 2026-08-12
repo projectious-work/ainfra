@@ -14,6 +14,8 @@ const (
 	CommandHelp Command = "help"
 	// CommandInvocation identifies a failure before command dispatch.
 	CommandInvocation Command = "invocation"
+	// CommandDoctorEnvironment identifies local environment diagnostics.
+	CommandDoctorEnvironment Command = "doctor.environment"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )
@@ -70,6 +72,52 @@ type SupportedContractVersions struct {
 	DocumentAPIVersions          []string `json:"documentApiVersions"`
 	ResultAPIVersions            []string `json:"resultApiVersions"`
 	StandardOutputSchemaVersions []string `json:"standardOutputSchemaVersions"`
+}
+
+// Doctor is the semantic result shared by every doctor scope.
+type Doctor struct {
+	Scope                  string                  `json:"scope"`
+	Summary                DoctorSummary           `json:"summary"`
+	Findings               []diagnostic.Diagnostic `json:"findings"`
+	EffectiveConfiguration *EffectiveConfiguration `json:"effectiveConfiguration,omitempty"`
+}
+
+// DoctorSummary counts every registered check outcome.
+type DoctorSummary struct {
+	Pass    int `json:"pass"`
+	Skip    int `json:"skip"`
+	Warning int `json:"warning"`
+	Fail    int `json:"fail"`
+}
+
+// EffectiveConfiguration is the display-safe configuration/provenance view.
+type EffectiveConfiguration struct {
+	Values                  map[string]EffectiveConfigurationValue `json:"values"`
+	Files                   []ConfigurationFile                    `json:"files"`
+	RejectedProjectSettings []RejectedProjectSetting               `json:"rejectedProjectSettings"`
+}
+
+// EffectiveConfigurationValue reports one value without exposing secrets.
+type EffectiveConfigurationValue struct {
+	DisplayValue      string   `json:"displayValue"`
+	Source            string   `json:"source"`
+	SourceDetail      string   `json:"sourceDetail,omitempty"`
+	OverriddenSources []string `json:"overriddenSources"`
+}
+
+// ConfigurationFile reports one normative file layer.
+type ConfigurationFile struct {
+	Layer  string `json:"layer"`
+	Path   string `json:"path"`
+	Status string `json:"status"`
+}
+
+// RejectedProjectSetting explains one prohibited repository-controlled key.
+type RejectedProjectSetting struct {
+	Key     string `json:"key"`
+	Path    string `json:"path"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 // Help is the closed semantic result for static command help.

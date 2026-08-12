@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
@@ -20,13 +21,14 @@ type IO struct {
 
 // Options supplies immutable composition facts to Run.
 type Options struct {
-	Build app.Build
-	IO    IO
+	Build             app.Build
+	IO                IO
+	DoctorEnvironment func(app.DoctorEnvironmentRequest) (app.DoctorEnvironmentResponse, error)
 }
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
 func Run(arguments []string, options Options) ExitCode {
-	renderArguments, positional, helpRequested := splitInvocation(arguments)
+	renderArguments, controlArguments, positional, helpRequested := splitInvocation(arguments)
 	renderOptions, err := parseRenderOptions(renderArguments, options.IO.IsTerminal)
 	if err != nil {
 		return failInvocation(arguments, err.Error(), options.IO)
@@ -47,6 +49,11 @@ func Run(arguments []string, options Options) ExitCode {
 		}
 		return ExitSuccess
 	}
+	if len(positional) == 2 && positional[0] == "doctor" && positional[1] == "environment" {
+		return runDoctorEnvironment(
+			arguments, renderArguments, controlArguments, renderOptions, options,
+		)
+	}
 
 	if len(positional) != 1 || (positional[0] != "version" && positional[0] != "--version") {
 		return failInvocation(arguments, "invalid command invocation", options.IO)
@@ -62,7 +69,10 @@ func Run(arguments []string, options Options) ExitCode {
 	return ExitSuccess
 }
 
-func splitInvocation(arguments []string) (renderArguments, positional []string, help bool) {
+func splitInvocation(arguments []string) (
+	renderArguments, controlArguments, positional []string,
+	help bool,
+) {
 	for index := 0; index < len(arguments); index++ {
 		argument := arguments[index]
 		if argument == "--" {
@@ -85,9 +95,110 @@ func splitInvocation(arguments []string) (renderArguments, positional []string, 
 			renderArguments = append(renderArguments, argument)
 			continue
 		}
+		if argument == "--config" || argument == "--project" {
+			controlArguments = append(controlArguments, argument)
+			if index+1 < len(arguments) {
+				index++
+				controlArguments = append(controlArguments, arguments[index])
+			}
+			continue
+		}
+		if stringsHasControlPrefix(argument) {
+			controlArguments = append(controlArguments, argument)
+			continue
+		}
 		positional = append(positional, argument)
 	}
-	return renderArguments, positional, help
+	return renderArguments, controlArguments, positional, help
+}
+
+func stringsHasControlPrefix(argument string) bool {
+	return len(argument) > 9 && (argument[:9] == "--config=" ||
+		(len(argument) > 10 && argument[:10] == "--project="))
+}
+
+func runDoctorEnvironment(
+	arguments, renderArguments, controlArguments []string,
+	renderOptions output.RenderOptions,
+	options Options,
+) ExitCode {
+	if options.DoctorEnvironment == nil {
+		return failDoctorEnvironment(arguments, "environment doctor is unavailable", options.IO)
+	}
+	request, err := parseDoctorEnvironmentRequest(renderArguments, controlArguments)
+	if err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	response, err := options.DoctorEnvironment(request)
+	if err != nil {
+		return failDoctorEnvironment(arguments, err.Error(), options.IO)
+	}
+	renderOptions.Format = output.Format(response.Format)
+	renderOptions.Style = output.Style(response.OutputStyle)
+	renderOptions.Color = output.ColorMode(response.Color)
+	if err := output.Render(
+		options.IO.Stdout,
+		output.Success(output.CommandDoctorEnvironment, response.Result),
+		renderOptions,
+	); err != nil {
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func parseDoctorEnvironmentRequest(
+	renderArguments, controlArguments []string,
+) (app.DoctorEnvironmentRequest, error) {
+	flags := flag.NewFlagSet("doctor environment", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	configPath := flags.String("config", "", "explicit configuration file")
+	projectPath := flags.String("project", "", "deployment target")
+	if err := flags.Parse(controlArguments); err != nil {
+		return app.DoctorEnvironmentRequest{}, err
+	}
+	request := app.DoctorEnvironmentRequest{
+		ConfigPath: *configPath, ProjectPath: *projectPath,
+	}
+	request.Format = explicitOption(renderArguments, "--format")
+	request.OutputStyle = explicitOption(renderArguments, "--output-style")
+	request.Color = explicitOption(renderArguments, "--color")
+	return request, nil
+}
+
+func explicitOption(arguments []string, name string) *string {
+	for index, argument := range arguments {
+		if argument == name && index+1 < len(arguments) {
+			value := arguments[index+1]
+			return &value
+		}
+		if value, found := strings.CutPrefix(argument, name+"="); found {
+			return &value
+		}
+	}
+	return nil
+}
+
+func failDoctorEnvironment(arguments []string, message string, streams IO) ExitCode {
+	diagnosticValue := diagnostic.Diagnostic{
+		Code: "AINFRA-E2001", Severity: diagnostic.SeverityError,
+		Check: "environment.configuration", Scope: "environment", Status: "fail",
+		Reconciliation: "not_available", Component: "configuration",
+		Message: message, NextAction: "Correct the configuration and rerun 'ainfra doctor environment'.",
+	}
+	if requestedJSON(arguments) {
+		if err := output.Render(
+			streams.Stdout,
+			output.Failure(output.CommandDoctorEnvironment, diagnosticValue),
+			output.RenderOptions{Format: output.FormatJSON},
+		); err != nil {
+			return ExitOperationFailed
+		}
+		return ExitInvalidInput
+	}
+	if _, err := fmt.Fprintf(streams.Stderr, "%s: %s\n", diagnosticValue.Code, message); err != nil {
+		return ExitOperationFailed
+	}
+	return ExitInvalidInput
 }
 
 func stringsHasRenderPrefix(argument string) bool {

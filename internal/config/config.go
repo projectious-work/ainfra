@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -121,6 +122,11 @@ func Defaults(cacheDirectory, runDirectory string) Settings {
 // EnvironmentPatch parses only the supported, non-secret AINFRA variables.
 func EnvironmentPatch(environment map[string]string) (Patch, error) {
 	var patch Patch
+	for name, value := range environment {
+		if strings.HasPrefix(name, "AINFRA_") && value == "" {
+			return Patch{}, fmt.Errorf("%s must not be empty", name)
+		}
+	}
 	assignString(&patch.UI.Format, environment, "AINFRA_FORMAT")
 	assignString(&patch.UI.OutputStyle, environment, "AINFRA_OUTPUT_STYLE")
 	assignString(&patch.UI.Color, environment, "AINFRA_COLOR")
@@ -142,10 +148,37 @@ func EnvironmentPatch(environment map[string]string) (Patch, error) {
 		}
 		patch.UI.NonInteractive = &parsed
 	}
+	logFormat, hasLogFormat := environment["AINFRA_LOG_FORMAT"]
+	logFile, hasLogFile := environment["AINFRA_LOG_FILE"]
+	syslogEnabled := false
 	if value, present := environment["AINFRA_LOG_SYSLOG"]; present {
-		if _, err := parseBoolean("AINFRA_LOG_SYSLOG", value); err != nil {
+		var err error
+		syslogEnabled, err = parseBoolean("AINFRA_LOG_SYSLOG", value)
+		if err != nil {
 			return Patch{}, err
 		}
+	}
+	if hasLogFormat && logFormat != "text" && logFormat != "json" {
+		return Patch{}, errors.New("AINFRA_LOG_FORMAT must be text or json")
+	}
+	if hasLogFormat || hasLogFile || syslogEnabled {
+		if logFormat == "" {
+			logFormat = "text"
+		}
+		destinations := []Destination{{Type: "stderr", Format: logFormat}}
+		if hasLogFile {
+			destinations = append(destinations, Destination{
+				Type: "file", Path: logFile, Format: logFormat,
+				Rotation: Rotation{
+					MaxSizeMiB: 10, MaxBackups: 5,
+					MaxAgeDays: 7, Compress: true,
+				},
+			})
+		}
+		if syslogEnabled {
+			destinations = append(destinations, Destination{Type: "syslog"})
+		}
+		patch.Logging.Destinations = &destinations
 	}
 	for name, value := range map[string]string{
 		"AINFRA_CACHE_DIR":           environment["AINFRA_CACHE_DIR"],
@@ -187,7 +220,44 @@ func validatePatch(patch Patch) error {
 		validateEnum("ui.outputStyle", patch.UI.OutputStyle, "auto", "rich", "plain"),
 		validateEnum("ui.color", patch.UI.Color, "auto", "always", "never"),
 		validateEnum("logging.level", patch.Logging.Level, "error", "warn", "info", "debug", "trace"),
+		validateDestinations(patch.Logging.Destinations),
 	)
+}
+
+func validateDestinations(destinations *[]Destination) error {
+	if destinations == nil {
+		return nil
+	}
+	if len(*destinations) == 0 {
+		return errors.New("logging.destinations must not be empty")
+	}
+	for index, destination := range *destinations {
+		switch destination.Type {
+		case "stderr":
+			if destination.Path != "" || destination.Facility != "" || destination.Tag != "" {
+				return fmt.Errorf("logging destination %d has fields invalid for stderr", index)
+			}
+		case "file":
+			if destination.Path == "" {
+				return fmt.Errorf("logging destination %d file path is required", index)
+			}
+			if destination.Rotation.MaxSizeMiB < 0 || destination.Rotation.MaxBackups < 0 ||
+				destination.Rotation.MaxAgeDays < 0 {
+				return fmt.Errorf("logging destination %d has invalid rotation", index)
+			}
+		case "syslog":
+			if destination.Path != "" || destination.Format != "" {
+				return fmt.Errorf("logging destination %d has fields invalid for syslog", index)
+			}
+		default:
+			return fmt.Errorf("logging destination %d has invalid type %q", index, destination.Type)
+		}
+		if destination.Format != "" && destination.Format != "text" &&
+			destination.Format != "json" {
+			return fmt.Errorf("logging destination %d has invalid format %q", index, destination.Format)
+		}
+	}
+	return nil
 }
 
 func validateEnum(field string, value *string, accepted ...string) error {
