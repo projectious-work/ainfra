@@ -227,8 +227,55 @@ spec:
 		t.Fatal(err)
 	}
 	if success.Command != "doctor.deployment" || !success.OK ||
-		success.Result.Scope != "deployment" || len(success.Result.Findings) != 3 {
+		success.Result.Scope != "deployment" || len(success.Result.Findings) != 4 {
 		t.Fatalf("success=%+v", success)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	repair := exec.CommandContext(
+		ctx, binary, "doctor", "deployment", root, "--reconcile",
+		"--non-interactive", "--yes", "--format=json",
+	)
+	repair.Dir = t.TempDir()
+	repair.Env = []string{
+		"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+	}
+	var repairOutput bytes.Buffer
+	var repairEvidence bytes.Buffer
+	repair.Stdout, repair.Stderr = &repairOutput, &repairEvidence
+	if err := repair.Run(); err != nil {
+		t.Fatalf("reconcile: %v stderr=%q", err, repairEvidence.String())
+	}
+	var repaired struct {
+		OK     bool `json:"ok"`
+		Result struct {
+			Findings []struct {
+				Check          string `json:"check"`
+				Reconciliation string `json:"reconciliation"`
+			} `json:"findings"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(repairOutput.Bytes(), &repaired); err != nil {
+		t.Fatal(err)
+	}
+	applied := false
+	for _, finding := range repaired.Result.Findings {
+		if finding.Check == "deployment.runtime-permissions" &&
+			finding.Reconciliation == "applied" {
+			applied = true
+		}
+	}
+	information, statErr := os.Stat(filepath.Join(root, ".ainfra"))
+	if statErr != nil {
+		t.Fatalf("inspect repaired runtime directory: %v", statErr)
+	}
+	if !repaired.OK || !applied || information.Mode().Perm() != 0o700 ||
+		repairEvidence.Len() == 0 {
+		t.Fatalf(
+			"repaired=%+v mode=%v statErr=%v stderr=%q",
+			repaired, information.Mode(), statErr, repairEvidence.String(),
+		)
 	}
 
 	code, stdout, stderr = run(filepath.Join(t.TempDir(), "missing"))

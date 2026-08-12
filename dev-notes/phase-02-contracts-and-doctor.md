@@ -340,3 +340,19 @@ lifecycle artifacts and remain explicitly deferred rather than inferred.
 This slice intentionally registers no repair for executable installation,
 configuration, deployment manifests, native inputs, templates, retained run
 evidence, state, credentials, or remote infrastructure.
+
+#### 2026-08-12 — Adversarial coverage expansion
+
+- Added native Go fuzz targets for the strict deployment and template YAML
+  decoders, seeded with valid contracts, malformed bytes, multiple-document
+  structures, unknown fields, and recursive-alias-shaped input.
+- Executed each new fuzz target for two seconds with eight workers. The
+  deployment decoder completed 136,925 executions and the template decoder
+  completed 127,360 executions without a crash or invariant violation.
+- Extended the compiled-binary black-box suite to exercise a real approved
+  reconciliation. It verifies that JSON stdout remains one clean protocol
+  object, plan evidence is isolated to stderr, `.ainfra` is created with mode
+  `0700`, and the resulting finding reports reconciliation `applied`.
+- Corrected the deployment black-box expectation to include the new runtime
+  permission finding and forced an uncached execution while developing the
+  fixture, avoiding false confidence from the external-binary test cache.
