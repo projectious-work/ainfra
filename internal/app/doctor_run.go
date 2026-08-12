@@ -109,6 +109,14 @@ func latestRunFinding(deploymentRoot string) diagnostic.Diagnostic {
 	}
 	sort.Strings(names)
 	latestName := names[len(names)-1]
+	latestInformation, err := root.Stat(".ainfra/runs/" + latestName)
+	if err != nil || latestInformation.Mode().Perm()&0o077 != 0 {
+		base.Severity, base.Status = diagnostic.SeverityError, "fail"
+		base.Path = ".ainfra/runs/" + latestName
+		base.Message = "latest retained run directory is not owner-only"
+		base.NextAction = "Restrict the retained run directory before reading evidence."
+		return base
+	}
 	for _, file := range []string{"run.json", "events.jsonl"} {
 		path := ".ainfra/runs/" + latestName + "/" + file
 		handle, openErr := root.Open(path)
@@ -121,10 +129,13 @@ func latestRunFinding(deploymentRoot string) diagnostic.Diagnostic {
 		}
 		information, statErr := handle.Stat()
 		closeErr := handle.Close()
-		if statErr != nil || closeErr != nil || !information.Mode().IsRegular() {
+		if statErr != nil || closeErr != nil || !information.Mode().IsRegular() ||
+			information.Mode().Perm()&0o077 != 0 {
 			base.Severity, base.Status = diagnostic.SeverityError, "fail"
 			base.Path = path
-			base.Message = fmt.Sprintf("latest retained run is missing valid %s", file)
+			base.Message = fmt.Sprintf(
+				"latest retained run has missing, invalid, or non-owner-only %s", file,
+			)
 			base.NextAction = "Preserve the run directory and inspect the interrupted evidence manually."
 			return base
 		}

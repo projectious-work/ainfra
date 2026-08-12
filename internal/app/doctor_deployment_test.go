@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/projectious-work/ainfra/internal/app"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 )
 
 func TestDoctorDeploymentReportsValidatedContract(t *testing.T) {
@@ -126,5 +127,44 @@ spec:
 	}
 	if !foundApplied {
 		t.Fatalf("missing applied reconciliation: %#v", applied.Result.Findings)
+	}
+}
+
+func TestDoctorDeploymentRetainsFailedReconciliationEvidence(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	write(t, filepath.Join(root, "ainfra.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: failed-repair
+spec:
+  template:
+    source: local:../template
+`)
+	planner := reconcile.Planner{ApplyAction: func(reconcile.Action) error {
+		return os.ErrPermission
+	}}
+	response, err := app.DoctorDeployment(
+		app.DoctorDeploymentRequest{
+			Target: root, Reconcile: true, ApplyReconciliation: true,
+		},
+		app.DoctorEnvironmentOptions{
+			GOOS: "linux", GOARCH: "arm64", WorkingDirectory: root,
+			HomeDirectory: t.TempDir(), CacheDirectory: "/cache", RunDirectory: "/runs",
+			Environment: map[string]string{}, ReconcilePlanner: &planner,
+		},
+	)
+	if err != nil {
+		t.Fatalf("doctor deployment: %v", err)
+	}
+	found := false
+	for _, finding := range response.Result.Findings {
+		if finding.Check == "deployment.runtime-permissions" {
+			found = finding.Reconciliation == "still_failing" &&
+				finding.Evidence != "" && finding.Status == "warning"
+		}
+	}
+	if !found || len(response.ReconciliationPlan) != 1 {
+		t.Fatalf("failed evidence not retained: %#v", response)
 	}
 }

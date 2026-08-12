@@ -336,6 +336,13 @@ lifecycle artifacts and remain explicitly deferred rather than inferred.
 - Tests cover plan purity, creation, restrictive permissions, idempotency,
   stale-plan refusal, symlink refusal, missing automation approval, approved
   two-phase execution, post-application checks, and schema-valid doctor output.
+- Failed individual repairs now remain in the complete doctor report as
+  reconciliation `still_failing`, with retained structured evidence and the
+  still-applicable repair plan. The executor continues to later actions whose
+  preconditions remain valid; lock or stale-plan failures still stop all writes.
+- Retained-run diagnostics require the selected run directory and its mandatory
+  `run.json` and `events.jsonl` evidence to be owner-only. Group- or
+  world-accessible operational evidence fails closed with a direct remediation.
 
 This slice intentionally registers no repair for executable installation,
 configuration, deployment manifests, native inputs, templates, retained run

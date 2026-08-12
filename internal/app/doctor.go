@@ -48,6 +48,7 @@ type DoctorEnvironmentOptions struct {
 	InspectExecutable func(
 		context.Context, string, string,
 	) (doctor.ExecutableFact, error)
+	ReconcilePlanner *reconcile.Planner
 }
 
 // DoctorEnvironmentResponse carries the semantic result and resolved display

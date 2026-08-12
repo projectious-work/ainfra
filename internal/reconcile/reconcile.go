@@ -47,8 +47,12 @@ type Locker interface {
 	Lock(deploymentRoot, manifestName string) (func() error, error)
 }
 
-// Planner computes repairs without changing the filesystem.
-type Planner struct{}
+// Planner computes repairs and owns the injected local action capability.
+// A nil ApplyAction selects the production filesystem implementation.
+type Planner struct {
+	ApplyAction func(Action) error
+	RecheckPlan func(string) (Plan, error)
+}
 
 // RuntimeDirectory plans only the ainfra-owned runtime directory repair.
 func (Planner) RuntimeDirectory(deploymentRoot string) (Plan, error) {
@@ -103,7 +107,11 @@ func (planner Planner) Apply(plan Plan, locker Locker) ([]Result, error) {
 		return nil, fmt.Errorf("acquire deployment operation lock: %w", err)
 	}
 	defer func() { _ = unlock() }()
-	current, err := planner.RuntimeDirectory(plan.DeploymentRoot)
+	recheck := planner.RecheckPlan
+	if recheck == nil {
+		recheck = planner.RuntimeDirectory
+	}
+	current, err := recheck(plan.DeploymentRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +121,11 @@ func (planner Planner) Apply(plan Plan, locker Locker) ([]Result, error) {
 	results := make([]Result, 0, len(plan.Actions))
 	for _, action := range plan.Actions {
 		result := Result{Action: action, Status: "applied"}
-		if err := applyAction(action); err != nil {
+		apply := planner.ApplyAction
+		if apply == nil {
+			apply = applyAction
+		}
+		if err := apply(action); err != nil {
 			result.Status, result.Error = "failed", err.Error()
 			results = append(results, result)
 			continue

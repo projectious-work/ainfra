@@ -32,6 +32,12 @@ func TestDoctorRunValidatesLatestRetainedEvidence(t *testing.T) {
 	}
 	write(t, filepath.Join(runRoot, "run.json"), "{}\n")
 	write(t, filepath.Join(runRoot, "events.jsonl"), "{}\n")
+	if err := os.Chmod(filepath.Join(runRoot, "run.json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(runRoot, "events.jsonl"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	response, err := app.DoctorRun(
 		app.DoctorRunRequest{Target: root}, runDoctorOptions(t),
 	)
@@ -40,6 +46,30 @@ func TestDoctorRunValidatesLatestRetainedEvidence(t *testing.T) {
 	}
 	if response.Result.Summary.Pass != 1 ||
 		response.Result.Findings[0].Status != "pass" {
+		t.Fatalf("unexpected response: %#v", response.Result)
+	}
+}
+
+func TestDoctorRunRejectsNonOwnerOnlyEvidence(t *testing.T) {
+	t.Parallel()
+	root := runDeployment(t)
+	runRoot := filepath.Join(root, ".ainfra", "runs", "20260812T120000Z-example")
+	if err := os.MkdirAll(runRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(runRoot, "run.json"), "{}\n")
+	write(t, filepath.Join(runRoot, "events.jsonl"), "{}\n")
+	if err := os.Chmod(filepath.Join(runRoot, "run.json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	response, err := app.DoctorRun(
+		app.DoctorRunRequest{Target: root}, runDoctorOptions(t),
+	)
+	if err != nil {
+		t.Fatalf("doctor run: %v", err)
+	}
+	if response.Result.Summary.Fail != 1 ||
+		response.Result.Findings[0].Status != "fail" {
 		t.Fatalf("unexpected response: %#v", response.Result)
 	}
 }

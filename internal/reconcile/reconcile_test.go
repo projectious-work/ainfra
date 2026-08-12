@@ -61,6 +61,47 @@ func TestRuntimeDirectoryReconciliationRejectsSymlink(t *testing.T) {
 	}
 }
 
+func TestReconciliationPreservesFailureAndContinues(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeManifest(t, root)
+	planner := reconcile.Planner{}
+	plan, err := planner.RuntimeDirectory(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Actions = append(plan.Actions, reconcile.Action{
+		CheckID: "deployment.second-safe-fix", Path: filepath.Join(root, ".ainfra-second"),
+		Kind: reconcile.ActionCreateRuntimeDirectory, Mode: 0o700,
+		RollbackLimitation: "remove manually",
+	})
+	invocations := 0
+	failing := reconcile.Planner{
+		RecheckPlan: func(string) (reconcile.Plan, error) { return plan, nil },
+		ApplyAction: func(reconcile.Action) error {
+			invocations++
+			if invocations == 1 {
+				return os.ErrPermission
+			}
+			return nil
+		},
+	}
+	results, err := failing.Apply(plan, testLocker{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if invocations != 2 || len(results) != 2 || results[0].Status != "failed" ||
+		results[0].Error == "" || results[1].Status != "applied" {
+		t.Fatalf("invocations=%d results=%#v", invocations, results)
+	}
+}
+
+type testLocker struct{}
+
+func (testLocker) Lock(string, string) (func() error, error) {
+	return func() error { return nil }, nil
+}
+
 func writeManifest(t *testing.T, root string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(root, "ainfra.yaml"), []byte("manifest\n"), 0o600); err != nil {

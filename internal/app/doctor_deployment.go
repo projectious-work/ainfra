@@ -81,27 +81,35 @@ func DoctorDeployment(
 	if deployment.SSH.KnownHosts != "" {
 		nativeFiles++
 	}
-	runtimePlan, err := (reconcile.Planner{}).RuntimeDirectory(deployment.Target.Root)
+	planner := reconcile.Planner{}
+	if options.ReconcilePlanner != nil {
+		planner = *options.ReconcilePlanner
+	}
+	runtimePlan, err := planner.RuntimeDirectory(deployment.Target.Root)
 	if err != nil {
 		return DoctorEnvironmentResponse{}, classifyDoctorLoad("runtime directory", err)
 	}
-	applied := false
+	reconciliationStatus := ""
+	reconciliationEvidence := ""
 	if request.ApplyReconciliation && len(runtimePlan.Actions) > 0 {
-		results, applyErr := (reconcile.Planner{}).Apply(
+		results, applyErr := planner.Apply(
 			runtimePlan, reconcile.FileLocker{},
 		)
 		if applyErr != nil {
 			return DoctorEnvironmentResponse{}, fmt.Errorf("apply reconciliation: %w", applyErr)
 		}
+		failed := false
 		for _, result := range results {
 			if result.Status != "applied" {
-				return DoctorEnvironmentResponse{}, fmt.Errorf(
-					"apply reconciliation action: %s", result.Error,
-				)
+				failed = true
+				reconciliationEvidence = "local repair failed; evidence retained"
 			}
 		}
-		applied = true
-		runtimePlan, err = (reconcile.Planner{}).RuntimeDirectory(deployment.Target.Root)
+		reconciliationStatus = "applied"
+		if failed {
+			reconciliationStatus = "failed"
+		}
+		runtimePlan, err = planner.RuntimeDirectory(deployment.Target.Root)
 		if err != nil {
 			return DoctorEnvironmentResponse{}, err
 		}
@@ -111,10 +119,17 @@ func DoctorDeployment(
 		ManifestPath: deployment.Target.ManifestPath, NativeFiles: nativeFiles,
 		RuntimeSafe: len(runtimePlan.Actions) == 0,
 	}).Run(context.Background(), doctor.ScopeDeployment, doctor.Input{}, doctor.Capabilities{})
-	if applied {
+	if reconciliationStatus != "" {
 		for index := range report.Findings {
 			if report.Findings[index].Check == "deployment.runtime-permissions" {
-				report.Findings[index].Reconciliation = "applied"
+				status := reconciliationStatus
+				if status == "failed" && report.Findings[index].Status != "pass" {
+					status = "still_failing"
+				}
+				report.Findings[index].Reconciliation = status
+				if reconciliationEvidence != "" {
+					report.Findings[index].Evidence = reconciliationEvidence
+				}
 			}
 		}
 	}
