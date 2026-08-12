@@ -132,3 +132,34 @@ claim is made by the roadmap transition alone.
 This slice establishes internal contracts only. Wiring the resolver into CLI
 options, effective configuration provenance, and doctor results remains open
 under the first and subsequent WorkItems.
+
+#### 2026-08-12 — Effective-configuration core
+
+- Added `internal/config` with immutable typed UI, logging, storage-path, and
+  executable settings plus sparse typed merge layers.
+- Implemented the normative precedence mechanics for compiled defaults,
+  system, user, project, explicit, supported environment, and command-line
+  layers. Scalars replace lower values and destination lists replace rather
+  than append.
+- Added deterministic, unique, key-sorted effective-value provenance with the
+  winning source and ordered overridden sources.
+- Added the exact Linux and macOS system/user paths, optional project path,
+  and required explicit-file behavior. No generic current-directory or
+  `.ainfra/` configuration discovery exists.
+- Configuration YAML uses strict known-field decoding and rejects unsupported
+  API versions, kinds, and enum values. Environment booleans accept only
+  `true` or `false`; environment path overrides must be absolute.
+- Repository-controlled project configuration is limited to `ui` and
+  `logging.level`. Prohibited executable, storage, destination, and syslog
+  selections fail normal resolution. Diagnostic resolution records them and
+  computes the safe result without applying them.
+- Added precedence, provenance, path-resolution, project-hostility,
+  unknown-field, environment-validation, optional-layer, and Linux/macOS
+  location tests.
+
+The remaining part of the first WorkItem is CLI composition: selecting
+`--config`, `--project`, and their environment counterparts without violating
+static-help side-effect rules, then exposing the redacted result through
+`doctor environment`. Log-file, log-format, and local-syslog environment
+overrides will be completed with that composition because their semantics
+operate on the effective destination list rather than an isolated scalar.
