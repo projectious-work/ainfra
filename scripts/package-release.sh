@@ -57,6 +57,7 @@ staging="$release_root/.${version}.packaging.$$"
 [[ ! -e "$staging" ]] || die "staging directory already exists: $staging"
 mkdir -m 0700 "$staging"
 mkdir -m 0700 "$staging/.go-build-cache"
+mkdir -m 0700 "$staging/.go-module-cache"
 mkdir -m 0700 "$staging/.syft-cache"
 
 cleanup() {
@@ -80,6 +81,7 @@ package_target() {
   printf '+ build %s/%s\n' "$target_os" "$target_arch"
   CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
     GOCACHE="$staging/.go-build-cache" \
+    GOMODCACHE="$staging/.go-module-cache" \
     go build -trimpath -buildvcs=true \
     -ldflags "-X main.injectedVersion=$version" \
     -o "$package_root/ainfra" ./cmd/ainfra
@@ -105,6 +107,7 @@ package_target darwin amd64
 package_target darwin arm64
 rmdir "$staging/package"
 rm -rf -- "$staging/.go-build-cache"
+rm -rf -- "$staging/.go-module-cache"
 rm -rf -- "$staging/.syft-cache"
 
 (
