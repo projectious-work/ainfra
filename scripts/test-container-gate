@@ -5,7 +5,10 @@ repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
 python3 -m unittest test/container_gate_test.py
+python3 -m unittest test/release_signing_test.py
 shellcheck scripts/container-gate-host scripts/maintain.sh
+shellcheck scripts/release-sign-checksums
+shellcheck scripts/package-release.sh
 python3 -m py_compile \
   scripts/prepare-container-gate.py \
   scripts/container-gate-host.py

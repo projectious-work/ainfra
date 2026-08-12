@@ -8,10 +8,10 @@ metadata:
     phase: '1'
     area: release-engineering
     blocked_by: validation-environment
-  updated: '2026-08-09T14:27:28+00:00'
+  updated: '2026-08-10T16:29:15+00:00'
 spec:
   title: Complete Phase 1 release-engineering evidence
-  state: blocked
+  state: in-progress
   type: task
   priority: high
   description: 'Implemented the PR #55 two-stage host container gate locally for macOS
@@ -39,3 +39,8 @@ Phase 1 release evidence retry executed.
 ## Transition note (2026-08-07T19:55:41+00:00)
 
 Blocked on unresolved normative release evidence and release identity, detailed in the WorkItem description.
+
+
+## Transition note (2026-08-10T16:29:15+00:00)
+
+macOS arm64 host gate passed for 1.0.0-alpha.1 at run 20260810T161257Z-087ae53f636934f2a09a52e347264007; native/container version checks, Docker hardening, SBOM, zero-match Grype scan, and exact cleanup evidence retained.

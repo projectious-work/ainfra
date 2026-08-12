@@ -11,8 +11,10 @@ repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)"
 usage() {
   printf '%s\n' \
     'usage:' \
+    '  scripts/maintain.sh release-package --version=SEMVER [--dry-run]' \
     '  scripts/maintain.sh release-host-prepare --version=SEMVER' \
-    '  scripts/maintain.sh release-host --version=SEMVER [--dry-run]'
+    '  scripts/maintain.sh release-host --version=SEMVER [--dry-run]' \
+    '  scripts/maintain.sh release-sign --version=SEMVER [--dry-run]'
 }
 
 require_preparation_tools() {
@@ -97,6 +99,16 @@ resolve_prepared_run() {
 }
 
 case "${1:-}" in
+  release-package)
+    shift
+    parse_release_options "$@"
+    if [ "$dry_run" = true ]; then
+      exec "$repo_root/scripts/package-release.sh" \
+        "--version=$release_version" --dry-run
+    fi
+    exec "$repo_root/scripts/package-release.sh" \
+      "--version=$release_version"
+    ;;
   release-host-prepare)
     shift
     parse_release_options "$@"
@@ -118,6 +130,16 @@ case "${1:-}" in
         >&2
     fi
     exec "$repo_root/scripts/container-gate-host" "$run_dir"
+    ;;
+  release-sign)
+    shift
+    parse_release_options "$@"
+    if [ "$dry_run" = true ]; then
+      exec "$repo_root/scripts/release-sign-checksums" \
+        "--version=$release_version" --dry-run
+    fi
+    exec "$repo_root/scripts/release-sign-checksums" \
+      "--version=$release_version"
     ;;
   *)
     usage >&2

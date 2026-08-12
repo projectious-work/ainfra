@@ -13,6 +13,7 @@ tests/.tmp/
 coverage.out
 /ainfra
 /tmp/container-gate/
+/tmp/sigstore-preflight/
 
 
 # ── aibox generated ────────────────────────────────────────────────────────

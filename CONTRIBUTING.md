@@ -86,6 +86,51 @@ mount a socket itself.
 Go is required only inside the development container. The host consumes the
 prepared Linux and macOS binaries and does not compile release artifacts.
 
+## Release checksum signing
+
+Release packaging runs inside the development container and writes the four
+publishable archives, their SPDX JSON SBOMs, and `checksums.sha256` below
+`dist/release/<version>/`:
+
+```bash
+scripts/maintain.sh release-package --version=1.0.0-alpha.1
+```
+
+The command requires a clean worktree, refuses to overwrite an earlier
+release directory, injects the release version, uses the source commit time for
+reproducible archives, and verifies the completed checksum manifest. On the
+host, install Cosign once:
+
+```bash
+brew install cosign
+```
+
+Before signing, validate the prepared directory without opening a browser or
+creating a public transparency-log entry:
+
+```bash
+scripts/maintain.sh release-sign --version=1.0.0-alpha.1 --dry-run
+```
+
+For the release, run the same command without `--dry-run`:
+
+```bash
+scripts/maintain.sh release-sign --version=1.0.0-alpha.1
+```
+
+Cosign opens Sigstore's login flow. Select GitHub and authenticate as the
+`projectious` user. The script signs `checksums.sha256`, writes
+`checksums.sha256.sigstore.json`, and immediately verifies the bundle against
+the fixed identity `info@projectious.work` and OIDC issuer
+`https://github.com/login/oauth`. The browser authorization flow starts at
+`https://oauth2.sigstore.dev/auth`, but that endpoint is not the issuer claim
+in the Fulcio certificate. `GH_TOKEN` is not used for signing; it
+remains available to the later GitHub release publication stage.
+
+GitHub email configuration and Cosign installation are one-time setup. The
+interactive approval, short-lived Fulcio certificate, Rekor entry, signature,
+and verification are intentionally repeated for every release.
+
 Do not give an agent container-runtime authority. Do not alter the host script
 after owner review without new, explicit owner permission. The host script
 creates `evidence/`, fails rather than overwriting an existing run, removes

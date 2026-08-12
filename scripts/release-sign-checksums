@@ -1,0 +1,104 @@
+#!/bin/sh
+# Create and immediately verify the keyless Sigstore signature for a release's
+# checksum manifest. Compilation happens in the development container; the
+# human release owner approves the short-lived OIDC login in a host browser.
+
+set -eu
+
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)
+signing_identity='info@projectious.work'
+oidc_issuer='https://github.com/login/oauth'
+
+usage() {
+  printf '%s\n' \
+    'usage: scripts/release-sign-checksums --version=SEMVER [--dry-run]'
+}
+
+fail() {
+  printf 'release signing failed: %s\n' "$*" >&2
+  exit 1
+}
+
+install_hint() {
+  case "$(uname -s)" in
+    Darwin)
+      printf '%s\n' 'On macOS, install Cosign with: brew install cosign' >&2
+      ;;
+    Linux)
+      printf '%s\n' \
+        'On Linux, install Cosign from its verified upstream package or binary.' \
+        'See: https://docs.sigstore.dev/cosign/system_config/installation/' >&2
+      ;;
+    *)
+      printf '%s\n' \
+        'Install Cosign: https://docs.sigstore.dev/cosign/system_config/installation/' \
+        >&2
+      ;;
+  esac
+}
+
+version=''
+dry_run=false
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --version=*) version=${1#--version=} ;;
+    --dry-run) dry_run=true ;;
+    *) usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+version=${version#v}
+case "$version" in
+  '' | *[!0-9A-Za-z.+-]*) fail 'invalid or missing version' ;;
+esac
+
+command -v cosign >/dev/null 2>&1 || {
+  printf '%s\n' 'release signing failed: cosign is missing' >&2
+  install_hint
+  exit 1
+}
+
+release_dir="$repo_root/dist/release/$version"
+manifest="$release_dir/checksums.sha256"
+bundle="$release_dir/checksums.sha256.sigstore.json"
+
+[ -d "$release_dir" ] && [ ! -L "$release_dir" ] || \
+  fail "missing or unsafe release directory: $release_dir"
+[ -f "$manifest" ] && [ ! -L "$manifest" ] || \
+  fail "missing or unsafe checksum manifest: $manifest"
+[ -s "$manifest" ] || fail 'checksum manifest is empty'
+
+printf '%s\n' \
+  "release signing identity: $signing_identity" \
+  "release signing issuer: $oidc_issuer" \
+  "checksum manifest: $manifest"
+
+if [ "$dry_run" = true ]; then
+  printf '%s\n' \
+    'release-sign dry-run complete: no signature or transparency entry created'
+  exit 0
+fi
+
+[ ! -e "$bundle" ] || fail "signature bundle already exists: $bundle"
+
+# GH_TOKEN is deliberately irrelevant here. Cosign opens Sigstore's OIDC flow;
+# the operator selects GitHub and signs in as the projectious user. Fulcio then
+# issues a short-lived certificate for the email asserted by that login.
+cosign sign-blob "$manifest" \
+  --bundle "$bundle" \
+  --yes
+
+[ -s "$bundle" ] && [ ! -L "$bundle" ] || \
+  fail 'Cosign did not create a safe, non-empty signature bundle'
+
+# Pinning both claims prevents accepting an otherwise valid Sigstore signature
+# made by a different identity or identity provider.
+cosign verify-blob "$manifest" \
+  --bundle "$bundle" \
+  --certificate-identity "$signing_identity" \
+  --certificate-oidc-issuer "$oidc_issuer"
+
+printf '%s\n' \
+  'release checksum signature created and verified' \
+  "bundle: $bundle"
