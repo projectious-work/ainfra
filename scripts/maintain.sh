@@ -92,10 +92,10 @@ resolve_prepared_run() {
     printf '%s\n' 'release-host failed: newest run is incomplete' >&2
     exit 1
   }
-  [ ! -e "$newest/runtime" ] && [ ! -e "$newest/evidence" ] || {
+  if [ -e "$newest/runtime" ] || [ -e "$newest/evidence" ]; then
     printf '%s\n' 'release-host failed: newest run was already attempted' >&2
     exit 1
-  }
+  fi
   printf '%s\n' "$newest"
 }
 

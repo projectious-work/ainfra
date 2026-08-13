@@ -309,14 +309,6 @@ hugo = { enabled = true } # Fast Go-based static site generator; default off; op
 [addons.go.tools]
 go = {} # Go compiler, tooling, and module workflow; default on; options: {}, { enabled = true|false }, { version = "1.25.12" | "1.26.3" | "1.26.4" | "1.26.5" (default) or "latest" }
 
-# Languages/go-quality — Production Go formatting, linting, vulnerability, and security tools; requires go
-[addons.go-quality.tools]
-goimports = {} # Go import organizer and formatter; default on; options: {}, { enabled = true|false }, { version = "v0.48.0" (default) or "latest" }
-staticcheck = {} # Advanced Go static analysis suite; default on; options: {}, { enabled = true|false }, { version = "v0.7.0" (default) or "latest" }
-golangci-lint = {} # Fast aggregate Go linter runner; default on; options: {}, { enabled = true|false }, { version = "v2.12.2" (default) or "latest" }
-govulncheck = {} # Official Go vulnerability analyzer; default on; options: {}, { enabled = true|false }, { version = "v1.6.0" (default) or "latest" }
-gosec = {} # Go source security analyzer; default on; options: {}, { enabled = true|false }, { version = "v2.28.0" (default) or "latest" }
-
 # Languages/latex — TeX Live LaTeX typesetting system
 # [addons.latex.tools]
 # texlive-core = {} # Core LaTeX engines and basic TeX Live packages; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
@@ -334,7 +326,7 @@ gosec = {} # Go source security analyzer; default on; options: {}, { enabled = t
 # Languages/node — Node.js runtime with pnpm, yarn, or bun
 [addons.node.tools]
 node = { version = "26" } # Node.js JavaScript and TypeScript runtime; default on; options: {}, { enabled = true|false }, { version = "20" | "22" | "24" | "26" (default) or "latest" }
-pnpm = { version = "11.10.0" } # Fast disk-efficient Node package manager; default on; options: {}, { enabled = true|false }, { version = "9" | "10" | "11.1.3" | "11.5.2" | "11.10.0" | "11.18.0" | "11.20.0" (default) or "latest" }
+pnpm = { version = "11.10.0" } # Fast disk-efficient Node package manager; default on; options: {}, { enabled = true|false }, { version = "9" | "10" | "11.1.3" | "11.5.2" | "11.10.0" | "11.18.0" | "11.20.0" | "11.21.0" (default) or "latest" }
 # yarn = { enabled = true } # Yarn Node package manager; default off; options: {}, { enabled = true|false }, { version = "4" | "4.16.0" | "4.17.0" (default) or "latest" }
 # bun = { enabled = true } # Bun JavaScript runtime, package manager, and test runner; default off; options: {}, { enabled = true|false }, { version = "1.2" | "1.3.14" (default) or "latest" }
 
@@ -379,10 +371,6 @@ alsa-pulse = {} # ALSA-to-PulseAudio compatibility layer; default on; options: {
 # [addons.cloud-gcp.tools]
 # gcloud-cli = {} # Google Cloud command-line client and SDK; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
-# Tools/cloudflare — Cloudflare Tunnel connector (cloudflared)
-[addons.cloudflare.tools]
-cloudflared = {} # Cloudflare Tunnel connector and command-line client; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-
 # Tools/data-preview — SQLite and tabular data preview tools for Yazi
 # [addons.data-preview.tools]
 # sqlite3 = {} # SQLite shell used to preview database schemas and tables; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
@@ -392,10 +380,6 @@ cloudflared = {} # Cloudflare Tunnel connector and command-line client; default 
 [addons.git-ui.tools]
 gh = {} # GitHub CLI for issues, PRs, releases, and auth; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 lazygit = {} # Interactive terminal UI for Git status, commits, and branches; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-
-# Tools/go-release — GoReleaser plus language-neutral release validation; requires go, release
-# [addons.go-release.tools]
-# goreleaser = {} # Multi-platform Go release packager; default on; options: {}, { enabled = true|false }, { version = "2.17.1" (default) or "latest" }
 
 # Tools/infrastructure — OpenTofu, Ansible, Packer, and optional rootless Podman
 [addons.infrastructure.tools]
@@ -428,18 +412,34 @@ ffmpeg = {} # Video and audio metadata plus thumbnail support for previews; defa
 ghostscript = {} # PostScript and EPS rendering support for document previews; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 rich = {} # Markdown, JSON, RST, and notebook terminal rendering for Yazi previews; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
-# Tools/release — Language-neutral shell and container release validation
-[addons.release.tools]
-shellcheck = {} # Shell script static analyzer; default on; options: {}, { enabled = true|false }, { version = "0.11.0" (default) or "latest" }
-hadolint = {} # Dockerfile linter; default on; options: {}, { enabled = true|false }, { version = "2.15.1" (default) or "latest" }
+# Tools/yazi-omp — oh-my-posh for the omp.yazi header prompt
+# [addons.yazi-omp.tools]
+# oh-my-posh = {} # default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
-# Tools/supply-chain — Secret scanning, vulnerability analysis, SBOM generation, and signing
+# Selected addon not found in the loaded addon catalog.
+[addons.cloudflare.tools]
+cloudflared = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+
+# Selected addon not found in the loaded addon catalog.
+[addons.go-quality.tools]
+goimports = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+golangci-lint = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+gosec = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+govulncheck = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+staticcheck = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+
+# Selected addon not found in the loaded addon catalog.
+[addons.release.tools]
+hadolint = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+shellcheck = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+
+# Selected addon not found in the loaded addon catalog.
 [addons.supply-chain.tools]
-gitleaks = {} # Repository secret scanner; default on; options: {}, { enabled = true|false }, { version = "8.30.1" (default) or "latest" }
-osv-scanner = {} # OSV dependency vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "2.4.0" (default) or "latest" }
-syft = {} # Software bill of materials generator; default on; options: {}, { enabled = true|false }, { version = "1.50.0" (default) or "latest" }
-grype = {} # Artifact and container vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "0.116.1" (default) or "latest" }
-cosign = {} # Sigstore artifact signing and verification CLI; default on; options: {}, { enabled = true|false }, { version = "3.1.2" (default) or "latest" }
+cosign = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+gitleaks = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+grype = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+osv-scanner = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+syft = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
 # =============================================================================
 # [ai] — AI agent harnesses and model providers

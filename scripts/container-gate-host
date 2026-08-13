@@ -92,8 +92,9 @@ case "$host_system" in
     fi
     ;;
 esac
-[ -n "$canonical_home" ] && [ -d "$canonical_home" ] || \
+if [ -z "$canonical_home" ] || [ ! -d "$canonical_home" ]; then
   fail "cannot resolve canonical home"
+fi
 case "$canonical_home" in
   *$'\n'* | *$'\r'* | *'='*) fail "unsafe canonical home path" ;;
 esac

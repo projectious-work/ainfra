@@ -1,4 +1,4 @@
-{{- $roadmap := .Page.Site.Data.roadmap -}}
+{{- $roadmap := hugo.Data.roadmap -}}
 {{- if not $roadmap -}}
   {{- errorf "Roadmap data was not mounted from spec/doc/v1/roadmap.yaml" -}}
 {{- end -}}

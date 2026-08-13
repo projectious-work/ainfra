@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -20,12 +21,20 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	binary = filepath.Join(temporary, "ainfra")
+	moduleCache := os.Getenv("GOMODCACHE")
+	if moduleCache == "" {
+		output, outputErr := exec.Command("go", "env", "GOMODCACHE").Output()
+		if outputErr != nil {
+			panic(outputErr)
+		}
+		moduleCache = strings.TrimSpace(string(output))
+	}
 	build := exec.Command("go", "build", "-o", binary, "../../cmd/ainfra")
 	build.Env = []string{
 		"PATH=" + os.Getenv("PATH"),
 		"HOME=" + temporary,
 		"GOCACHE=" + filepath.Join(temporary, "go-build"),
-		"GOMODCACHE=" + os.Getenv("GOMODCACHE"),
+		"GOMODCACHE=" + moduleCache,
 		"GOPROXY=off",
 		"GOTOOLCHAIN=local",
 	}

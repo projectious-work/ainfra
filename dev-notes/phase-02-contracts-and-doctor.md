@@ -383,3 +383,21 @@ evidence, state, credentials, or remote infrastructure.
   are not duplicated.
 - Added package, command-dispatch, compiled CLI schema, no-overwrite, and
   conflict-before-write coverage for the initializer.
+
+#### 2026-08-13 — Session-start conformance verification
+
+- Verified Hugo `v0.164.0` is available and ran the complete documentation,
+  v1 specification, CLI schema, static-analysis, security, and container-gate
+  validation through `scripts/validate-all`.
+- Ran `scripts/test-all`, including ordinary, race, coverage, compiled
+  black-box, and container-gate suites. All configured tests passed.
+- Corrected the compiled black-box harness to resolve Go's effective module
+  cache when `GOMODCACHE` is not explicitly exported, preserving its offline
+  nested build without depending on an empty cache path.
+- Replaced ambiguous shell `A && B || C` guards in container and release
+  scripts with explicit conditionals. This retains the fail-closed path and
+  symlink checks while satisfying the configured ShellCheck gate.
+- Rechecked the Phase 2 disposition matrix against the retained evidence. No
+  new Phase 2 implementation gap remains; later-phase acquisition, lifecycle,
+  output collection, and durable logging boundaries remain explicitly
+  deferred as recorded above.
