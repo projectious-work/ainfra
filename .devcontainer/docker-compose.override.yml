@@ -1,0 +1,8 @@
+# Project-specific compose override for this repository's development service.
+# Docker Compose merges this with the generated docker-compose.yml.
+# This file is never overwritten by `aibox sync`.
+
+services:
+  ainfra:
+    ports:
+      - "127.0.0.1:1314:1314"
