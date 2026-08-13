@@ -20,7 +20,7 @@ usage() {
 
 require_preparation_tools() {
   missing=""
-  for tool in git go; do
+  for tool in git python3; do
     if ! command -v "$tool" >/dev/null 2>&1; then
       missing="${missing}${missing:+, }${tool}"
     fi
@@ -30,11 +30,11 @@ require_preparation_tools() {
       "$missing" >&2
     case "$(uname -s)" in
       Darwin)
-        printf '%s\n' 'On macOS, install them with: brew install git go' >&2
+        printf '%s\n' 'On macOS, install them with: brew install git python' >&2
         ;;
       Linux)
         printf '%s\n' \
-          'On Linux, install Git and Go with your system package manager.' >&2
+          'On Linux, install Git and Python with your system package manager.' >&2
         ;;
     esac
     exit 1
