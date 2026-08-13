@@ -100,7 +100,7 @@ metadata:
   name: dev
 spec:
   template:
-    source: git::https://example.com/templates.git//base
+    source: git::https://user:secret@example.com/templates.git?access_token=secret//base
     ref: main
 `)
 	templateRoot := filepath.Join(t.TempDir(), "base")
@@ -111,19 +111,29 @@ spec:
 		t.Fatal(err)
 	}
 	commit := strings.Repeat("a", 40)
+	configuredGit := filepath.Join(t.TempDir(), "git")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	writeTestFile(t, configPath, `apiVersion: ainfra.projectious.work/v1
+kind: CLIConfig
+executables:
+  git: `+configuredGit+`
+`)
 	options := app.TemplateLockOptions{
 		WorkingDirectory: deployment, CacheDirectory: cacheRoot,
-		Environment: map[string]string{},
+		HomeDirectory: t.TempDir(), GOOS: "linux",
+		RunDirectory: filepath.Join(t.TempDir(), "runs"), Environment: map[string]string{},
 		AcquireGit: func(
-			_ context.Context, reference source.Reference, selectedCache string,
+			_ context.Context, reference source.Reference, selectedCache, gitPath string,
 		) (source.GitAcquisition, error) {
-			if reference.RequestedRef != "main" || selectedCache != cacheRoot {
-				t.Fatalf("unexpected acquisition: %#v cache=%q", reference, selectedCache)
+			if reference.RequestedRef != "main" || selectedCache != cacheRoot ||
+				gitPath != configuredGit || !strings.Contains(reference.Repository, "secret") {
+				t.Fatalf("unexpected acquisition: %#v cache=%q git=%q", reference, selectedCache, gitPath)
 			}
 			return source.GitAcquisition{Commit: commit, Materialized: materialized}, nil
 		},
 	}
-	if _, err := app.TemplateLock(app.TemplateLockRequest{}, options); err != nil {
+	request := app.TemplateLockRequest{ConfigPath: configPath}
+	if _, err := app.TemplateLock(request, options); err != nil {
 		t.Fatal(err)
 	}
 	first, err := lockfile.Read(filepath.Join(deployment, lockfile.Filename))
@@ -134,13 +144,87 @@ spec:
 		first.Template.Subdirectory != "base" {
 		t.Fatalf("unexpected Git lock: %#v", first)
 	}
+	if strings.Contains(first.Template.Source, "secret") ||
+		!strings.Contains(first.Template.Source, "redacted") {
+		t.Fatalf("Git lock persisted credentials: %#v", first.Template)
+	}
 	commit = strings.Repeat("b", 40)
-	updated, err := app.TemplateUpdate(app.TemplateLockRequest{}, options)
+	updated, err := app.TemplateUpdate(request, options)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !updated.Changed || updated.ResolvedRevision != commit {
 		t.Fatalf("unexpected update: %#v", updated)
+	}
+}
+
+func TestTemplateLockUsesTrustedExplicitConfiguration(t *testing.T) {
+	t.Parallel()
+	repository := t.TempDir()
+	mustMkdir(t, filepath.Join(repository, ".git"))
+	deployment := filepath.Join(repository, "deployment")
+	templateRoot := filepath.Join(repository, "base")
+	mustMkdir(t, deployment)
+	writeTestFile(t, filepath.Join(deployment, "ainfra.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: configured
+spec:
+  template:
+    source: local:../base
+`)
+	writeLocalTemplate(t, templateRoot)
+	configuredCache := filepath.Join(t.TempDir(), "configured-cache")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	writeTestFile(t, configPath, `apiVersion: ainfra.projectious.work/v1
+kind: CLIConfig
+paths:
+  cache: `+configuredCache+`
+`)
+	_, err := app.TemplateLock(app.TemplateLockRequest{
+		Target: deployment, ConfigPath: configPath,
+	}, app.TemplateLockOptions{
+		WorkingDirectory: repository, HomeDirectory: t.TempDir(), GOOS: "linux",
+		CacheDirectory: filepath.Join(t.TempDir(), "default-cache"),
+		RunDirectory:   filepath.Join(t.TempDir(), "runs"), Environment: map[string]string{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(configuredCache, "templates", "sha256"))
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("configured cache entries=%d err=%v", len(entries), err)
+	}
+}
+
+func TestTemplateLockRejectsProjectControlledCache(t *testing.T) {
+	t.Parallel()
+	repository := t.TempDir()
+	mustMkdir(t, filepath.Join(repository, ".git"))
+	deployment := filepath.Join(repository, "deployment")
+	templateRoot := filepath.Join(repository, "base")
+	mustMkdir(t, deployment)
+	writeTestFile(t, filepath.Join(deployment, "ainfra.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: rejected
+spec:
+  template:
+    source: local:../base
+`)
+	writeLocalTemplate(t, templateRoot)
+	writeTestFile(t, filepath.Join(deployment, "ainfra.config.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: CLIConfig
+paths:
+  cache: /tmp/project-controlled
+`)
+	_, err := app.TemplateLock(app.TemplateLockRequest{Target: deployment}, app.TemplateLockOptions{
+		WorkingDirectory: repository, HomeDirectory: t.TempDir(), GOOS: "linux",
+		CacheDirectory: filepath.Join(t.TempDir(), "cache"),
+		RunDirectory:   filepath.Join(t.TempDir(), "runs"), Environment: map[string]string{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "prohibited keys") {
+		t.Fatalf("project cache error = %v", err)
 	}
 }
 

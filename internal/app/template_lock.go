@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"time"
 
+	"github.com/projectious-work/ainfra/internal/config"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
@@ -21,6 +23,7 @@ import (
 type TemplateLockRequest struct {
 	Target      string
 	ProjectPath string
+	ConfigPath  string
 }
 
 // TemplateLockOptions supplies explicit host policy and time facts.
@@ -29,7 +32,12 @@ type TemplateLockOptions struct {
 	CacheDirectory   string
 	Environment      map[string]string
 	Now              func() time.Time
-	AcquireGit       func(context.Context, source.Reference, string) (source.GitAcquisition, error)
+	GOOS             string
+	HomeDirectory    string
+	XDGConfigHome    string
+	RunDirectory     string
+	GitPath          string
+	AcquireGit       func(context.Context, source.Reference, string, string) (source.GitAcquisition, error)
 }
 
 // TemplateLock resolves, validates, materializes, and locks one local source.
@@ -60,6 +68,10 @@ func mutateTemplateLock(
 	if err != nil {
 		return output.Template{}, fmt.Errorf("load deployment contract: %w", err)
 	}
+	options, err = resolveTemplateConfiguration(request, deployment.Target.Root, options)
+	if err != nil {
+		return output.Template{}, fmt.Errorf("resolve template configuration: %w", err)
+	}
 	reference, err := source.Parse(deployment.Template.Source, deployment.Template.Ref)
 	if err != nil {
 		return output.Template{}, fmt.Errorf("parse template source: %w", err)
@@ -77,7 +89,7 @@ func mutateTemplateLock(
 		now = options.Now
 	}
 	document := lockfile.New(lockfile.Template{
-		Source: reference.Canonical, RequestedRef: reference.RequestedRef,
+		Source: reference.Display, RequestedRef: reference.RequestedRef,
 		Resolved:     immutable,
 		Subdirectory: reference.Subdirectory, Version: contract.Version,
 		Digest: materialized.Digest, ResolvedAt: now(),
@@ -122,7 +134,9 @@ func resolveTemplate(
 	if options.AcquireGit == nil {
 		return source.Materialized{}, "", errors.New("git template acquisition is unavailable")
 	}
-	acquired, err := options.AcquireGit(context.Background(), reference, options.CacheDirectory)
+	acquired, err := options.AcquireGit(
+		context.Background(), reference, options.CacheDirectory, options.GitPath,
+	)
 	if err != nil {
 		return source.Materialized{}, "", fmt.Errorf("acquire Git template source: %w", err)
 	}
@@ -146,10 +160,18 @@ func HostTemplateLockOptions() (TemplateLockOptions, error) {
 	if err != nil {
 		return TemplateLockOptions{}, fmt.Errorf("read cache directory: %w", err)
 	}
+	homeDirectory, err := os.UserHomeDir()
+	if err != nil {
+		return TemplateLockOptions{}, fmt.Errorf("read home directory: %w", err)
+	}
 	return TemplateLockOptions{
 		WorkingDirectory: workingDirectory,
 		CacheDirectory:   filepath.Join(cacheDirectory, "ainfra"),
-		Environment:      map[string]string{"AINFRA_PROJECT": os.Getenv("AINFRA_PROJECT")},
+		RunDirectory:     filepath.Join(homeDirectory, ".local", "state", "ainfra", "runs"),
+		HomeDirectory:    homeDirectory,
+		XDGConfigHome:    os.Getenv("XDG_CONFIG_HOME"),
+		GOOS:             runtime.GOOS,
+		Environment:      supportedEnvironment(),
 		AcquireGit:       acquireHostGit,
 	}, nil
 }
@@ -158,10 +180,15 @@ func acquireHostGit(
 	ctx context.Context,
 	reference source.Reference,
 	cacheRoot string,
+	configuredPath string,
 ) (source.GitAcquisition, error) {
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		return source.GitAcquisition{}, fmt.Errorf("discover git executable: %w", err)
+	gitPath := configuredPath
+	if gitPath == "" {
+		var err error
+		gitPath, err = exec.LookPath("git")
+		if err != nil {
+			return source.GitAcquisition{}, fmt.Errorf("discover git executable: %w", err)
+		}
 	}
 	executable, err := security.ResolveExecutable(gitPath)
 	if err != nil {
@@ -177,4 +204,42 @@ func acquireHostGit(
 	return source.AcquireGit(ctx, reference, source.GitOptions{
 		Executable: executable, Environment: environment, CacheRoot: cacheRoot,
 	})
+}
+
+func resolveTemplateConfiguration(
+	request TemplateLockRequest,
+	deploymentRoot string,
+	options TemplateLockOptions,
+) (TemplateLockOptions, error) {
+	if options.HomeDirectory == "" {
+		if request.ConfigPath != "" {
+			return TemplateLockOptions{}, errors.New("home directory is required for explicit configuration")
+		}
+		return options, nil
+	}
+	explicit := request.ConfigPath
+	if explicit == "" {
+		explicit = options.Environment["AINFRA_CONFIG"]
+	}
+	if explicit != "" && !filepath.IsAbs(explicit) {
+		explicit = filepath.Join(options.WorkingDirectory, explicit)
+	}
+	files, err := config.Files(config.LocationOptions{
+		GOOS: options.GOOS, HomeDirectory: options.HomeDirectory,
+		XDGConfigHome: options.XDGConfigHome, DeploymentRoot: deploymentRoot,
+		ExplicitPath: explicit,
+	})
+	if err != nil {
+		return TemplateLockOptions{}, err
+	}
+	effective, err := config.Resolve(config.ResolveOptions{
+		Defaults: config.Defaults(options.CacheDirectory, options.RunDirectory),
+		Files:    files, Environment: options.Environment,
+	})
+	if err != nil {
+		return TemplateLockOptions{}, err
+	}
+	options.CacheDirectory = effective.Settings.Paths.Cache
+	options.GitPath = effective.Settings.Executables.Git
+	return options, nil
 }

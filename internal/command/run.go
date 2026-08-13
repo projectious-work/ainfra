@@ -173,9 +173,6 @@ func runTemplateLock(
 	if err := flags.Parse(controlArguments); err != nil {
 		return failInvocation(arguments, err.Error(), options.IO)
 	}
-	if *configPath != "" {
-		return failInvocation(arguments, "template lock does not yet accept --config", options.IO)
-	}
 	if *yes && !*nonInteractive {
 		return failInvocation(arguments, "--yes requires --non-interactive", options.IO)
 	}
@@ -193,7 +190,7 @@ func runTemplateLock(
 		target = positional[2]
 	}
 	result, err := mutation(app.TemplateLockRequest{
-		Target: target, ProjectPath: *projectPath,
+		Target: target, ProjectPath: *projectPath, ConfigPath: *configPath,
 	})
 	if err != nil {
 		exit, code := ExitInvalidInput, "AINFRA-E3001"

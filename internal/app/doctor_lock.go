@@ -43,7 +43,7 @@ func deploymentTemplateFacts(
 			"template lock is structurally valid", ""),
 	}
 	requestedSource, parseErr := source.Parse(deployment.Template.Source, deployment.Template.Ref)
-	if parseErr != nil || document.Template.Source != requestedSource.Canonical ||
+	if parseErr != nil || document.Template.Source != requestedSource.Display ||
 		document.Template.RequestedRef != requestedSource.RequestedRef {
 		facts = append(facts, lockFact(
 			"template.source-binding", "AINFRA-E2311", lockPath, "fail",
