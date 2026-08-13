@@ -44,3 +44,9 @@ ainfra doctor environment --project path/to/deployment
 
 The report shows each winning layer and overridden layers without displaying
 secret values.
+
+`ainfra template lock` and `ainfra template update` use the same precedence
+for trusted acquisition controls. An absolute `paths.cache` selects private
+template storage, and `executables.git` selects the Git executable. Project
+configuration cannot control either value; such attempts fail closed. Git is
+resolved lazily, so local-only locking does not require it.

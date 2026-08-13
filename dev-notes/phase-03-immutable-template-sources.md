@@ -24,7 +24,8 @@ inventory, configure hosts, or destroy resources.
 | Normative requirement | Disposition | Phase 3 evidence target |
 |---|---|---|
 | `AINFRA-SOURCE-001`–`006` | implement | Structural local/Git source parser; approved-root containment; argument-array Git adapter; private cache; cleaned subdirectory; Git-owned redirect, SSH, and credential behavior. |
-| `AINFRA-LOCK-001`–`006` | implement | Exclusive lock/update writers; canonical serialization; immutable Git commit or normalized local identity; specified SHA-256 tree digest; strict path, file-type, permission, and runtime-artifact handling. |
+| `AINFRA-LOCK-001`, `004`–`006` | implement | Exclusive lock/update writers; canonical serialization; immutable Git commit or normalized local identity; specified SHA-256 tree digest; strict path, file-type, permission, and runtime-artifact handling. |
+| `AINFRA-LOCK-002`–`003` | boundary now; enforce in Phase 4/6 | Lock and verified materialization primitives are complete. Plan must reject digest drift in Phase 4; apply and destroy must consume the plan-bound materialization in Phases 4 and 6. |
 | `AINFRA-SEC-001`–`006` | implement | Locked identity and digest enforcement; visible source/ref changes; verified cache hits; contained materialization; no credential persistence; URL redaction. |
 | `AINFRA-SEC-010`, `013`, `020`–`021`, `025` | supporting | No shell invocation; canonical contained working directories; continued inline-secret refusal; safe fixtures; owner-only operational storage. |
 | `AINFRA-CLI-002`–`004`, `006`–`007`, `011`–`013` | supporting | Lock/update commands preserve established result, error, confirmation, help, and redaction contracts. |
@@ -251,3 +252,18 @@ the ephemeral Git child request receives the original repository URL. Tests
 prove userinfo and sensitive query values reach neither `ainfra.lock` nor
 recorded invocations. The immutable commit and content digest continue to make
 credential-only acquisition changes visible without persisting those values.
+
+### 2026-08-13 — Final conformance disposition
+
+The final requirement sweep found no additional Phase 3 implementation gap.
+It corrected the matrix overclaim for `AINFRA-LOCK-002` and `003`: Phase 3
+provides the immutable lock and verified materialization boundary, while plan,
+apply, and destroy enforcement necessarily belongs to their Phase 4 and 6
+consumers. Source/archive/path fuzz ownership is satisfied for Phase 3 by the
+structural source and normative path/digest fuzz targets; standardized output,
+redaction streaming, and Ansible-event fuzzing remain with Phases 5 and 6.
+
+The structural release audit reported 0 errors. Its sole warning notes that
+`src/context` contains no processkit skills, which is intentional for this
+application release. Full validation, release publication, independent
+artifact verification, and roadmap shipment remain the release gates.
