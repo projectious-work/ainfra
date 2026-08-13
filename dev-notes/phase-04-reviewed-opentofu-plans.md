@@ -71,3 +71,22 @@ Tracking WorkItem:
 The next slice creates private run workspaces from verified locked templates
 and computes the complete deployment, input, template, and tool binding set
 before invoking this adapter.
+
+### 2026-08-13 — Verified run workspaces and pre-engine bindings
+
+- Added exclusive, owner-only run allocation under a trusted runs root with
+  cleanup of failed partial preparation.
+- Reverified the digest-addressed cache entry, copied only validated template
+  content into the private run workspace, and reverified the resulting tree.
+- Bound deployment manifest bytes, ordered OpenTofu backend and variable input
+  bytes, locked template source/resolution/digest, and the fingerprinted
+  OpenTofu executable before any engine invocation.
+- Refused unsafe run IDs, existing run reuse, poisoned cache content, escaping
+  or non-regular native inputs, and changed executable bytes.
+- Added tests for private permissions, complete deterministic binding order,
+  workspace equality, poisoned-cache refusal, exclusive IDs, and partial-run
+  cleanup.
+
+The next slice composes preparation with `tofu init` and saved apply planning,
+then atomically publishes the immutable reviewed-plan record and structural
+summary without yet enabling apply.
