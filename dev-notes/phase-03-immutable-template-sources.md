@@ -221,3 +221,33 @@ coverage before the independent Phase 3 conformance review.
 
 The next slice closes trusted configuration and interruption/corruption edge
 coverage, followed by the independent Phase 3 conformance and gap review.
+
+### 2026-08-13 — Trusted mutation configuration
+
+- Routed `template lock` and `template update` through the same system, user,
+  project, explicit-file, and environment configuration precedence as doctor.
+- Applied trusted absolute `paths.cache` and `executables.git` values to source
+  acquisition while keeping Git discovery lazy for local-only templates.
+- Added `--config` support to both template mutation commands and resolved
+  relative explicit configuration paths from the caller's working directory.
+- Reused the existing prohibition on project-controlled cache, run, logging,
+  and executable redirection; template mutations fail closed instead of silently
+  ignoring such repository-controlled trust changes.
+- Added tests proving explicit cache/Git selection and project-cache refusal.
+
+Interruption, partial-write, and corruption defenses are covered at each owned
+boundary: child cancellation, private acquisition cleanup, atomic cache rename,
+exclusive atomic lock publication, poisoned-cache verification, malformed lock
+rejection, and traversal-shaped digest refusal. The next step is the independent
+Phase 3 conformance review and any gap closure it identifies.
+
+### 2026-08-13 — Conformance review gap closure
+
+The first independent requirement sweep found one blocking `AINFRA-SEC-005`
+gap: acquisition correctly redacted credential-bearing URLs in diagnostics, but
+the raw canonical source was still selected for lock publication. Lock and
+doctor source bindings now use the display-safe structural identity, while only
+the ephemeral Git child request receives the original repository URL. Tests
+prove userinfo and sensitive query values reach neither `ainfra.lock` nor
+recorded invocations. The immutable commit and content digest continue to make
+credential-only acquisition changes visible without persisting those values.

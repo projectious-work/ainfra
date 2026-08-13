@@ -150,13 +150,17 @@ func redactURL(value *url.URL) string {
 	}
 	query := copy.Query()
 	for key := range query {
-		lower := strings.ToLower(key)
-		if strings.Contains(lower, "token") || strings.Contains(lower, "secret") ||
-			strings.Contains(lower, "password") || strings.Contains(lower, "credential") ||
-			lower == "key" || lower == "sig" || strings.Contains(lower, "signature") {
+		if sensitiveQueryKey(key) {
 			query.Set(key, "redacted")
 		}
 	}
 	copy.RawQuery = query.Encode()
 	return copy.String()
+}
+
+func sensitiveQueryKey(key string) bool {
+	lower := strings.ToLower(key)
+	return strings.Contains(lower, "token") || strings.Contains(lower, "secret") ||
+		strings.Contains(lower, "password") || strings.Contains(lower, "credential") ||
+		lower == "key" || lower == "sig" || strings.Contains(lower, "signature")
 }

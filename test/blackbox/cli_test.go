@@ -320,7 +320,7 @@ spec:
 		t.Fatal(err)
 	}
 	if success.Command != "doctor.deployment" || !success.OK ||
-		success.Result.Scope != "deployment" || len(success.Result.Findings) != 4 {
+		success.Result.Scope != "deployment" || len(success.Result.Findings) != 9 {
 		t.Fatalf("success=%+v", success)
 	}
 
