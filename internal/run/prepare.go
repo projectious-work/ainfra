@@ -1,0 +1,137 @@
+// Package run creates and binds private lifecycle run workspaces.
+package run
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+
+	lockfile "github.com/projectious-work/ainfra/internal/lock"
+	"github.com/projectious-work/ainfra/internal/project"
+	"github.com/projectious-work/ainfra/internal/security"
+	"github.com/projectious-work/ainfra/internal/source"
+)
+
+// Binding identifies one immutable input to a reviewed plan.
+type Binding struct {
+	Path   string
+	Digest string
+}
+
+// Prepared is a private workspace and its complete pre-engine binding set.
+type Prepared struct {
+	ID               string
+	Root             string
+	Workspace        string
+	Deployment       Binding
+	NativeInputs     []Binding
+	TemplateSource   string
+	TemplateResolved string
+	TemplateDigest   string
+	ExecutablePath   string
+	ExecutableDigest string
+}
+
+// Options contains trusted paths and identities selected by the application.
+type Options struct {
+	ID         string
+	RunsRoot   string
+	CacheRoot  string
+	Deployment project.Deployment
+	Lock       lockfile.Document
+	Executable security.Executable
+}
+
+// Prepare creates an exclusive private run directory, verifies the lock-bound
+// cache entry, copies it into workspace, and hashes all Phase 4 inputs.
+func Prepare(options Options) (prepared Prepared, err error) {
+	if !validID(options.ID) {
+		return Prepared{}, errors.New("run ID must be a collision-resistant safe directory name")
+	}
+	if options.Lock.Template.Digest == "" || options.Lock.Template.Source == "" {
+		return Prepared{}, errors.New("complete template lock required")
+	}
+	if err := options.Executable.VerifyUnchanged(); err != nil {
+		return Prepared{}, fmt.Errorf("verify OpenTofu executable binding: %w", err)
+	}
+	if err := security.EnsurePrivateDir(options.RunsRoot); err != nil {
+		return Prepared{}, fmt.Errorf("secure runs root: %w", err)
+	}
+	runRoot := filepath.Join(options.RunsRoot, options.ID)
+	if err := os.Mkdir(runRoot, 0o700); err != nil {
+		return Prepared{}, fmt.Errorf("create exclusive run directory: %w", err)
+	}
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.RemoveAll(runRoot)
+		}
+	}()
+	cachePath := filepath.Join(options.CacheRoot, "templates", "sha256", strings.TrimPrefix(options.Lock.Template.Digest, "sha256:"))
+	workspace := filepath.Join(runRoot, "workspace")
+	if err := source.CopyVerifiedTemplate(cachePath, workspace, options.Lock.Template.Digest); err != nil {
+		return Prepared{}, fmt.Errorf("materialize run workspace: %w", err)
+	}
+	manifestDigest, err := digestFile(options.Deployment.Target.ManifestPath)
+	if err != nil {
+		return Prepared{}, fmt.Errorf("bind deployment manifest: %w", err)
+	}
+	inputPaths := append([]string(nil), options.Deployment.Inputs.TofuBackendConfigFiles...)
+	inputPaths = append(inputPaths, options.Deployment.Inputs.TofuVariableFiles...)
+	nativeInputs := make([]Binding, 0, len(inputPaths))
+	for _, relative := range inputPaths {
+		path, resolveErr := security.ResolveContained(options.Deployment.Target.Root, relative)
+		if resolveErr != nil {
+			return Prepared{}, fmt.Errorf("bind native input %q: %w", relative, resolveErr)
+		}
+		digest, digestErr := digestFile(path)
+		if digestErr != nil {
+			return Prepared{}, fmt.Errorf("bind native input %q: %w", relative, digestErr)
+		}
+		nativeInputs = append(nativeInputs, Binding{Path: filepath.ToSlash(relative), Digest: digest})
+	}
+	prepared = Prepared{
+		ID: options.ID, Root: runRoot, Workspace: workspace,
+		Deployment: Binding{Path: "ainfra.yaml", Digest: manifestDigest}, NativeInputs: nativeInputs,
+		TemplateSource: options.Lock.Template.Source, TemplateResolved: options.Lock.Template.Resolved,
+		TemplateDigest: options.Lock.Template.Digest, ExecutablePath: options.Executable.Path(),
+		ExecutableDigest: options.Executable.Digest(),
+	}
+	cleanup = false
+	return prepared, nil
+}
+
+func validID(value string) bool {
+	if len(value) < 16 || len(value) > 128 || value == "." || value == ".." {
+		return false
+	}
+	for _, character := range value {
+		if character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' || strings.ContainsRune("._-", character) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func digestFile(path string) (string, error) {
+	if err := security.RequireRegular(path); err != nil {
+		return "", err
+	}
+	file, err := os.Open(path) // #nosec G304 -- path passed contained regular-file policy.
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.New()
+	_, copyErr := io.Copy(hash, file)
+	closeErr := file.Close()
+	if err := errors.Join(copyErr, closeErr); err != nil {
+		return "", err
+	}
+	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), nil
+}
