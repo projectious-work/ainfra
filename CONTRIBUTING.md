@@ -31,13 +31,20 @@ uv run scripts/validate-v1-spec
 
 Documentation changes must also pass a clean production build.
 
-## Phase 1 host container gate
+## Host container gate
 
-The restricted development container cross-builds all four supported targets
-and prepares—but never executes—the host-validation input:
+The restricted development container first packages all four supported targets,
+including their SBOMs and checksum manifest:
 
 ```bash
-scripts/maintain.sh release-host-prepare --version=1.0.0-alpha.1
+scripts/maintain.sh release-package --version=1.0.0-alpha.2
+```
+
+No Go build occurs after this point. On the host, preparation verifies those
+packaged archives and copies their binaries into an immutable validation input:
+
+```bash
+scripts/maintain.sh release-host-prepare --version=1.0.0-alpha.2
 ```
 
 The command prints a unique ignored directory below `tmp/container-gate/`.
@@ -53,7 +60,7 @@ run may access the network to acquire Python; later runs reuse uv's cache.
 On the host, select the newest unused run for exactly that version:
 
 ```bash
-scripts/maintain.sh release-host --version=1.0.0-alpha.1 --dry-run
+scripts/maintain.sh release-host --version=1.0.0-alpha.2 --dry-run
 ```
 
 The host gate always creates evidence only; `--dry-run` makes that
@@ -83,8 +90,9 @@ the fixed Linuxbrew prefix. Both conventional and rootless Docker daemons are
 supported because the gate invokes only the Docker CLI and does not select or
 mount a socket itself.
 
-Go is required only inside the development container. The host consumes the
-prepared Linux and macOS binaries and does not compile release artifacts.
+Go is required only inside the development container. Host preparation requires
+Git and Python, consumes the checksum-verified release archives, and never
+compiles release artifacts.
 
 ## Release checksum signing
 
@@ -93,7 +101,7 @@ publishable archives, their SPDX JSON SBOMs, and `checksums.sha256` below
 `dist/release/<version>/`:
 
 ```bash
-scripts/maintain.sh release-package --version=1.0.0-alpha.1
+scripts/maintain.sh release-package --version=1.0.0-alpha.2
 ```
 
 The command requires a clean worktree, refuses to overwrite an earlier

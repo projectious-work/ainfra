@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +18,13 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC is not None and SPEC.loader is not None
 host = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(host)
+
+PREPARE_SPEC = importlib.util.spec_from_file_location(
+    "prepare_container_gate", ROOT / "scripts" / "prepare-container-gate.py"
+)
+assert PREPARE_SPEC is not None and PREPARE_SPEC.loader is not None
+prepare = importlib.util.module_from_spec(PREPARE_SPEC)
+PREPARE_SPEC.loader.exec_module(prepare)
 
 
 class ContainerGateValidationTests(unittest.TestCase):
@@ -294,7 +302,54 @@ class ContainerGateValidationTests(unittest.TestCase):
         self.assertIn("container-gate-host", launcher)
         self.assertIn("--dry-run", launcher)
         self.assertIn("require_preparation_tools", launcher)
-        self.assertIn("brew install git go", launcher)
+        self.assertIn("brew install git python", launcher)
+        self.assertNotIn("brew install git go", launcher)
+
+    def test_preparation_consumes_packages_without_go(self) -> None:
+        source = (ROOT / "scripts" / "prepare-container-gate.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("dist\" / \"release", source)
+        self.assertIn("copy_packaged_binary", source)
+        self.assertNotIn('["go", "build"', source)
+
+    def test_preparation_extracts_checksum_verified_packaged_binary(self) -> None:
+        release_dir = Path(self.temporary.name) / "release"
+        release_dir.mkdir()
+        base = "ainfra_1.2.3_linux_arm64"
+        package = Path(self.temporary.name) / base
+        package.mkdir()
+        (package / "ainfra").write_bytes(b"packaged-binary")
+        archive = release_dir / f"{base}.tar.gz"
+        with tarfile.open(archive, "w:gz") as bundle:
+            bundle.add(package, arcname=base)
+        output = Path(self.temporary.name) / "output" / "ainfra"
+
+        prepare.copy_packaged_binary(
+            release_dir,
+            {archive.name: hashlib.sha256(archive.read_bytes()).hexdigest()},
+            "1.2.3",
+            "linux",
+            "arm64",
+            output,
+        )
+
+        self.assertEqual(output.read_bytes(), b"packaged-binary")
+
+    def test_preparation_rejects_archive_checksum_mismatch(self) -> None:
+        release_dir = Path(self.temporary.name) / "release"
+        release_dir.mkdir()
+        archive = release_dir / "ainfra_1.2.3_linux_arm64.tar.gz"
+        archive.write_bytes(b"not-a-valid-archive")
+        with self.assertRaisesRegex(SystemExit, "checksum-invalid"):
+            prepare.copy_packaged_binary(
+                release_dir,
+                {archive.name: "0" * 64},
+                "1.2.3",
+                "linux",
+                "arm64",
+                Path(self.temporary.name) / "ainfra",
+            )
 
     def test_tool_resolution_preserves_approved_symlink_name(self) -> None:
         tool_dir = Path(self.temporary.name) / "tools"
