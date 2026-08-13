@@ -31,7 +31,8 @@ groups:
           Resolve local and Git-subdirectory sources, lock revisions and
           digests, materialize contained workspaces, and detect source or cache
           drift.
-        status: planned
+        status: in_progress
+        devNote: dev-notes/phase-03-immutable-template-sources.md
 
   - label: Infrastructure lifecycle
     note: opentofu and ansible orchestration
