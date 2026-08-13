@@ -117,7 +117,8 @@ func DoctorDeployment(
 	report := doctor.DeploymentRegistry(doctor.DeploymentInput{
 		Name: deployment.Metadata.Name, Root: deployment.Target.Root,
 		ManifestPath: deployment.Target.ManifestPath, NativeFiles: nativeFiles,
-		RuntimeSafe: len(runtimePlan.Actions) == 0,
+		RuntimeSafe:   len(runtimePlan.Actions) == 0,
+		TemplateFacts: deploymentTemplateFacts(deployment, configuration.Settings.Paths.Cache),
 	}).Run(context.Background(), doctor.ScopeDeployment, doctor.Input{}, doctor.Capabilities{})
 	if reconciliationStatus != "" {
 		for index := range report.Findings {

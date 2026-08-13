@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"go.yaml.in/yaml/v3"
@@ -19,6 +20,8 @@ const (
 	apiVersion = "ainfra.projectious.work/v1"
 	kind       = "TemplateLock"
 )
+
+var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 // Template records the complete immutable template binding.
 type Template struct {
@@ -77,6 +80,9 @@ func Read(path string) (Document, error) {
 		document.Template.Version == "" || document.Template.Digest == "" ||
 		document.Template.ResolvedAt.IsZero() {
 		return Document{}, errors.New("template lock is incomplete")
+	}
+	if !digestPattern.MatchString(document.Template.Digest) {
+		return Document{}, errors.New("template lock has an invalid digest")
 	}
 	return document, nil
 }
