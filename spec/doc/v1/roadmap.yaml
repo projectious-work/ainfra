@@ -23,7 +23,7 @@ groups:
           Discover deployments, parse manifests and native files, validate
           ainfra-owned contracts, and report stable text and JSON diagnostics
           plus safe local reconciliation through one doctor surface.
-        status: in_progress
+        status: shipped
         devNote: dev-notes/phase-02-contracts-and-doctor.md
       - id: "3"
         title: Immutable template sources

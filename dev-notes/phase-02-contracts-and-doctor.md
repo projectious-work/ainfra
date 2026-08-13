@@ -425,3 +425,35 @@ for release preparation. Decision
 `DEC-20260813_0853-CoolFern-ship-phase-2-only-after-verified` keeps the roadmap
 state at `in_progress` until the release is published and independently
 verified.
+
+#### 2026-08-13 — Completion approval and release identity
+
+Phase 2 is approved as shipped after the ordered completion gates succeeded:
+
+- the independent requirement-complete review found no unexplained Phase 2
+  gap;
+- `scripts/release-checks.sh run 1.0.0-alpha.2` passed the full local,
+  security, race, coverage, archive, and cross-platform validation sweep;
+- the owner-operated macOS host gate passed native smoke, offline Docker
+  build, hardened runtime, Syft SBOM, Grype vulnerability, and cleanup checks;
+- the checksum manifest was signed and verified with Sigstore identity
+  `info@projectious.work` and issuer `https://github.com/login/oauth`; and
+- the publish workflow downloaded the public assets and independently
+  reverified their checksums and signature.
+
+The release identity is:
+
+- release: `v1.0.0-alpha.2`;
+- release commit: `34eab1a617d1c8bd133fda2e475c4fbce560727c`;
+- GitHub release ID: `369842902`;
+- published at: `2026-08-13T10:49:09Z`;
+- public release:
+  <https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.2>;
+- published payload: four platform archives, four SPDX JSON SBOMs,
+  `checksums.sha256`, and `checksums.sha256.sigstore.json`.
+
+GitHub's public release API independently reported the release as non-draft,
+prerelease, and fully uploaded. This evidence satisfies
+`AINFRA-DEV-009`–`012` and Decision
+`DEC-20260813_0853-CoolFern-ship-phase-2-only-after-verified`. The roadmap may
+therefore transition Phase 2 from `in_progress` to `shipped`.
