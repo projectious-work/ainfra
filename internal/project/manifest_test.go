@@ -58,6 +58,49 @@ spec:
 	}
 }
 
+func TestLoadValidatesAndCanonicalizesTemplateSource(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, source, ref, want string
+		wantError               bool
+	}{
+		{name: "canonical local", source: "local:templates/../template", want: "local:template"},
+		{name: "Git requires ref", source: "git::https://example.com/templates.git", wantError: true},
+		{name: "local rejects ref", source: "local:template", ref: "main", wantError: true},
+		{name: "unknown scheme", source: "file:template", wantError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: example
+spec:
+  template:
+    source: ` + test.source + "\n"
+			if test.ref != "" {
+				manifest += "    ref: " + test.ref + "\n"
+			}
+			writeDeploymentManifest(t, root, manifest)
+			deployment, err := project.Load(project.ResolveOptions{ExplicitPath: root})
+			if test.wantError {
+				if err == nil {
+					t.Fatalf("source %q unexpectedly accepted", test.source)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if deployment.Template.Source != test.want {
+				t.Fatalf("source = %q, want %q", deployment.Template.Source, test.want)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsTraversalDuplicateAndSymlinkInputs(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
