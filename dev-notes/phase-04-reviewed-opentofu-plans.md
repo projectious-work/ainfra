@@ -113,3 +113,21 @@ The next slice exposes `ainfra plan` through trusted configuration and stable
 text/JSON results, with generated collision-resistant run IDs and complete
 failure cleanup. Apply remains unavailable until exact reviewed-plan loading
 and immediate binding reverification are implemented.
+
+### 2026-08-13 — Reviewed plan CLI
+
+- Exposed `ainfra plan [DEPLOYMENT] [--destroy]` with trusted project and
+  configuration resolution and stable text and v1 JSON results.
+- Kept OpenTofu discovery lazy, fingerprinted the selected executable, captured
+  its machine-reported version, and launched it with a closed environment.
+- Generated timestamped 128-bit random run IDs and emitted the saved-plan,
+  locked-template, and aggregate deployment-input digests needed for review.
+- Removed incomplete run directories after every post-preparation failure and
+  preserved successful private plan evidence for later exact-ID application.
+- Added command dispatch coverage for target and destroy intent while retaining
+  the existing adapter, lifecycle, security, and schema conformance suites.
+
+The next slice loads an exact reviewed plan ID, reverifies all immutable
+bindings immediately before execution, and implements saved-plan-only apply
+with durable started and terminal evidence. Destroy execution remains deferred
+to Phase 6.

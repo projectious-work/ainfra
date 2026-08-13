@@ -47,6 +47,26 @@ type Summary struct {
 	NoOp    int `json:"noOp"`
 }
 
+// Version returns the OpenTofu version reported by the bound executable.
+func (adapter Adapter) Version(ctx context.Context, root string) (string, error) {
+	var output bytes.Buffer
+	_, err := adapter.executeWithIO(ctx, root, ".", []string{"version", "-json"},
+		childexec.IOPolicy{Stdout: &boundedWriter{destination: &output, remaining: 1 << 20}})
+	if err != nil {
+		return "", err
+	}
+	var document struct {
+		Version string `json:"terraform_version"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &document); err != nil {
+		return "", fmt.Errorf("decode OpenTofu version: %w", err)
+	}
+	if document.Version == "" {
+		return "", errors.New("OpenTofu version response omitted terraform_version")
+	}
+	return document.Version, nil
+}
+
 // Init initializes the native module with declared backend files in order.
 func (adapter Adapter) Init(ctx context.Context, root, directory string, backendFiles []string) (Outcome, error) {
 	arguments := []string{"init", "-input=false", "-no-color"}
