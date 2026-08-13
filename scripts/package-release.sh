@@ -62,6 +62,7 @@ mkdir -m 0700 "$staging/.syft-cache"
 
 cleanup() {
   if [[ -d "$staging" ]]; then
+    chmod -R u+w -- "$staging" 2>/dev/null || true
     rm -rf -- "$staging"
   fi
 }
@@ -107,6 +108,7 @@ package_target darwin amd64
 package_target darwin arm64
 rmdir "$staging/package"
 rm -rf -- "$staging/.go-build-cache"
+chmod -R u+w -- "$staging/.go-module-cache"
 rm -rf -- "$staging/.go-module-cache"
 rm -rf -- "$staging/.syft-cache"
 
