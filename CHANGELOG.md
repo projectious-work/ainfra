@@ -5,6 +5,31 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.3] - 2026-08-13
+
+### Added
+
+- Added immutable local and Git-subdirectory template acquisition through
+  `ainfra template lock` and explicit `ainfra template update`.
+- Added the normative template-tree digest, verified private content-addressed
+  cache, canonical lock publication, and lock/cache/source doctor findings.
+- Added trusted cache and Git configuration for template mutations.
+
+### Changed
+
+- Expanded deployment and aggregate doctor scopes to verify immutable source
+  bindings, cached content, digests, and local source drift.
+- Updated documentation and conformance evidence for the Phase 3 boundary.
+
+### Security
+
+- Added contained source resolution, argument-array Git execution, immutable
+  commit checkout, cache verification, and adversarial path/file-type checks.
+- Prevented credential persistence by redacting source userinfo and sensitive
+  query values from lockfiles, diagnostics, invocations, and machine output.
+- Added cancellation, poisoned-cache, malformed-lock, traversal, race,
+  vulnerability, and static-security coverage.
+
 ## [1.0.0-alpha.2] - 2026-08-13
 
 ### Added
@@ -71,3 +96,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 [1.0.0-alpha.1]: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.1
 [1.0.0-alpha.2]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.1...v1.0.0-alpha.2
+[1.0.0-alpha.3]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.2...v1.0.0-alpha.3
