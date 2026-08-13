@@ -30,6 +30,8 @@ const (
 	CommandTemplateLock Command = "template.lock"
 	// CommandTemplateUpdate identifies explicit template lock replacement.
 	CommandTemplateUpdate Command = "template.update"
+	// CommandPlan identifies saved planning.
+	CommandPlan Command = "plan"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )
@@ -138,6 +140,41 @@ type Template struct {
 type Deployment struct {
 	Name string `json:"name"`
 	Root string `json:"root"`
+}
+
+// Plan is the semantic result of creating a reviewed saved plan.
+type Plan struct {
+	Deployment     Deployment   `json:"deployment"`
+	RunID          string       `json:"runId"`
+	Intent         string       `json:"intent"`
+	PlanDigest     string       `json:"planDigest"`
+	TemplateDigest string       `json:"templateDigest"`
+	InputDigest    string       `json:"inputDigest"`
+	EngineReport   EngineReport `json:"engineReport"`
+	Evidence       []Evidence   `json:"evidence"`
+	NextCommands   []string     `json:"nextCommands"`
+}
+
+// Protocol identifies an engine's stable machine protocol.
+type Protocol struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// EngineReport summarizes one engine boundary without sensitive values.
+type EngineReport struct {
+	Engine   string   `json:"engine"`
+	Status   string   `json:"status"`
+	ExitCode int      `json:"exitCode"`
+	Protocol Protocol `json:"protocol"`
+}
+
+// Evidence points to one retained run artifact.
+type Evidence struct {
+	Kind      string `json:"kind"`
+	Engine    string `json:"engine,omitempty"`
+	Path      string `json:"path"`
+	Sensitive bool   `json:"sensitive"`
 }
 
 // EffectiveConfiguration is the display-safe configuration/provenance view.

@@ -68,6 +68,13 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 	}
 
 	switch result := envelope.Result.(type) {
+	case Plan:
+		_, err := fmt.Fprintf(
+			writer, "saved %s plan %s for %s\nplan digest %s\nnext: %s\n",
+			result.Intent, result.RunID, result.Deployment.Name, result.PlanDigest,
+			strings.Join(result.NextCommands, "\nnext: "),
+		)
+		return err
 	case Template:
 		state := "unchanged"
 		if result.Changed {

@@ -60,6 +60,11 @@ type RunRecord struct {
 
 // PublishPlan atomically creates the immutable plan, run, and summary records.
 func PublishPlan(prepared Prepared, deploymentName, engineVersion string, createdAt time.Time, summary tofu.Summary) (PlanRecord, error) {
+	return PublishPlanIntent(prepared, deploymentName, engineVersion, "apply", createdAt, summary)
+}
+
+// PublishPlanIntent atomically publishes a plan with its exact intent.
+func PublishPlanIntent(prepared Prepared, deploymentName, engineVersion, intent string, createdAt time.Time, summary tofu.Summary) (PlanRecord, error) {
 	planDigest, err := digestFile(prepared.Root + string(os.PathSeparator) + "plan.tfplan")
 	if err != nil {
 		return PlanRecord{}, fmt.Errorf("bind saved plan: %w", err)
@@ -68,7 +73,7 @@ func PublishPlan(prepared Prepared, deploymentName, engineVersion string, create
 	for index, binding := range prepared.NativeInputs {
 		inputs[index] = InputBinding{Path: binding.Path, Digest: binding.Digest}
 	}
-	record := PlanRecord{SchemaVersion: 1, RunID: prepared.ID, Intent: "apply", Deployment: NamedBinding{Name: deploymentName, Digest: prepared.Deployment.Digest}, Template: TemplateBinding{Source: prepared.TemplateSource, Commit: gitCommit(prepared.TemplateResolved), Digest: prepared.TemplateDigest}, Inputs: inputs, Engine: EngineBinding{Name: "opentofu", Version: engineVersion, ExecutableDigest: prepared.ExecutableDigest}, Plan: PlanBinding{Path: "plan.tfplan", Digest: planDigest, SummaryPath: "plan.json"}}
+	record := PlanRecord{SchemaVersion: 1, RunID: prepared.ID, Intent: intent, Deployment: NamedBinding{Name: deploymentName, Digest: prepared.Deployment.Digest}, Template: TemplateBinding{Source: prepared.TemplateSource, Commit: gitCommit(prepared.TemplateResolved), Digest: prepared.TemplateDigest}, Inputs: inputs, Engine: EngineBinding{Name: "opentofu", Version: engineVersion, ExecutableDigest: prepared.ExecutableDigest}, Plan: PlanBinding{Path: "plan.tfplan", Digest: planDigest, SummaryPath: "plan.json"}}
 	runRecord := RunRecord{SchemaVersion: 1, RunID: prepared.ID, Operation: "plan", State: "succeeded", CreatedAt: createdAt.UTC().Format(time.RFC3339), PlanRecord: "plan-record.json"}
 	for _, output := range []struct {
 		name  string

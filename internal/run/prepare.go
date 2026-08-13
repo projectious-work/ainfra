@@ -121,6 +121,14 @@ func Prepare(options Options) (prepared Prepared, err error) {
 	return prepared, nil
 }
 
+// Discard removes an unpublished or failed run after validating its identity.
+func Discard(prepared Prepared) error {
+	if !validID(prepared.ID) || filepath.Base(prepared.Root) != prepared.ID {
+		return errors.New("refuse to discard invalid run path")
+	}
+	return os.RemoveAll(prepared.Root)
+}
+
 func copyBoundFile(sourcePath, destinationRoot, destinationRelative, expectedDigest string) error {
 	sourceFile, err := os.Open(sourcePath) // #nosec G304 -- source passed contained regular-file policy.
 	if err != nil {
