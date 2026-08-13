@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
@@ -67,6 +68,56 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 	}
 
 	switch result := envelope.Result.(type) {
+	case Init:
+		_, err := fmt.Fprintf(
+			writer, "initialized deployment %s at %s\n", result.Deployment.Name,
+			result.Deployment.Root,
+		)
+		if err != nil {
+			return err
+		}
+		for _, path := range result.CreatedPaths {
+			if _, err = fmt.Fprintf(writer, "created %s\n", path); err != nil {
+				return err
+			}
+		}
+		return nil
+	case Doctor:
+		_, err := fmt.Fprintf(
+			writer,
+			"doctor %s: %d pass, %d skip, %d warning, %d fail\n",
+			result.Scope, result.Summary.Pass, result.Summary.Skip,
+			result.Summary.Warning, result.Summary.Fail,
+		)
+		if err != nil {
+			return err
+		}
+		for _, finding := range result.Findings {
+			if _, err = fmt.Fprintf(writer, "%s %s: %s\n", finding.Status, finding.Code, finding.Message); err != nil {
+				return err
+			}
+			if finding.NextAction != "" {
+				if _, err = fmt.Fprintf(writer, "  next: %s\n", finding.NextAction); err != nil {
+					return err
+				}
+			}
+		}
+		if result.EffectiveConfiguration != nil {
+			keys := make([]string, 0, len(result.EffectiveConfiguration.Values))
+			for key := range result.EffectiveConfiguration.Values {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				value := result.EffectiveConfiguration.Values[key]
+				if _, err = fmt.Fprintf(
+					writer, "%s = %s (%s)\n", key, value.DisplayValue, value.Source,
+				); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	case Help:
 		_, err := fmt.Fprintf(writer, "%s\n\nUsage:\n  %s\n", result.Summary, result.Usage)
 		if err != nil {

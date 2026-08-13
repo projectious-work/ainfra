@@ -8,6 +8,7 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/command"
+	"github.com/projectious-work/ainfra/internal/initialize"
 )
 
 const (
@@ -21,8 +22,55 @@ var injectedVersion string
 func main() {
 	build := readBuild()
 	code := command.Run(os.Args[1:], command.Options{
-		Build: build,
+		Build:      build,
+		Initialize: initialize.Create,
+		DoctorEnvironment: func(
+			request app.DoctorEnvironmentRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorEnvironment(request, options)
+		},
+		DoctorDeployment: func(
+			request app.DoctorDeploymentRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorDeployment(request, options)
+		},
+		DoctorTemplate: func(
+			request app.DoctorTemplateRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorTemplate(request, options)
+		},
+		DoctorRun: func(
+			request app.DoctorRunRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorRun(request, options)
+		},
+		DoctorAll: func(
+			request app.DoctorAllRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			options, err := app.HostDoctorEnvironmentOptions()
+			if err != nil {
+				return app.DoctorEnvironmentResponse{}, err
+			}
+			return app.DoctorAll(request, options)
+		},
 		IO: command.IO{
+			Stdin:      os.Stdin,
 			Stdout:     os.Stdout,
 			Stderr:     os.Stderr,
 			IsTerminal: isTerminal(os.Stdout),

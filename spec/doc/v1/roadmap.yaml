@@ -15,14 +15,16 @@ groups:
           Establish the Go module, command shell, typed results, process and
           filesystem boundaries, test fixtures, developer tools, and
           Linux/macOS builds.
-        status: in_progress
+        status: shipped
+        devNote: dev-notes/phase-01-go-project-foundation.md
       - id: "2"
         title: Contracts and doctor
         summary: >-
           Discover deployments, parse manifests and native files, validate
           ainfra-owned contracts, and report stable text and JSON diagnostics
           plus safe local reconciliation through one doctor surface.
-        status: planned
+        status: in_progress
+        devNote: dev-notes/phase-02-contracts-and-doctor.md
       - id: "3"
         title: Immutable template sources
         summary: >-
