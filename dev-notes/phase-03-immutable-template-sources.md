@@ -101,3 +101,21 @@ inventory, configure hosts, or destroy resources.
 This slice intentionally does not acquire content or write `ainfra.lock`. The
 next dependency-ordered slice is the normative template-tree digest, followed
 by contained local materialization and then the Git adapter.
+
+### 2026-08-13 — Normative template-tree digest
+
+- Implemented the exact `AINFRA-LOCK-005` byte framing: domain separator and
+  NUL, byte-sorted normalized paths, unsigned 64-bit big-endian path/content
+  lengths, executable-bit marker, and unmodified content bytes.
+- Required valid UTF-8 NFC relative paths with slash separators and rejected
+  empty, current-directory, and parent-directory segments.
+- Excluded `.git/` metadata while refusing `.ainfra/`, `.terraform/`, state
+  files, symlinks, hard links, FIFOs, and other special files.
+- Bound content, normalized path, and executable status into the digest and
+  detected file-size changes during streaming.
+- Added an independent normative-framing oracle, mutation assertions,
+  adversarial filesystem cases, and deterministic fuzz coverage.
+
+The digest remains a pure read-only primitive. Contained local materialization
+is the next slice and will verify this digest before making a cache entry
+available to lockfile or doctor consumers.
