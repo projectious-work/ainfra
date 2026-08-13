@@ -119,3 +119,23 @@ by contained local materialization and then the Git adapter.
 The digest remains a pure read-only primitive. Contained local materialization
 is the next slice and will verify this digest before making a cache entry
 available to lockfile or doctor consumers.
+
+### 2026-08-13 — Contained local materialization
+
+- Added private digest-addressed cache entries below
+  `<cache>/templates/sha256/<digest>` with private staging and atomic rename.
+- Copied only validated regular template files, excluded `.git/`, preserved
+  only the executable/non-executable distinction, and removed group/other
+  permissions from materialized content.
+- Recomputed the normative digest after copying and before publication.
+- Verified every existing cache hit before reuse and failed closed on poisoned,
+  symlinked, non-directory, or otherwise invalid entries.
+- Rejected overlapping source/cache roots to prevent recursive or ambiguous
+  materialization.
+- Added tests for first publication, deterministic reuse, permission policy,
+  Git exclusion, cache poisoning, unsafe input, and root overlap.
+
+This primitive accepts explicit source and cache roots produced by policy; it
+does not consult ambient configuration or yet expose a CLI mutation. The next
+slice resolves `local:` identities against the deployment/repository approved
+roots and composes this primitive into lock creation.
