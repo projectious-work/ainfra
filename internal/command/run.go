@@ -13,6 +13,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/initialize"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/reconcile"
+	"github.com/projectious-work/ainfra/internal/security"
 )
 
 // IO supplies explicit process streams and terminal capabilities.
@@ -32,6 +33,7 @@ type Options struct {
 	DoctorTemplate    func(app.DoctorTemplateRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorRun         func(app.DoctorRunRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorAll         func(app.DoctorAllRequest) (app.DoctorEnvironmentResponse, error)
+	TemplateLock      func(app.TemplateLockRequest) (output.Template, error)
 	Initialize        func(string) (initialize.Result, error)
 }
 
@@ -74,6 +76,10 @@ func Run(arguments []string, options Options) ExitCode {
 		return runDoctorDeployment(
 			arguments, renderArguments, controlArguments, positional, renderOptions, options,
 		)
+	}
+	if len(positional) >= 2 && len(positional) <= 3 &&
+		positional[0] == "template" && positional[1] == "lock" {
+		return runTemplateLock(arguments, controlArguments, positional, renderOptions, options)
 	}
 	if len(positional) >= 2 && len(positional) <= 3 &&
 		positional[0] == "doctor" && positional[1] == "template" {
@@ -147,6 +153,68 @@ func runInit(
 		CreatedPaths: result.CreatedPaths,
 	})
 	if err := output.Render(options.IO.Stdout, envelope, renderOptions); err != nil {
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runTemplateLock(
+	arguments, controlArguments, positional []string,
+	renderOptions output.RenderOptions,
+	options Options,
+) ExitCode {
+	flags := flag.NewFlagSet("template lock", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	nonInteractive := flags.Bool("non-interactive", false, "disable prompts")
+	yes := flags.Bool("yes", false, "confirm mutation")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *configPath != "" {
+		return failInvocation(arguments, "template lock does not yet accept --config", options.IO)
+	}
+	if *yes && !*nonInteractive {
+		return failInvocation(arguments, "--yes requires --non-interactive", options.IO)
+	}
+	if options.TemplateLock == nil {
+		return failInvocation(arguments, "template lock is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 3 {
+		target = positional[2]
+	}
+	result, err := options.TemplateLock(app.TemplateLockRequest{
+		Target: target, ProjectPath: *projectPath,
+	})
+	if err != nil {
+		exit, code := ExitInvalidInput, "AINFRA-E3001"
+		var refusal *security.Refusal
+		if errors.As(err, &refusal) {
+			exit, code = ExitSecurity, "AINFRA-E3004"
+		}
+		diagnosticValue := diagnostic.Diagnostic{
+			Code: code, Severity: diagnostic.SeverityError,
+			Message: err.Error(), Component: "template-lock",
+			NextAction: "Correct the source or lock state and rerun 'ainfra template lock'.",
+		}
+		if renderOptions.Format == output.FormatJSON {
+			if renderErr := output.Render(
+				options.IO.Stdout,
+				output.Failure(output.CommandTemplateLock, diagnosticValue),
+				renderOptions,
+			); renderErr != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", code, err)
+		}
+		return exit
+	}
+	if err := output.Render(
+		options.IO.Stdout, output.Success(output.CommandTemplateLock, result), renderOptions,
+	); err != nil {
 		return ExitOperationFailed
 	}
 	return ExitSuccess

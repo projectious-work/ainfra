@@ -9,6 +9,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/command"
 	"github.com/projectious-work/ainfra/internal/initialize"
+	"github.com/projectious-work/ainfra/internal/output"
 )
 
 const (
@@ -24,6 +25,13 @@ func main() {
 	code := command.Run(os.Args[1:], command.Options{
 		Build:      build,
 		Initialize: initialize.Create,
+		TemplateLock: func(request app.TemplateLockRequest) (output.Template, error) {
+			options, err := app.HostTemplateLockOptions()
+			if err != nil {
+				return output.Template{}, err
+			}
+			return app.TemplateLock(request, options)
+		},
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,
 		) (app.DoctorEnvironmentResponse, error) {

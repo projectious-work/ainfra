@@ -68,6 +68,16 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 	}
 
 	switch result := envelope.Result.(type) {
+	case Template:
+		state := "unchanged"
+		if result.Changed {
+			state = "written"
+		}
+		_, err := fmt.Fprintf(
+			writer, "template lock %s\nsource %s\nresolved %s\ndigest %s\n",
+			state, result.Source, result.ResolvedRevision, result.ContentDigest,
+		)
+		return err
 	case Init:
 		_, err := fmt.Fprintf(
 			writer, "initialized deployment %s at %s\n", result.Deployment.Name,

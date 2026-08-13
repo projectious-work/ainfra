@@ -112,6 +112,71 @@ func TestVersionJSON(t *testing.T) {
 	}
 }
 
+func TestTemplateLockLocalJSON(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	templateRoot := filepath.Join(root, "template-example")
+	if err := os.CopyFS(templateRoot, os.DirFS("../../spec/examples/v1/template-example")); err != nil {
+		t.Fatal(err)
+	}
+	deployment := filepath.Join(root, "deployment")
+	if err := os.Mkdir(deployment, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: dev
+spec:
+  template:
+    source: local:../template-example
+`
+	if err := os.WriteFile(filepath.Join(deployment, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	command := exec.CommandContext(
+		ctx, binary, "template", "lock", deployment, "--format=json",
+	)
+	command.Dir = root
+	command.Env = []string{
+		"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir(),
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		t.Fatalf("run: %v, stderr: %s", err, stderr.String())
+	}
+	var envelope struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Result  struct {
+			Source        string `json:"source"`
+			ContentDigest string `json:"contentDigest"`
+			Changed       bool   `json:"changed"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Command != "template.lock" || !envelope.OK ||
+		envelope.Result.Source != "local:../template-example" ||
+		!strings.HasPrefix(envelope.Result.ContentDigest, "sha256:") ||
+		!envelope.Result.Changed {
+		t.Fatalf("unexpected envelope: %+v", envelope)
+	}
+	if _, err := os.Stat(filepath.Join(deployment, "ainfra.lock")); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestUnknownCommand(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
