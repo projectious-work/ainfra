@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260813T180000Z-0123456789abcdef",
+  "intent": "apply",
+  "deployment": {"name": "development", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "template": {"source": "local:../../templates/example", "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+  "inputs": [{"path": "terraform.tfvars", "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}],
+  "engine": {"name": "opentofu", "version": "1.10.0", "executableDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"},
+  "plan": {"path": "plan.tfplan", "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "summaryPath": "plan.json"}
+}
