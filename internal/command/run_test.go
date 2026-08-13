@@ -9,6 +9,10 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/command"
+	"github.com/projectious-work/ainfra/internal/diagnostic"
+	"github.com/projectious-work/ainfra/internal/initialize"
+	"github.com/projectious-work/ainfra/internal/output"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 )
 
 func run(arguments ...string) (command.ExitCode, string, string) {
@@ -25,6 +29,35 @@ func run(arguments ...string) (command.ExitCode, string, string) {
 	return code, stdout.String(), stderr.String()
 }
 
+func runWithDoctor(arguments ...string) (command.ExitCode, string, string) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := command.Run(arguments, command.Options{
+		IO: command.IO{Stdout: &stdout, Stderr: &stderr},
+		DoctorEnvironment: func(
+			request app.DoctorEnvironmentRequest,
+		) (app.DoctorEnvironmentResponse, error) {
+			format := "text"
+			if request.Format != nil {
+				format = *request.Format
+			}
+			return app.DoctorEnvironmentResponse{
+				Format: format, OutputStyle: "auto", Color: "auto",
+				Result: output.Doctor{
+					Scope: "environment", Summary: output.DoctorSummary{Pass: 1},
+					Findings: []diagnostic.Diagnostic{},
+					EffectiveConfiguration: &output.EffectiveConfiguration{
+						Values:                  map[string]output.EffectiveConfigurationValue{},
+						Files:                   []output.ConfigurationFile{},
+						RejectedProjectSettings: []output.RejectedProjectSetting{},
+					},
+				},
+			}, nil
+		},
+	})
+	return code, stdout.String(), stderr.String()
+}
+
 func TestVersionJSON(t *testing.T) {
 	t.Parallel()
 	code, stdout, stderr := run("version", "--format", "json")
@@ -37,6 +70,210 @@ func TestVersionJSON(t *testing.T) {
 	}
 	if stderr != "" {
 		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestInitDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var target string
+	code := command.Run(
+		[]string{"init", "/tmp/example", "--format=json"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			Initialize: func(path string) (initialize.Result, error) {
+				target = path
+				return initialize.Result{
+					Name: "example", Root: path,
+					CreatedPaths: []string{path + "/ainfra.yaml"},
+				}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || target != "/tmp/example" ||
+		!strings.Contains(stdout.String(), `"command":"init"`) {
+		t.Fatalf("exit=%d target=%q stdout=%q", code, target, stdout.String())
+	}
+}
+
+func TestDoctorEnvironmentDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	code, stdout, stderr := runWithDoctor(
+		"doctor", "environment", "--config=/tmp/config.yaml",
+		"--project", "/tmp/deployment", "--format=json",
+	)
+	if code != command.ExitSuccess || stderr != "" {
+		t.Fatalf("exit=%d stderr=%q", code, stderr)
+	}
+	var envelope struct {
+		Command string `json:"command"`
+		Result  struct {
+			Scope string `json:"scope"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Command != "doctor.environment" || envelope.Result.Scope != "environment" {
+		t.Fatalf("unexpected envelope: %+v", envelope)
+	}
+}
+
+func TestDoctorDeploymentDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	var received app.DoctorDeploymentRequest
+	code := command.Run(
+		[]string{"doctor", "deployment", "/deployment", "--format=json"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &stderr},
+			DoctorDeployment: func(
+				request app.DoctorDeploymentRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				received = request
+				return app.DoctorEnvironmentResponse{
+					Format: "json", OutputStyle: "auto", Color: "auto",
+					Result: output.Doctor{
+						Scope: "deployment", Summary: output.DoctorSummary{Pass: 1},
+						Findings: []diagnostic.Diagnostic{},
+					},
+				}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || stderr.Len() != 0 || received.Target != "/deployment" {
+		t.Fatalf("exit=%d request=%#v stderr=%q", code, received, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"command":"doctor.deployment"`) {
+		t.Fatalf("stdout=%q", stdout.String())
+	}
+}
+
+func TestDoctorTemplateDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var received app.DoctorTemplateRequest
+	code := command.Run(
+		[]string{"doctor", "template", "/template", "--format=json"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			DoctorTemplate: func(
+				request app.DoctorTemplateRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				received = request
+				return app.DoctorEnvironmentResponse{
+					Format: "json", OutputStyle: "auto", Color: "auto",
+					Result: output.Doctor{
+						Scope: "template", Summary: output.DoctorSummary{Pass: 1},
+						Findings: []diagnostic.Diagnostic{},
+					},
+				}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || received.Target != "/template" ||
+		!strings.Contains(stdout.String(), `"command":"doctor.template"`) {
+		t.Fatalf("exit=%d request=%#v stdout=%q", code, received, stdout.String())
+	}
+}
+
+func TestBareDoctorIsExactAliasForDoctorAll(t *testing.T) {
+	t.Parallel()
+	invoke := func(arguments ...string) (command.ExitCode, string) {
+		var stdout bytes.Buffer
+		code := command.Run(arguments, command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			DoctorAll: func(
+				request app.DoctorAllRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				return app.DoctorEnvironmentResponse{
+					Format: "json", OutputStyle: "auto", Color: "auto",
+					Result: output.Doctor{
+						Scope: "all", Summary: output.DoctorSummary{Skip: 1},
+						Findings: []diagnostic.Diagnostic{{
+							Code: "AINFRA-E2601", Severity: diagnostic.SeverityInfo,
+							Check: "template.resolved-source", Scope: "template",
+							Status: "skip", Component: request.Target,
+							Reconciliation: "not_available",
+						}},
+					},
+				}, nil
+			},
+		})
+		return code, stdout.String()
+	}
+	bareCode, bare := invoke("doctor", "/deployment", "--format=json")
+	allCode, all := invoke("doctor", "all", "/deployment", "--format=json")
+	if bareCode != command.ExitSuccess || allCode != command.ExitSuccess || bare != all {
+		t.Fatalf("bare=(%d,%q) all=(%d,%q)", bareCode, bare, allCode, all)
+	}
+}
+
+func TestDoctorReconciliationRequiresPairedAutomationApproval(t *testing.T) {
+	t.Parallel()
+	invoke := func(arguments ...string) (command.ExitCode, int) {
+		calls := 0
+		code := command.Run(arguments, command.Options{
+			IO: command.IO{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
+			DoctorDeployment: func(
+				request app.DoctorDeploymentRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				calls++
+				response := app.DoctorEnvironmentResponse{
+					Format: "text", OutputStyle: "plain", Color: "never",
+					Result: output.Doctor{
+						Scope: "deployment", Summary: output.DoctorSummary{Warning: 1},
+						Findings: []diagnostic.Diagnostic{},
+					},
+				}
+				if request.ApplyReconciliation {
+					response.Result.Summary = output.DoctorSummary{Pass: 1}
+					return response, nil
+				}
+				response.ReconciliationPlan = []reconcile.Action{{
+					CheckID: "deployment.runtime-permissions", Path: "/deployment/.ainfra",
+					Kind: reconcile.ActionCreateRuntimeDirectory, Mode: 0o700,
+					RollbackLimitation: "remove manually",
+				}}
+				return response, nil
+			},
+		})
+		return code, calls
+	}
+	denied, deniedCalls := invoke(
+		"doctor", "deployment", "/deployment", "--reconcile", "--non-interactive",
+	)
+	if denied != command.ExitInvalidInput || deniedCalls != 1 {
+		t.Fatalf("denied exit=%d calls=%d", denied, deniedCalls)
+	}
+	approved, approvedCalls := invoke(
+		"doctor", "deployment", "/deployment", "--reconcile",
+		"--non-interactive", "--yes",
+	)
+	if approved != command.ExitSuccess || approvedCalls != 2 {
+		t.Fatalf("approved exit=%d calls=%d", approved, approvedCalls)
+	}
+}
+
+func TestStaticHelpDoesNotConstructDoctor(t *testing.T) {
+	t.Parallel()
+	called := false
+	var stdout bytes.Buffer
+	code := command.Run(
+		[]string{"doctor", "environment", "--help"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			DoctorEnvironment: func(
+				app.DoctorEnvironmentRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				called = true
+				return app.DoctorEnvironmentResponse{}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || called {
+		t.Fatalf("exit=%d called=%v", code, called)
 	}
 }
 

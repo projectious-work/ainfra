@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/output"
 )
 
@@ -16,6 +17,9 @@ func TestEnvelopeConstructorsEnforceSchemaInvariants(t *testing.T) {
 	}{
 		{name: "nil success", call: func() { output.Success(output.CommandVersion, nil) }},
 		{name: "empty failure", call: func() { output.Failure(output.CommandInvocation) }},
+		{name: "nil partial failure", call: func() {
+			output.PartialFailure(output.CommandDoctorEnvironment, nil, diagnostic.Diagnostic{})
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

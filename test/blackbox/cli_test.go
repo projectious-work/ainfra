@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -20,12 +21,20 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	binary = filepath.Join(temporary, "ainfra")
+	moduleCache := os.Getenv("GOMODCACHE")
+	if moduleCache == "" {
+		output, outputErr := exec.Command("go", "env", "GOMODCACHE").Output()
+		if outputErr != nil {
+			panic(outputErr)
+		}
+		moduleCache = strings.TrimSpace(string(output))
+	}
 	build := exec.Command("go", "build", "-o", binary, "../../cmd/ainfra")
 	build.Env = []string{
 		"PATH=" + os.Getenv("PATH"),
 		"HOME=" + temporary,
 		"GOCACHE=" + filepath.Join(temporary, "go-build"),
-		"GOMODCACHE=" + os.Getenv("GOMODCACHE"),
+		"GOMODCACHE=" + moduleCache,
 		"GOPROXY=off",
 		"GOTOOLCHAIN=local",
 	}
@@ -120,6 +129,218 @@ func TestUnknownCommand(t *testing.T) {
 	}
 	if stdout.Len() != 0 || stderr.Len() == 0 {
 		t.Errorf("stdout=%q stderr=%q", stdout.String(), stderr.String())
+	}
+}
+
+func TestDoctorEnvironmentJSONIsOneCleanResult(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	home := t.TempDir()
+	command := exec.CommandContext(
+		ctx, binary, "doctor", "environment", "--format=json",
+	)
+	command.Dir = t.TempDir()
+	command.Env = []string{
+		"HOME=" + home,
+		"XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+		"XDG_CACHE_HOME=" + filepath.Join(home, "cache"),
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	err := command.Run()
+	if err != nil {
+		exitError, ok := err.(*exec.ExitError)
+		if !ok || exitError.ExitCode() != 3 {
+			t.Fatalf("run: %v, stderr: %s", err, stderr.String())
+		}
+	}
+	var envelope struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Result  struct {
+			Scope                  string `json:"scope"`
+			EffectiveConfiguration struct {
+				Values map[string]any `json:"values"`
+			} `json:"effectiveConfiguration"`
+		} `json:"result"`
+	}
+	decoder := json.NewDecoder(&stdout)
+	if err := decoder.Decode(&envelope); err != nil {
+		t.Fatalf("decode result: %v", err)
+	}
+	if decoder.More() {
+		t.Fatal("doctor wrote more than one JSON value")
+	}
+	if envelope.Command != "doctor.environment" ||
+		envelope.Result.Scope != "environment" ||
+		len(envelope.Result.EffectiveConfiguration.Values) != 12 || stderr.Len() != 0 {
+		t.Fatalf("unexpected result: %+v, stderr=%q", envelope, stderr.String())
+	}
+}
+
+func TestDoctorDeploymentJSONAndContractFailure(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "ainfra.yaml"), []byte(`apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: blackbox
+spec:
+  template:
+    source: local:../template
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run := func(target string) (int, []byte, string) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		invocation := exec.CommandContext(
+			ctx, binary, "doctor", "deployment", target, "--format=json",
+		)
+		invocation.Dir = t.TempDir()
+		invocation.Env = []string{
+			"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+		}
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		invocation.Stdout = &stdout
+		invocation.Stderr = &stderr
+		err := invocation.Run()
+		if err == nil {
+			return 0, stdout.Bytes(), stderr.String()
+		}
+		exitError, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatalf("run: %v", err)
+		}
+		return exitError.ExitCode(), stdout.Bytes(), stderr.String()
+	}
+	code, stdout, stderr := run(root)
+	if code != 0 || stderr != "" {
+		t.Fatalf("valid deployment exit=%d stderr=%q", code, stderr)
+	}
+	var success struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Result  struct {
+			Scope    string `json:"scope"`
+			Findings []any  `json:"findings"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(stdout, &success); err != nil {
+		t.Fatal(err)
+	}
+	if success.Command != "doctor.deployment" || !success.OK ||
+		success.Result.Scope != "deployment" || len(success.Result.Findings) != 4 {
+		t.Fatalf("success=%+v", success)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	repair := exec.CommandContext(
+		ctx, binary, "doctor", "deployment", root, "--reconcile",
+		"--non-interactive", "--yes", "--format=json",
+	)
+	repair.Dir = t.TempDir()
+	repair.Env = []string{
+		"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+	}
+	var repairOutput bytes.Buffer
+	var repairEvidence bytes.Buffer
+	repair.Stdout, repair.Stderr = &repairOutput, &repairEvidence
+	if err := repair.Run(); err != nil {
+		t.Fatalf("reconcile: %v stderr=%q", err, repairEvidence.String())
+	}
+	var repaired struct {
+		OK     bool `json:"ok"`
+		Result struct {
+			Findings []struct {
+				Check          string `json:"check"`
+				Reconciliation string `json:"reconciliation"`
+			} `json:"findings"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(repairOutput.Bytes(), &repaired); err != nil {
+		t.Fatal(err)
+	}
+	applied := false
+	for _, finding := range repaired.Result.Findings {
+		if finding.Check == "deployment.runtime-permissions" &&
+			finding.Reconciliation == "applied" {
+			applied = true
+		}
+	}
+	information, statErr := os.Stat(filepath.Join(root, ".ainfra"))
+	if statErr != nil {
+		t.Fatalf("inspect repaired runtime directory: %v", statErr)
+	}
+	if !repaired.OK || !applied || information.Mode().Perm() != 0o700 ||
+		repairEvidence.Len() == 0 {
+		t.Fatalf(
+			"repaired=%+v mode=%v statErr=%v stderr=%q",
+			repaired, information.Mode(), statErr, repairEvidence.String(),
+		)
+	}
+
+	code, stdout, stderr = run(filepath.Join(t.TempDir(), "missing"))
+	if code != 2 || stderr != "" {
+		t.Fatalf("invalid deployment exit=%d stderr=%q", code, stderr)
+	}
+	var failure struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+	}
+	if err := json.Unmarshal(stdout, &failure); err != nil {
+		t.Fatal(err)
+	}
+	if failure.Command != "doctor.deployment" || failure.OK {
+		t.Fatalf("failure=%+v", failure)
+	}
+}
+
+func TestDoctorTemplateJSON(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.Abs("../../spec/examples/v1/template-example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	invocation := exec.CommandContext(
+		ctx, binary, "doctor", "template", root, "--format=json",
+	)
+	invocation.Dir = t.TempDir()
+	invocation.Env = []string{
+		"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	invocation.Stdout = &stdout
+	invocation.Stderr = &stderr
+	if err := invocation.Run(); err != nil {
+		t.Fatalf("run: %v stderr=%q", err, stderr.String())
+	}
+	var envelope struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Result  struct {
+			Scope    string `json:"scope"`
+			Findings []any  `json:"findings"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Command != "doctor.template" || !envelope.OK ||
+		envelope.Result.Scope != "template" || len(envelope.Result.Findings) != 4 ||
+		stderr.Len() != 0 {
+		t.Fatalf("envelope=%+v stderr=%q", envelope, stderr.String())
 	}
 }
 

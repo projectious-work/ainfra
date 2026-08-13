@@ -21,6 +21,10 @@ const (
 type Diagnostic struct {
 	Code             string   `json:"code"`
 	Severity         Severity `json:"severity"`
+	Check            string   `json:"check,omitempty"`
+	Scope            string   `json:"scope,omitempty"`
+	Status           string   `json:"status,omitempty"`
+	Reconciliation   string   `json:"reconciliation,omitempty"`
 	Message          string   `json:"message"`
 	Component        string   `json:"component,omitempty"`
 	Path             string   `json:"path,omitempty"`

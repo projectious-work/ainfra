@@ -5,6 +5,40 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.2] - 2026-08-13
+
+### Added
+
+- Added strict deployment and local-template contract validation with
+  deterministic project discovery and typed configuration precedence.
+- Added `ainfra doctor` environment, deployment, template, retained-run, and
+  aggregate scopes with stable text and JSON findings.
+- Added guarded local reconciliation and conflict-first minimal deployment
+  initialization.
+
+### Changed
+
+- Expanded Phase 2 documentation, schemas, examples, and conformance evidence
+  for the contracts-and-doctor boundary.
+- Updated the development environment and processkit tooling used for release
+  preparation and verification.
+
+### Fixed
+
+- Preserved complete failure evidence when an individual reconciliation action
+  remains unsuccessful.
+- Made compiled black-box builds resolve Go's effective module cache while
+  retaining offline execution.
+- Replaced ambiguous shell guards in container and release validation paths
+  with explicit fail-closed conditionals.
+
+### Security
+
+- Enforced contained, non-symlink, regular-file inputs for deployments,
+  templates, retained runs, and local repairs.
+- Added adversarial, fuzz, race, secret, vulnerability, and static-security
+  evidence for Phase 2 behavior.
+
 ## [1.0.0-alpha.1] - 2026-08-12
 
 ### Added
@@ -36,3 +70,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Standardized local-only validation and release execution without hosted CI.
 
 [1.0.0-alpha.1]: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.1
+[1.0.0-alpha.2]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.1...v1.0.0-alpha.2
