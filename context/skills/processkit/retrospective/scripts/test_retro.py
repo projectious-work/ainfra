@@ -924,10 +924,31 @@ class TestDualEmit:
         )
         assert rc == 0
         create_artifact.assert_called_once()
+        assert create_artifact.call_args.kwargs["description"].startswith(
+            "# Retrospective"
+        )
+        assert "body" not in create_artifact.call_args.kwargs
         log_event.assert_called()
         # First log_event call must be retro.completed
         first_call_kwargs = log_event.call_args_list[0][1]
         assert first_call_kwargs.get("event_type") == "retro.completed"
+        assert first_call_kwargs.get("actor") == artifact_result["id"]
+
+    def test_log_event_error_result_fails_the_retro(self, repo_root: Path):
+        artifact_result = {"id": "ART-20260418-Test-retro-v0.18.2"}
+        mcp = {
+            "create_artifact": MagicMock(return_value=artifact_result),
+            "log_event": MagicMock(return_value={"error": "missing actor"}),
+            "query_events": lambda **kw: [],
+            "query_entities": lambda **kw: [],
+        }
+
+        rc = retro.main(
+            ["--release", "v0.18.2", "--repo-root", str(repo_root)],
+            mcp_overrides=mcp,
+        )
+
+        assert rc == 1
 
     def test_log_event_not_called_if_create_artifact_fails(
         self, repo_root: Path
