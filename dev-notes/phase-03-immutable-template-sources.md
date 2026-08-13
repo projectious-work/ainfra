@@ -160,3 +160,26 @@ roots and composes this primitive into lock creation.
 The next dependency-ordered slice implements controlled Git acquisition and
 immutable commit resolution. It will then share this lock writer and verified
 cache path with explicit `template update`.
+
+### 2026-08-13 — Controlled Git acquisition
+
+- Added a shell-free Git adapter that invokes an immutable executable through
+  structured argument arrays and an explicit environment inside private
+  acquisition staging.
+- Fetched the requested ref without configuring a persistent remote, resolved
+  `FETCH_HEAD` to a full SHA-1 or SHA-256 commit, and checked out that exact
+  detached commit before content use.
+- Cleaned and contained optional Git subdirectories, rejecting traversal before
+  checkout and relying on the normative tree policy to reject symlinks, hard
+  links, special files, runtime state, and poisoned content.
+- Materialized selected Git content through the same verified digest-addressed
+  cache used by local sources, verifying every cache hit.
+- Recorded display-safe executable, argument, and working-directory boundaries
+  while redacting repository credentials from records and child diagnostics.
+- Added controlled-runner and controlled-executable tests for argument
+  boundaries, credential redaction, immutable revision validation, failure,
+  cancellation, subdirectory selection, and ref injection attempts.
+
+The next slice composes Git acquisition into `template lock`, introduces the
+explicit `template update` comparison flow, and resolves configured Git and
+cache policy from the existing trusted configuration layers.

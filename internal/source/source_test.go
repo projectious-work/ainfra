@@ -89,6 +89,7 @@ func TestParseRejectsInvalidSources(t *testing.T) {
 		{name: "subdirectory absolute", value: "git::https://example.com/repo.git///etc", ref: "main"},
 		{name: "subdirectory empty segment", value: "git::https://example.com/repo.git//a//b", ref: "main"},
 		{name: "subdirectory backslash", value: "git::https://example.com/repo.git//a\\b", ref: "main"},
+		{name: "subdirectory traversal", value: "git::https://example.com/repo.git//../a", ref: "main"},
 		{name: "newline", value: "local:template\nother"},
 	}
 	for _, test := range tests {

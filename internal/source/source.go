@@ -85,6 +85,9 @@ func parseGit(value, requestedRef string) (Reference, error) {
 	if err != nil {
 		return Reference{}, fmt.Errorf("invalid Git template subdirectory: %w", err)
 	}
+	if cleanedSubdirectory == ".." || strings.HasPrefix(cleanedSubdirectory, "../") {
+		return Reference{}, errors.New("git template subdirectory must not traverse its checkout")
+	}
 	repository = parsed.String()
 	canonical := "git::" + repository
 	display := "git::" + redactURL(parsed)
