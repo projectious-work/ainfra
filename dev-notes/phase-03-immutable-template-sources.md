@@ -139,3 +139,24 @@ This primitive accepts explicit source and cache roots produced by policy; it
 does not consult ambient configuration or yet expose a CLI mutation. The next
 slice resolves `local:` identities against the deployment/repository approved
 roots and composes this primitive into lock creation.
+
+### 2026-08-13 — Approved local roots and initial lock creation
+
+- Resolved `local:` identities relative to the deployment and proved them
+  contained by either the deployment root or its nearest parent Git repository.
+- Rejected traversal beyond those approved roots, symlinked path components,
+  invalid Git root markers, missing paths, and non-directory sources.
+- Added strict canonical `ainfra.lock` parsing, comparison, and private atomic
+  publication with an exclusive writer sentinel.
+- Composed approved-root resolution, verified digest-addressed materialization,
+  materialized-template contract validation, and initial lock publication into
+  `ainfra template lock`.
+- Made repeated identical locks deterministic and non-mutating while refusing
+  changed existing bindings with an exact `ainfra template update` remediation.
+- Added text/JSON command results plus policy, cache, lock, application, and CLI
+  regression coverage. Git sources remain explicitly unavailable until the
+  argument-array Git adapter is implemented.
+
+The next dependency-ordered slice implements controlled Git acquisition and
+immutable commit resolution. It will then share this lock writer and verified
+cache path with explicit `template update`.

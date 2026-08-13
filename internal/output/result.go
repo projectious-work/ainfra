@@ -26,6 +26,8 @@ const (
 	CommandDoctorRun Command = "doctor.run"
 	// CommandDoctorAll identifies the complete applicable diagnostic set.
 	CommandDoctorAll Command = "doctor.all"
+	// CommandTemplateLock identifies initial immutable template locking.
+	CommandTemplateLock Command = "template.lock"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )
@@ -120,6 +122,14 @@ type DoctorSummary struct {
 type Init struct {
 	Deployment   Deployment `json:"deployment"`
 	CreatedPaths []string   `json:"createdPaths"`
+}
+
+// Template is the semantic result of a template lock mutation.
+type Template struct {
+	Source           string `json:"source"`
+	ResolvedRevision string `json:"resolvedRevision"`
+	ContentDigest    string `json:"contentDigest"`
+	Changed          bool   `json:"changed"`
 }
 
 // Deployment identifies one canonical local deployment.

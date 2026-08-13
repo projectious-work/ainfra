@@ -86,6 +86,16 @@ type outputs struct {
 
 // Load strictly validates one already-resolved local template directory.
 func Load(path string) (Contract, error) {
+	return load(path, true)
+}
+
+// LoadMaterialized validates a digest-addressed cache tree. Its directory
+// basename is a content digest rather than the declared template name.
+func LoadMaterialized(path string) (Contract, error) {
+	return load(path, false)
+}
+
+func load(path string, requireMatchingBasename bool) (Contract, error) {
 	root, err := canonicalDirectory(path)
 	if err != nil {
 		return Contract{}, err
@@ -102,7 +112,7 @@ func Load(path string) (Contract, error) {
 	if err != nil {
 		return Contract{}, err
 	}
-	if err := validateDocument(root, document); err != nil {
+	if err := validateDocument(root, document, requireMatchingBasename); err != nil {
 		return Contract{}, err
 	}
 	tofuDirectory, err := requiredDirectory(root, document.Spec.Engines.Tofu.Directory)
@@ -213,12 +223,14 @@ func decode(contents []byte) (document, error) {
 	return parsed, nil
 }
 
-func validateDocument(root string, document document) error {
+func validateDocument(root string, document document, requireMatchingBasename bool) error {
 	if document.APIVersion != "ainfra.projectious.work/v1" || document.Kind != "Template" {
 		return errors.New("unsupported template manifest contract")
 	}
-	if !namePattern.MatchString(document.Metadata.Name) ||
-		filepath.Base(root) != document.Metadata.Name {
+	if !namePattern.MatchString(document.Metadata.Name) {
+		return fmt.Errorf("invalid template name %q", document.Metadata.Name)
+	}
+	if requireMatchingBasename && filepath.Base(root) != document.Metadata.Name {
 		return fmt.Errorf("template name %q must match directory basename", document.Metadata.Name)
 	}
 	if !versionPattern.MatchString(document.Metadata.Version) {
