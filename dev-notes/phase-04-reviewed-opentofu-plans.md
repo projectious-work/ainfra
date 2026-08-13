@@ -51,3 +51,23 @@ contracts are in place.
 
 Tracking WorkItem:
 `BACK-20260813_1736-SmartArch-implement-phase-four-reviewed-opentofu-plans`.
+
+## Implementation record
+
+### 2026-08-13 — Plan contracts and controlled OpenTofu adapter
+
+- Added closed v1 schemas and conforming examples for immutable reviewed-plan
+  bindings and lifecycle run metadata.
+- Bound plan intent, deployment and template digests, ordered native inputs,
+  OpenTofu version/executable digest, saved-plan bytes, and summary path.
+- Added the `internal/tofu` adapter as a shell-free argument-array boundary for
+  `tofu init` and saved `tofu plan`, preserving declared backend and variable
+  file order and making apply versus destroy intent explicit.
+- Reused executable fingerprint, contained working-directory, explicit
+  environment, cancellation, and sanitized child IO policy from `internal/exec`.
+- Added controlled-runner tests for exact argument boundaries, ordering,
+  destroy separation, traversal refusal, and non-zero child outcomes.
+
+The next slice creates private run workspaces from verified locked templates
+and computes the complete deployment, input, template, and tool binding set
+before invoking this adapter.
