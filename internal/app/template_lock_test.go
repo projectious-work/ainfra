@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/app"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
+	"github.com/projectious-work/ainfra/internal/source"
 )
 
 func TestTemplateLockMaterializesAndPublishesLocalBinding(t *testing.T) {
@@ -86,6 +88,59 @@ spec:
 	if _, err := app.TemplateLock(app.TemplateLockRequest{}, options); err == nil ||
 		!strings.Contains(err.Error(), "template update") {
 		t.Fatalf("changed binding error = %v", err)
+	}
+}
+
+func TestTemplateLockAndUpdateGitBinding(t *testing.T) {
+	t.Parallel()
+	deployment := t.TempDir()
+	writeTestFile(t, filepath.Join(deployment, "ainfra.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: dev
+spec:
+  template:
+    source: git::https://example.com/templates.git//base
+    ref: main
+`)
+	templateRoot := filepath.Join(t.TempDir(), "base")
+	writeLocalTemplate(t, templateRoot)
+	cacheRoot := t.TempDir()
+	materialized, err := source.MaterializeLocal(templateRoot, cacheRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit := strings.Repeat("a", 40)
+	options := app.TemplateLockOptions{
+		WorkingDirectory: deployment, CacheDirectory: cacheRoot,
+		Environment: map[string]string{},
+		AcquireGit: func(
+			_ context.Context, reference source.Reference, selectedCache string,
+		) (source.GitAcquisition, error) {
+			if reference.RequestedRef != "main" || selectedCache != cacheRoot {
+				t.Fatalf("unexpected acquisition: %#v cache=%q", reference, selectedCache)
+			}
+			return source.GitAcquisition{Commit: commit, Materialized: materialized}, nil
+		},
+	}
+	if _, err := app.TemplateLock(app.TemplateLockRequest{}, options); err != nil {
+		t.Fatal(err)
+	}
+	first, err := lockfile.Read(filepath.Join(deployment, lockfile.Filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Template.RequestedRef != "main" || first.Template.Resolved != commit ||
+		first.Template.Subdirectory != "base" {
+		t.Fatalf("unexpected Git lock: %#v", first)
+	}
+	commit = strings.Repeat("b", 40)
+	updated, err := app.TemplateUpdate(app.TemplateLockRequest{}, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated.Changed || updated.ResolvedRevision != commit {
+		t.Fatalf("unexpected update: %#v", updated)
 	}
 }
 

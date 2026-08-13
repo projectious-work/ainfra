@@ -32,6 +32,13 @@ func main() {
 			}
 			return app.TemplateLock(request, options)
 		},
+		TemplateUpdate: func(request app.TemplateLockRequest) (output.Template, error) {
+			options, err := app.HostTemplateLockOptions()
+			if err != nil {
+				return output.Template{}, err
+			}
+			return app.TemplateUpdate(request, options)
+		},
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,
 		) (app.DoctorEnvironmentResponse, error) {

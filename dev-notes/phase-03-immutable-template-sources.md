@@ -183,3 +183,23 @@ cache path with explicit `template update`.
 The next slice composes Git acquisition into `template lock`, introduces the
 explicit `template update` comparison flow, and resolves configured Git and
 cache policy from the existing trusted configuration layers.
+
+### 2026-08-13 — Git locking and explicit update
+
+- Composed immutable Git acquisition into the same `template lock` path used
+  by approved local sources without making Git a prerequisite for local locks.
+- Resolved the host Git executable lazily, fingerprinted it before execution,
+  and selected only the host environment needed for Git, SSH agent access, and
+  non-interactive credential behavior.
+- Recorded requested Git refs separately from their immutable resolved commits
+  while retaining the canonical source, selected subdirectory, version, tree
+  digest, and resolution time in `ainfra.lock`.
+- Added `template update` as the explicit path for replacing a changed binding;
+  it refuses a missing or malformed existing lock and leaves identical bindings
+  untouched.
+- Added application, command, and compiled black-box coverage for Git lock
+  fields, local content updates, canonical JSON results, and unchanged updates.
+
+The next slice integrates lock and verified-cache findings into deployment and
+template doctor scopes, then closes remaining configuration and interruption
+coverage before the independent Phase 3 conformance review.

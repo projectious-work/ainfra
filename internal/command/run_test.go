@@ -119,6 +119,30 @@ func TestTemplateLockDispatchesCanonicalResult(t *testing.T) {
 	}
 }
 
+func TestTemplateUpdateDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	called := false
+	code := command.Run(
+		[]string{"template", "update", "--format=json"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			TemplateUpdate: func(app.TemplateLockRequest) (output.Template, error) {
+				called = true
+				return output.Template{
+					Source:           "git::https://example.com/templates.git",
+					ResolvedRevision: strings.Repeat("a", 40),
+					ContentDigest:    "sha256:" + strings.Repeat("b", 64), Changed: true,
+				}, nil
+			},
+		},
+	)
+	if code != command.ExitSuccess || !called ||
+		!strings.Contains(stdout.String(), `"command":"template.update"`) {
+		t.Fatalf("exit=%d called=%t stdout=%q", code, called, stdout.String())
+	}
+}
+
 func TestDoctorEnvironmentDispatchesCanonicalResult(t *testing.T) {
 	t.Parallel()
 	code, stdout, stderr := runWithDoctor(

@@ -139,14 +139,16 @@ spec:
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	home, configHome, cacheHome := t.TempDir(), t.TempDir(), t.TempDir()
+	environment := []string{
+		"TERM=dumb", "HOME=" + home,
+		"XDG_CONFIG_HOME=" + configHome, "XDG_CACHE_HOME=" + cacheHome,
+	}
 	command := exec.CommandContext(
 		ctx, binary, "template", "lock", deployment, "--format=json",
 	)
 	command.Dir = root
-	command.Env = []string{
-		"TERM=dumb", "HOME=" + t.TempDir(),
-		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir(),
-	}
+	command.Env = environment
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	command.Stdout = &stdout
@@ -174,6 +176,23 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(deployment, "ainfra.lock")); err != nil {
 		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(templateRoot, "update.txt"), []byte("changed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	updateContext, updateCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer updateCancel()
+	update := exec.CommandContext(
+		updateContext, binary, "template", "update", deployment, "--format=json",
+	)
+	update.Dir, update.Env = root, environment
+	updated, err := update.Output()
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if !bytes.Contains(updated, []byte(`"command":"template.update"`)) ||
+		!bytes.Contains(updated, []byte(`"changed":true`)) {
+		t.Fatalf("unexpected update output: %s", updated)
 	}
 }
 
