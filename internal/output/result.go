@@ -28,6 +28,8 @@ const (
 	CommandDoctorAll Command = "doctor.all"
 	// CommandTemplateLock identifies initial immutable template locking.
 	CommandTemplateLock Command = "template.lock"
+	// CommandTemplateUpdate identifies explicit template lock replacement.
+	CommandTemplateUpdate Command = "template.update"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )

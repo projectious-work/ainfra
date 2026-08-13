@@ -73,9 +73,13 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 		if result.Changed {
 			state = "written"
 		}
+		operation := "lock"
+		if envelope.Command == CommandTemplateUpdate {
+			operation = "update"
+		}
 		_, err := fmt.Fprintf(
-			writer, "template lock %s\nsource %s\nresolved %s\ndigest %s\n",
-			state, result.Source, result.ResolvedRevision, result.ContentDigest,
+			writer, "template %s %s\nsource %s\nresolved %s\ndigest %s\n",
+			operation, state, result.Source, result.ResolvedRevision, result.ContentDigest,
 		)
 		return err
 	case Init:

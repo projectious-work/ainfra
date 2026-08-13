@@ -1,15 +1,18 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
+	"github.com/projectious-work/ainfra/internal/security"
 	"github.com/projectious-work/ainfra/internal/source"
 	"github.com/projectious-work/ainfra/internal/template"
 )
@@ -26,11 +29,26 @@ type TemplateLockOptions struct {
 	CacheDirectory   string
 	Environment      map[string]string
 	Now              func() time.Time
+	AcquireGit       func(context.Context, source.Reference, string) (source.GitAcquisition, error)
 }
 
 // TemplateLock resolves, validates, materializes, and locks one local source.
 // Git sources remain unavailable until the Phase 3 Git adapter is composed.
 func TemplateLock(request TemplateLockRequest, options TemplateLockOptions) (output.Template, error) {
+	return mutateTemplateLock(request, options, false)
+}
+
+// TemplateUpdate explicitly replaces an existing template binding after
+// resolving and validating the currently requested source.
+func TemplateUpdate(request TemplateLockRequest, options TemplateLockOptions) (output.Template, error) {
+	return mutateTemplateLock(request, options, true)
+}
+
+func mutateTemplateLock(
+	request TemplateLockRequest,
+	options TemplateLockOptions,
+	allowUpdate bool,
+) (output.Template, error) {
 	environmentPath := options.Environment["AINFRA_PROJECT"]
 	if request.Target != "" && (request.ProjectPath != "" || environmentPath != "") {
 		return output.Template{}, errors.New("deployment TARGET conflicts with another project selection")
@@ -46,16 +64,9 @@ func TemplateLock(request TemplateLockRequest, options TemplateLockOptions) (out
 	if err != nil {
 		return output.Template{}, fmt.Errorf("parse template source: %w", err)
 	}
-	if reference.Kind != source.KindLocal {
-		return output.Template{}, errors.New("git template locking requires the Phase 3 Git adapter")
-	}
-	resolved, err := source.ResolveLocal(reference, deployment.Target.Root)
+	materialized, immutable, err := resolveTemplate(reference, deployment.Target.Root, options)
 	if err != nil {
-		return output.Template{}, fmt.Errorf("resolve local template source: %w", err)
-	}
-	materialized, err := source.MaterializeLocal(resolved.Path, options.CacheDirectory)
-	if err != nil {
-		return output.Template{}, fmt.Errorf("materialize local template source: %w", err)
+		return output.Template{}, err
 	}
 	contract, err := template.LoadMaterialized(materialized.Path)
 	if err != nil {
@@ -66,7 +77,8 @@ func TemplateLock(request TemplateLockRequest, options TemplateLockOptions) (out
 		now = options.Now
 	}
 	document := lockfile.New(lockfile.Template{
-		Source: reference.Canonical, Resolved: reference.Canonical,
+		Source: reference.Canonical, RequestedRef: reference.RequestedRef,
+		Resolved:     immutable,
 		Subdirectory: reference.Subdirectory, Version: contract.Version,
 		Digest: materialized.Digest, ResolvedAt: now(),
 	})
@@ -75,16 +87,46 @@ func TemplateLock(request TemplateLockRequest, options TemplateLockOptions) (out
 		if lockfile.Equivalent(existing, document) {
 			return templateLockResult(document, false), nil
 		}
-		return output.Template{}, errors.New(
-			"template lock already exists with a different binding; use 'ainfra template update'",
-		)
+		if !allowUpdate {
+			return output.Template{}, errors.New(
+				"template lock already exists with a different binding; use 'ainfra template update'",
+			)
+		}
 	} else if !errors.Is(readErr, os.ErrNotExist) {
 		return output.Template{}, readErr
+	} else if allowUpdate {
+		return output.Template{}, errors.New("template update requires an existing ainfra.lock")
 	}
 	if err := lockfile.Write(lockPath, document); err != nil {
 		return output.Template{}, err
 	}
 	return templateLockResult(document, true), nil
+}
+
+func resolveTemplate(
+	reference source.Reference,
+	deploymentRoot string,
+	options TemplateLockOptions,
+) (source.Materialized, string, error) {
+	if reference.Kind == source.KindLocal {
+		resolved, err := source.ResolveLocal(reference, deploymentRoot)
+		if err != nil {
+			return source.Materialized{}, "", fmt.Errorf("resolve local template source: %w", err)
+		}
+		materialized, err := source.MaterializeLocal(resolved.Path, options.CacheDirectory)
+		if err != nil {
+			return source.Materialized{}, "", fmt.Errorf("materialize local template source: %w", err)
+		}
+		return materialized, reference.Canonical, nil
+	}
+	if options.AcquireGit == nil {
+		return source.Materialized{}, "", errors.New("git template acquisition is unavailable")
+	}
+	acquired, err := options.AcquireGit(context.Background(), reference, options.CacheDirectory)
+	if err != nil {
+		return source.Materialized{}, "", fmt.Errorf("acquire Git template source: %w", err)
+	}
+	return acquired.Materialized, acquired.Commit, nil
 }
 
 func templateLockResult(document lockfile.Document, changed bool) output.Template {
@@ -108,5 +150,31 @@ func HostTemplateLockOptions() (TemplateLockOptions, error) {
 		WorkingDirectory: workingDirectory,
 		CacheDirectory:   filepath.Join(cacheDirectory, "ainfra"),
 		Environment:      map[string]string{"AINFRA_PROJECT": os.Getenv("AINFRA_PROJECT")},
+		AcquireGit:       acquireHostGit,
 	}, nil
+}
+
+func acquireHostGit(
+	ctx context.Context,
+	reference source.Reference,
+	cacheRoot string,
+) (source.GitAcquisition, error) {
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		return source.GitAcquisition{}, fmt.Errorf("discover git executable: %w", err)
+	}
+	executable, err := security.ResolveExecutable(gitPath)
+	if err != nil {
+		return source.GitAcquisition{}, fmt.Errorf("validate git executable: %w", err)
+	}
+	environment, err := security.BuildEnvironment(
+		os.Environ(), []string{"HOME", "PATH", "SSH_AUTH_SOCK"},
+		map[string]string{"GIT_TERMINAL_PROMPT": "0"},
+	)
+	if err != nil {
+		return source.GitAcquisition{}, fmt.Errorf("build git environment: %w", err)
+	}
+	return source.AcquireGit(ctx, reference, source.GitOptions{
+		Executable: executable, Environment: environment, CacheRoot: cacheRoot,
+	})
 }

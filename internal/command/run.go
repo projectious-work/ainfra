@@ -34,6 +34,7 @@ type Options struct {
 	DoctorRun         func(app.DoctorRunRequest) (app.DoctorEnvironmentResponse, error)
 	DoctorAll         func(app.DoctorAllRequest) (app.DoctorEnvironmentResponse, error)
 	TemplateLock      func(app.TemplateLockRequest) (output.Template, error)
+	TemplateUpdate    func(app.TemplateLockRequest) (output.Template, error)
 	Initialize        func(string) (initialize.Result, error)
 }
 
@@ -77,8 +78,8 @@ func Run(arguments []string, options Options) ExitCode {
 			arguments, renderArguments, controlArguments, positional, renderOptions, options,
 		)
 	}
-	if len(positional) >= 2 && len(positional) <= 3 &&
-		positional[0] == "template" && positional[1] == "lock" {
+	if len(positional) >= 2 && len(positional) <= 3 && positional[0] == "template" &&
+		(positional[1] == "lock" || positional[1] == "update") {
 		return runTemplateLock(arguments, controlArguments, positional, renderOptions, options)
 	}
 	if len(positional) >= 2 && len(positional) <= 3 &&
@@ -178,14 +179,20 @@ func runTemplateLock(
 	if *yes && !*nonInteractive {
 		return failInvocation(arguments, "--yes requires --non-interactive", options.IO)
 	}
-	if options.TemplateLock == nil {
-		return failInvocation(arguments, "template lock is unavailable", options.IO)
+	operation := positional[1]
+	commandName := output.CommandTemplateLock
+	mutation := options.TemplateLock
+	if operation == "update" {
+		commandName, mutation = output.CommandTemplateUpdate, options.TemplateUpdate
+	}
+	if mutation == nil {
+		return failInvocation(arguments, "template "+operation+" is unavailable", options.IO)
 	}
 	target := ""
 	if len(positional) == 3 {
 		target = positional[2]
 	}
-	result, err := options.TemplateLock(app.TemplateLockRequest{
+	result, err := mutation(app.TemplateLockRequest{
 		Target: target, ProjectPath: *projectPath,
 	})
 	if err != nil {
@@ -197,12 +204,12 @@ func runTemplateLock(
 		diagnosticValue := diagnostic.Diagnostic{
 			Code: code, Severity: diagnostic.SeverityError,
 			Message: err.Error(), Component: "template-lock",
-			NextAction: "Correct the source or lock state and rerun 'ainfra template lock'.",
+			NextAction: "Correct the source or lock state and rerun 'ainfra template " + operation + "'.",
 		}
 		if renderOptions.Format == output.FormatJSON {
 			if renderErr := output.Render(
 				options.IO.Stdout,
-				output.Failure(output.CommandTemplateLock, diagnosticValue),
+				output.Failure(commandName, diagnosticValue),
 				renderOptions,
 			); renderErr != nil {
 				return ExitOperationFailed
@@ -213,7 +220,7 @@ func runTemplateLock(
 		return exit
 	}
 	if err := output.Render(
-		options.IO.Stdout, output.Success(output.CommandTemplateLock, result), renderOptions,
+		options.IO.Stdout, output.Success(commandName, result), renderOptions,
 	); err != nil {
 		return ExitOperationFailed
 	}
