@@ -203,3 +203,21 @@ cache policy from the existing trusted configuration layers.
 The next slice integrates lock and verified-cache findings into deployment and
 template doctor scopes, then closes remaining configuration and interruption
 coverage before the independent Phase 3 conformance review.
+
+### 2026-08-13 — Lock and cache doctor integration
+
+- Added deployment findings for lock presence and structure, requested-source
+  binding, verified cache safety, cached digest equality, and local source drift.
+- Reported exact `template lock` or `template update` remediation for missing,
+  malformed, stale, unsafe, or poisoned state while keeping doctor read-only.
+- Avoided resolving mutable Git refs during doctor: Git-backed deployments check
+  the locked immutable commit and verified cache and direct users to the explicit
+  update command when they want to resolve the requested ref again.
+- Replaced the placeholder template result in `doctor all` with full template
+  contract checks whenever the locked cache entry is verified; unavailable or
+  invalid resolved templates remain deterministic skip/fail findings.
+- Added regression coverage for missing locks, fully verified local locks,
+  resolved template checks, and local source drift after locking.
+
+The next slice closes trusted configuration and interruption/corruption edge
+coverage, followed by the independent Phase 3 conformance and gap review.

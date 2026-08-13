@@ -1,9 +1,13 @@
 package app
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/doctor"
 	"github.com/projectious-work/ainfra/internal/output"
+	templatecontract "github.com/projectious-work/ainfra/internal/template"
 )
 
 // DoctorAllRequest identifies the deployment used by every applicable check.
@@ -35,13 +39,7 @@ func DoctorAll(
 	}
 	findings := append([]diagnostic.Diagnostic{}, environment.Result.Findings...)
 	findings = append(findings, deployment.Result.Findings...)
-	findings = append(findings, diagnostic.Diagnostic{
-		Code: "AINFRA-E2601", Severity: diagnostic.SeverityInfo,
-		Check: "template.resolved-source", Scope: "template", Status: "skip",
-		Component: "template", Reconciliation: "not_available",
-		Message:    "no resolved template is available for this deployment",
-		NextAction: "Resolve and lock the template before diagnosing its local contract.",
-	})
+	findings = append(findings, resolvedTemplateFindings(deployment.Result.Findings)...)
 	findings = append(findings, run.Result.Findings...)
 	doctor.SortFindings(findings)
 	summary := summarizeDoctorFindings(findings)
@@ -54,6 +52,39 @@ func DoctorAll(
 		Color:              environment.Color,
 		ReconciliationPlan: deployment.ReconciliationPlan,
 	}, nil
+}
+
+func resolvedTemplateFindings(deploymentFindings []diagnostic.Diagnostic) []diagnostic.Diagnostic {
+	cachePath := ""
+	for _, finding := range deploymentFindings {
+		if finding.Check == "template.cache" && finding.Status == "pass" {
+			cachePath = finding.Path
+		}
+	}
+	if cachePath == "" {
+		return []diagnostic.Diagnostic{{
+			Code: "AINFRA-E2601", Severity: diagnostic.SeverityInfo,
+			Check: "template.resolved-source", Scope: "template", Status: "skip",
+			Component: "template", Reconciliation: "not_available",
+			Message:    "no verified locked template is available for this deployment",
+			NextAction: "Run 'ainfra template lock' and resolve deployment doctor failures.",
+		}}
+	}
+	contract, err := templatecontract.LoadMaterialized(cachePath)
+	if err != nil {
+		return []diagnostic.Diagnostic{{
+			Code: "AINFRA-E2602", Severity: diagnostic.SeverityError,
+			Check: "template.resolved-source", Scope: "template", Status: "fail",
+			Component: "template", Path: cachePath, Reconciliation: "not_available",
+			Message:    fmt.Sprintf("verified cache does not contain a valid template contract: %s", err),
+			NextAction: "Correct the template source and run 'ainfra template update'.",
+		}}
+	}
+	report := doctor.TemplateRegistry(doctor.TemplateInput{
+		Name: contract.Name, Version: contract.Version, Root: contract.Root,
+		HasAnsible: contract.Ansible != nil, Inventory: contract.Inventory,
+	}).Run(context.Background(), doctor.ScopeTemplate, doctor.Input{}, doctor.Capabilities{})
+	return report.Findings
 }
 
 func summarizeDoctorFindings(findings []diagnostic.Diagnostic) output.DoctorSummary {

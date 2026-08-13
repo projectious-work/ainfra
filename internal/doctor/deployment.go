@@ -9,11 +9,23 @@ import (
 
 // DeploymentInput contains only already-validated deployment contract facts.
 type DeploymentInput struct {
-	Name         string
-	Root         string
-	ManifestPath string
-	NativeFiles  int
-	RuntimeSafe  bool
+	Name          string
+	Root          string
+	ManifestPath  string
+	NativeFiles   int
+	RuntimeSafe   bool
+	TemplateFacts []DeploymentTemplateFact
+}
+
+// DeploymentTemplateFact is one precomputed, side-effect-free lock/cache fact.
+type DeploymentTemplateFact struct {
+	ID         string
+	Code       string
+	Path       string
+	Status     string
+	Message    string
+	Evidence   string
+	NextAction string
 }
 
 // DeploymentRegistry returns checks for a loaded local deployment contract.
@@ -33,11 +45,31 @@ func DeploymentRegistry(input DeploymentInput) Registry {
 			fmt.Sprintf("deployment %q has one canonical root", input.Name),
 		),
 	}
+	for _, fact := range input.TemplateFacts {
+		definitions = append(definitions, deploymentTemplateCheck(fact))
+	}
 	registry, err := NewRegistry(definitions...)
 	if err != nil {
 		panic(err)
 	}
 	return registry
+}
+
+func deploymentTemplateCheck(fact DeploymentTemplateFact) Definition {
+	return Definition{
+		ID: fact.ID, Scope: ScopeDeployment,
+		Run: func(context.Context, Input, Capabilities) diagnostic.Diagnostic {
+			severity := diagnostic.SeverityInfo
+			if fact.Status == "fail" {
+				severity = diagnostic.SeverityError
+			}
+			return diagnostic.Diagnostic{
+				Code: fact.Code, Severity: severity, Status: fact.Status,
+				Component: "template", Path: fact.Path, Message: fact.Message,
+				Evidence: fact.Evidence, NextAction: fact.NextAction,
+			}
+		},
+	}
 }
 
 func deploymentRuntimeCheck(path string, safe bool) Definition {

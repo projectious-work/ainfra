@@ -36,7 +36,8 @@ spec:
 		t.Fatalf("doctor deployment: %v", err)
 	}
 	if response.Result.Scope != "deployment" || response.Result.Summary.Pass != 3 ||
-		response.Result.Summary.Warning != 1 || len(response.Result.Findings) != 4 ||
+		response.Result.Summary.Warning != 1 || response.Result.Summary.Fail != 1 ||
+		response.Result.Summary.Skip != 4 || len(response.Result.Findings) != 9 ||
 		response.Result.EffectiveConfiguration != nil {
 		t.Fatalf("unexpected response: %#v", response)
 	}
@@ -111,7 +112,8 @@ spec:
 		}, options,
 	)
 	if err != nil || len(applied.ReconciliationPlan) != 0 ||
-		applied.Result.Summary.Warning != 0 || applied.Result.Summary.Pass != 4 {
+		applied.Result.Summary.Warning != 0 || applied.Result.Summary.Pass != 4 ||
+		applied.Result.Summary.Fail != 1 || applied.Result.Summary.Skip != 4 {
 		t.Fatalf("applied=%#v err=%v", applied, err)
 	}
 	information, err := os.Stat(filepath.Join(root, ".ainfra"))
@@ -127,6 +129,84 @@ spec:
 	}
 	if !foundApplied {
 		t.Fatalf("missing applied reconciliation: %#v", applied.Result.Findings)
+	}
+}
+
+func TestDoctorDeploymentVerifiesLocalLockAndCache(t *testing.T) {
+	t.Parallel()
+	repository := t.TempDir()
+	mustMkdir(t, filepath.Join(repository, ".git"))
+	deployment := filepath.Join(repository, "deployment")
+	templateRoot := filepath.Join(repository, "base")
+	mustMkdir(t, deployment)
+	write(t, filepath.Join(deployment, "ainfra.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: verified
+spec:
+  template:
+    source: local:../base
+`)
+	writeLocalTemplate(t, templateRoot)
+	cacheRoot := t.TempDir()
+	if _, err := app.TemplateLock(app.TemplateLockRequest{Target: deployment}, app.TemplateLockOptions{
+		WorkingDirectory: repository, CacheDirectory: cacheRoot,
+		Environment: map[string]string{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	response, err := app.DoctorDeployment(
+		app.DoctorDeploymentRequest{Target: deployment},
+		app.DoctorEnvironmentOptions{
+			WorkingDirectory: repository, HomeDirectory: t.TempDir(),
+			CacheDirectory: cacheRoot, RunDirectory: filepath.Join(t.TempDir(), "runs"),
+			Environment: map[string]string{},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Result.Summary.Fail != 0 || response.Result.Summary.Skip != 0 ||
+		response.Result.Summary.Pass != 8 || response.Result.Summary.Warning != 1 {
+		t.Fatalf("unexpected verified report: %#v", response.Result)
+	}
+	all, err := app.DoctorAll(app.DoctorAllRequest{Target: deployment}, app.DoctorEnvironmentOptions{
+		GOOS: "linux", GOARCH: "arm64", WorkingDirectory: repository,
+		HomeDirectory: t.TempDir(), CacheDirectory: cacheRoot,
+		RunDirectory: filepath.Join(t.TempDir(), "runs"), Environment: map[string]string{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundTemplate := false
+	for _, finding := range all.Result.Findings {
+		if finding.Check == "template.identity" && finding.Status == "pass" {
+			foundTemplate = true
+		}
+	}
+	if !foundTemplate {
+		t.Fatalf("doctor all did not validate locked template: %#v", all.Result.Findings)
+	}
+	writeTestFile(t, filepath.Join(templateRoot, "drift.txt"), "changed\n")
+	drifted, err := app.DoctorDeployment(
+		app.DoctorDeploymentRequest{Target: deployment},
+		app.DoctorEnvironmentOptions{
+			WorkingDirectory: repository, HomeDirectory: t.TempDir(),
+			CacheDirectory: cacheRoot, RunDirectory: filepath.Join(t.TempDir(), "runs"),
+			Environment: map[string]string{},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundDrift := false
+	for _, finding := range drifted.Result.Findings {
+		if finding.Check == "template.source-content" && finding.Status == "fail" {
+			foundDrift = true
+		}
+	}
+	if !foundDrift {
+		t.Fatalf("local source drift was not reported: %#v", drifted.Result.Findings)
 	}
 }
 

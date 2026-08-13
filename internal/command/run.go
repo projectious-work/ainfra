@@ -345,7 +345,7 @@ func renderDoctorResponse(
 			}
 		}
 		envelope = output.PartialFailure(commandName, response.Result, failed...)
-		exit = ExitOperationFailed
+		exit = ExitDependency
 	}
 	if err := output.Render(streams.Stdout, envelope, renderOptions); err != nil {
 		return ExitOperationFailed

@@ -60,3 +60,24 @@ func TestWriteExcludesConcurrentWriter(t *testing.T) {
 		t.Fatal("concurrent writer unexpectedly accepted")
 	}
 }
+
+func TestReadRejectsTraversalShapedDigest(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), lock.Filename)
+	contents := `apiVersion: ainfra.projectious.work/v1
+kind: TemplateLock
+template:
+  source: local:template
+  resolved: local:template
+  subdirectory: ""
+  version: 1.0.0
+  digest: ../../outside
+  resolvedAt: 2026-08-13T00:00:00Z
+`
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lock.Read(path); err == nil {
+		t.Fatal("traversal-shaped digest unexpectedly accepted")
+	}
+}
