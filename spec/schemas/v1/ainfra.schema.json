@@ -29,7 +29,21 @@
           "properties": {
             "source": {"type": "string", "minLength": 1},
             "ref": {"type": "string", "minLength": 1}
-          }
+          },
+          "oneOf": [
+            {
+              "properties": {
+                "source": {"type": "string", "pattern": "^local:[^\\r\\n]+$"}
+              },
+              "not": {"required": ["ref"]}
+            },
+            {
+              "required": ["ref"],
+              "properties": {
+                "source": {"type": "string", "pattern": "^git::(?:https|ssh)://[^\\r\\n]+$"}
+              }
+            }
+          ]
         },
         "inputs": {
           "type": "object",

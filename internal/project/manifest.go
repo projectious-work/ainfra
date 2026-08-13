@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/projectious-work/ainfra/internal/security"
+	"github.com/projectious-work/ainfra/internal/source"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -107,7 +108,8 @@ func Load(options ResolveOptions) (Deployment, error) {
 	if err != nil {
 		return Deployment{}, err
 	}
-	if err := validateManifest(target, document); err != nil {
+	parsedSource, err := validateManifest(target, document)
+	if err != nil {
 		return Deployment{}, err
 	}
 	return Deployment{
@@ -116,7 +118,7 @@ func Load(options ResolveOptions) (Deployment, error) {
 			Name: document.Metadata.Name, Description: document.Metadata.Description,
 		},
 		Template: TemplateReference{
-			Source: document.Spec.Template.Source, Ref: document.Spec.Template.Ref,
+			Source: parsedSource.Canonical, Ref: parsedSource.RequestedRef,
 		},
 		Inputs: Inputs{
 			TofuVariableFiles:      clone(document.Spec.Inputs.Tofu.VariableFiles),
@@ -144,22 +146,25 @@ func decodeManifest(contents []byte) (manifestDocument, error) {
 	return document, nil
 }
 
-func validateManifest(target Target, document manifestDocument) error {
+func validateManifest(target Target, document manifestDocument) (source.Reference, error) {
 	if document.APIVersion != documentAPIVersion {
-		return fmt.Errorf("unsupported deployment apiVersion %q", document.APIVersion)
+		return source.Reference{}, fmt.Errorf("unsupported deployment apiVersion %q", document.APIVersion)
 	}
 	if document.Kind != "Deployment" {
-		return fmt.Errorf("deployment kind must be %q", "Deployment")
+		return source.Reference{}, fmt.Errorf("deployment kind must be %q", "Deployment")
 	}
 	if !deploymentNamePattern.MatchString(document.Metadata.Name) {
-		return fmt.Errorf("invalid deployment metadata.name %q", document.Metadata.Name)
+		return source.Reference{}, fmt.Errorf("invalid deployment metadata.name %q", document.Metadata.Name)
 	}
 	if document.Metadata.Description != "" &&
 		strings.TrimSpace(document.Metadata.Description) == "" {
-		return errors.New("deployment metadata.description must not be blank")
+		return source.Reference{}, errors.New("deployment metadata.description must not be blank")
 	}
-	if strings.TrimSpace(document.Spec.Template.Source) == "" {
-		return errors.New("deployment spec.template.source is required")
+	parsedSource, err := source.Parse(
+		document.Spec.Template.Source, document.Spec.Template.Ref,
+	)
+	if err != nil {
+		return source.Reference{}, fmt.Errorf("validate deployment spec.template.source: %w", err)
 	}
 	groups := []struct {
 		name  string
@@ -171,15 +176,15 @@ func validateManifest(target Target, document manifestDocument) error {
 	}
 	for _, group := range groups {
 		if err := validateNativePaths(target.Root, group.name, group.paths); err != nil {
-			return err
+			return source.Reference{}, err
 		}
 	}
 	if document.Spec.SSH.KnownHosts != "" {
 		if err := validateRelativeFile(target.Root, "spec.ssh.knownHosts", document.Spec.SSH.KnownHosts); err != nil {
-			return err
+			return source.Reference{}, err
 		}
 	}
-	return nil
+	return parsedSource, nil
 }
 
 func validateNativePaths(root, field string, paths []string) error {

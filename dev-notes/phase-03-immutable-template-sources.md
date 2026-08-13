@@ -74,3 +74,30 @@ inventory, configure hosts, or destroy resources.
 - Git and SSH may consult ambient configuration. The adapter must keep those
   mechanisms visible while preventing credentials from entering ainfra-owned
   files or diagnostics.
+
+## Implementation record
+
+### 2026-08-13 — Structural source contract
+
+- Added a pure `internal/source` model for the two v1 source schemes. Parsing
+  performs no filesystem, subprocess, cache, or network operation.
+- Canonicalized slash-separated local identities while leaving approved-root
+  containment to the materialization policy layer.
+- Structurally separated absolute HTTPS/SSH repository URLs, optional Git
+  subdirectories, and the manifest's mandatory explicit Git ref.
+- Added display-safe Git identities that redact URL userinfo and sensitive
+  query values without changing the repository value passed to the future Git
+  adapter.
+- Integrated source validation and canonical identity output into deployment
+  loading, so every later doctor, lock, and lifecycle consumer receives the
+  same parsed contract.
+- Narrowed the deployment JSON schema to `local:` or absolute
+  `git::https://`/`git::ssh://` sources, requiring `ref` only for Git.
+- Added table-driven, integration, and fuzz regression coverage for unknown
+  schemes, missing or invalid refs, absolute paths, separators, empty path
+  segments, fragments, control characters, credentials, and sensitive query
+  values.
+
+This slice intentionally does not acquire content or write `ainfra.lock`. The
+next dependency-ordered slice is the normative template-tree digest, followed
+by contained local materialization and then the Git adapter.
