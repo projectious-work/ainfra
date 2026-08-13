@@ -49,7 +49,7 @@ func helpFor(topic string) (output.Help, bool) {
 				{Name: "template", Summary: "Diagnose a resolved template."},
 				{Name: "run", Summary: "Diagnose retained run evidence."},
 				{Name: "environment", Summary: "Diagnose the execution environment."},
-			}, Arguments: []output.HelpArgument{}, Options: options(output.HelpOption{Names: []string{"--reconcile"}, Summary: "Apply safe local reconciliation."})},
+			}, Arguments: []output.HelpArgument{}, Options: options(reconcileOptions()...)},
 		"template": {Topic: "template", Usage: "ainfra template <command> [options]",
 			Summary: "Manage immutable template sources.",
 			Subcommands: []output.HelpNamedItem{
@@ -58,11 +58,11 @@ func helpFor(topic string) (output.Help, bool) {
 				{Name: "migrate", Summary: "Preview a contract migration."},
 			}, Arguments: []output.HelpArgument{}, Options: options()},
 		"init":               command("init", "ainfra init [DEPLOYMENT] [options]", "Create a minimal deployment definition.", argument("DEPLOYMENT", "Deployment directory.", false)),
-		"doctor.all":         command("doctor.all", "ainfra doctor all [TARGET] [--reconcile]", "Run all applicable diagnostics.", argument("TARGET", "Deployment or project target.", false), reconcileOption()),
-		"doctor.deployment":  command("doctor.deployment", "ainfra doctor deployment [TARGET] [--reconcile]", "Diagnose a deployment.", argument("TARGET", "Deployment or project target.", false), reconcileOption()),
-		"doctor.template":    command("doctor.template", "ainfra doctor template [TARGET] [--reconcile]", "Diagnose a resolved template.", argument("TARGET", "Deployment or project target.", false), reconcileOption()),
-		"doctor.run":         command("doctor.run", "ainfra doctor run [TARGET] [--reconcile]", "Diagnose retained run evidence.", argument("TARGET", "Deployment or project target.", false), reconcileOption()),
-		"doctor.environment": command("doctor.environment", "ainfra doctor environment [--reconcile]", "Diagnose the execution environment.", nil, reconcileOption()),
+		"doctor.all":         command("doctor.all", "ainfra doctor all [TARGET] [--reconcile]", "Run all applicable diagnostics.", argument("TARGET", "Deployment or project target.", false), reconcileOptions()...),
+		"doctor.deployment":  command("doctor.deployment", "ainfra doctor deployment [TARGET] [--reconcile]", "Diagnose a deployment.", argument("TARGET", "Deployment or project target.", false), reconcileOptions()...),
+		"doctor.template":    command("doctor.template", "ainfra doctor template [TARGET] [--reconcile]", "Diagnose a resolved template.", argument("TARGET", "Deployment or project target.", false), reconcileOptions()...),
+		"doctor.run":         command("doctor.run", "ainfra doctor run [TARGET] [--reconcile]", "Diagnose retained run evidence.", argument("TARGET", "Deployment or project target.", false), reconcileOptions()...),
+		"doctor.environment": command("doctor.environment", "ainfra doctor environment [--reconcile]", "Diagnose the execution environment.", nil, reconcileOptions()...),
 		"template.lock":      command("template.lock", "ainfra template lock [DEPLOYMENT] [options]", "Lock a template source.", argument("DEPLOYMENT", "Deployment directory or manifest.", false)),
 		"template.update":    command("template.update", "ainfra template update [DEPLOYMENT] [options]", "Update a template lock.", argument("DEPLOYMENT", "Deployment directory or manifest.", false)),
 		"template.migrate":   command("template.migrate", "ainfra template migrate SOURCE --to VERSION [--write]", "Preview a template contract migration.", argument("SOURCE", "Local template working copy.", true), output.HelpOption{Names: []string{"--to"}, ValueName: "VERSION", Summary: "Select the target contract version."}, output.HelpOption{Names: []string{"--write"}, Summary: "Apply safe deterministic changes."}),
@@ -81,6 +81,10 @@ func helpFor(topic string) (output.Help, bool) {
 	return result, found
 }
 
-func reconcileOption() output.HelpOption {
-	return output.HelpOption{Names: []string{"--reconcile"}, Summary: "Apply safe local reconciliation."}
+func reconcileOptions() []output.HelpOption {
+	return []output.HelpOption{
+		{Names: []string{"--reconcile"}, Summary: "Apply safe local reconciliation."},
+		{Names: []string{"--non-interactive"}, Summary: "Disable confirmation prompts."},
+		{Names: []string{"--yes"}, Summary: "Approve reconciliation with --non-interactive."},
+	}
 }

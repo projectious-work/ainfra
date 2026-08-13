@@ -63,10 +63,12 @@ release_dir="$repo_root/dist/release/$version"
 manifest="$release_dir/checksums.sha256"
 bundle="$release_dir/checksums.sha256.sigstore.json"
 
-[ -d "$release_dir" ] && [ ! -L "$release_dir" ] || \
+if [ ! -d "$release_dir" ] || [ -L "$release_dir" ]; then
   fail "missing or unsafe release directory: $release_dir"
-[ -f "$manifest" ] && [ ! -L "$manifest" ] || \
+fi
+if [ ! -f "$manifest" ] || [ -L "$manifest" ]; then
   fail "missing or unsafe checksum manifest: $manifest"
+fi
 [ -s "$manifest" ] || fail 'checksum manifest is empty'
 
 verify_checksums() {
@@ -91,8 +93,9 @@ case "$host_os/$host_arch" in
 esac
 native_base="ainfra_${version}_${native_target}"
 native_archive="$release_dir/$native_base.tar.gz"
-[ -f "$native_archive" ] && [ ! -L "$native_archive" ] || \
+if [ ! -f "$native_archive" ] || [ -L "$native_archive" ]; then
   fail "missing or unsafe native archive: $native_archive"
+fi
 
 printf '%s\n' \
   "release signing identity: $signing_identity" \
@@ -131,8 +134,9 @@ cosign sign-blob "$manifest" \
   --bundle "$bundle" \
   --yes
 
-[ -s "$bundle" ] && [ ! -L "$bundle" ] || \
+if [ ! -s "$bundle" ] || [ -L "$bundle" ]; then
   fail 'Cosign did not create a safe, non-empty signature bundle'
+fi
 
 # Pinning both claims prevents accepting an otherwise valid Sigstore signature
 # made by a different identity or identity provider.
