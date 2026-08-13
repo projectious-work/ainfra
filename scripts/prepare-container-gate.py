@@ -12,6 +12,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 ACTIVE_RUN_DIR: Path | None = None
@@ -60,6 +61,62 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def load_release_checksums(release_dir: Path) -> dict[str, str]:
+    manifest = release_dir / "checksums.sha256"
+    if not manifest.is_file() or manifest.is_symlink():
+        fail(f"missing or unsafe release checksum manifest: {manifest}")
+    checksums: dict[str, str] = {}
+    for line in manifest.read_text(encoding="ascii").splitlines():
+        match = re.fullmatch(r"([0-9a-f]{64})  ([^/]+)", line)
+        if match is None or match.group(2) in checksums:
+            fail("release checksum manifest is malformed")
+        checksums[match.group(2)] = match.group(1)
+    return checksums
+
+
+def copy_packaged_binary(
+    release_dir: Path,
+    checksums: dict[str, str],
+    release_version: str,
+    operating_system: str,
+    architecture: str,
+    output: Path,
+) -> None:
+    base = f"ainfra_{release_version}_{operating_system}_{architecture}"
+    archive = release_dir / f"{base}.tar.gz"
+    expected_digest = checksums.get(archive.name)
+    if (
+        expected_digest is None
+        or not archive.is_file()
+        or archive.is_symlink()
+        or sha256(archive) != expected_digest
+    ):
+        fail(f"missing, unsafe, or checksum-invalid release archive: {archive}")
+    member_name = f"{base}/ainfra"
+    try:
+        with tarfile.open(archive, "r:gz") as bundle:
+            members = bundle.getmembers()
+            if any(
+                member.issym()
+                or member.islnk()
+                or member.name.startswith("/")
+                or ".." in Path(member.name).parts
+                for member in members
+            ):
+                fail(f"release archive contains an unsafe member: {archive}")
+            member = bundle.getmember(member_name)
+            if not member.isfile():
+                fail(f"release archive lacks a regular binary: {archive}")
+            source = bundle.extractfile(member)
+            if source is None:
+                fail(f"release archive binary cannot be read: {archive}")
+            output.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+            with source, output.open("wb") as destination:
+                shutil.copyfileobj(source, destination)
+    except (KeyError, tarfile.TarError, OSError) as error:
+        fail(f"release archive could not be consumed: {archive}: {error}")
 
 
 def main() -> int:
@@ -124,16 +181,8 @@ def main() -> int:
     )
     shutil.copyfile(repo / "Dockerfile", input_dir / "Dockerfile")
 
-    base_env = os.environ.copy()
-    build_cache = repo / "tmp" / "container-gate" / ".build-cache"
-    (build_cache / "go-build").mkdir(parents=True, exist_ok=True)
-    (build_cache / "go-mod").mkdir(parents=True, exist_ok=True)
-    base_env.update(
-        {
-            "GOCACHE": str(build_cache / "go-build"),
-            "GOMODCACHE": str(build_cache / "go-mod"),
-        }
-    )
+    release_dir = repo / "dist" / "release" / release_version
+    checksums = load_release_checksums(release_dir)
     for operating_system in ("linux", "darwin"):
         for architecture in ("amd64", "arm64"):
             output = (
@@ -143,25 +192,13 @@ def main() -> int:
                 / architecture
                 / "ainfra"
             )
-            output.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-            build_env = base_env | {
-                "CGO_ENABLED": "0",
-                "GOOS": operating_system,
-                "GOARCH": architecture,
-            }
-            run(
-                [
-                    "go",
-                    "build",
-                    "-trimpath",
-                    "-ldflags",
-                    f"-X main.injectedVersion={release_version}",
-                    "-o",
-                    str(output),
-                    "./cmd/ainfra",
-                ],
-                cwd=repo,
-                env=build_env,
+            copy_packaged_binary(
+                release_dir,
+                checksums,
+                release_version,
+                operating_system,
+                architecture,
+                output,
             )
 
     checked_files = [input_dir / "Dockerfile"] + sorted(
