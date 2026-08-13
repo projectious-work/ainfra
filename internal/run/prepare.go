@@ -19,8 +19,9 @@ import (
 
 // Binding identifies one immutable input to a reviewed plan.
 type Binding struct {
-	Path   string
-	Digest string
+	Path         string
+	SnapshotPath string
+	Digest       string
 }
 
 // Prepared is a private workspace and its complete pre-engine binding set.
@@ -83,6 +84,12 @@ func Prepare(options Options) (prepared Prepared, err error) {
 	}
 	inputPaths := append([]string(nil), options.Deployment.Inputs.TofuBackendConfigFiles...)
 	inputPaths = append(inputPaths, options.Deployment.Inputs.TofuVariableFiles...)
+	inputsRoot := filepath.Join(runRoot, "inputs")
+	if len(inputPaths) > 0 {
+		if err := os.Mkdir(inputsRoot, 0o700); err != nil {
+			return Prepared{}, fmt.Errorf("create native input snapshot root: %w", err)
+		}
+	}
 	nativeInputs := make([]Binding, 0, len(inputPaths))
 	for _, relative := range inputPaths {
 		path, resolveErr := security.ResolveContained(options.Deployment.Target.Root, relative)
@@ -93,7 +100,15 @@ func Prepare(options Options) (prepared Prepared, err error) {
 		if digestErr != nil {
 			return Prepared{}, fmt.Errorf("bind native input %q: %w", relative, digestErr)
 		}
-		nativeInputs = append(nativeInputs, Binding{Path: filepath.ToSlash(relative), Digest: digest})
+		snapshotRelative := filepath.Join("inputs", relative)
+		snapshotPath := filepath.Join(runRoot, snapshotRelative)
+		if mkdirErr := os.MkdirAll(filepath.Dir(snapshotPath), 0o700); mkdirErr != nil {
+			return Prepared{}, fmt.Errorf("create native input snapshot parent: %w", mkdirErr)
+		}
+		if copyErr := copyBoundFile(path, runRoot, snapshotRelative, digest); copyErr != nil {
+			return Prepared{}, fmt.Errorf("snapshot native input %q: %w", relative, copyErr)
+		}
+		nativeInputs = append(nativeInputs, Binding{Path: filepath.ToSlash(relative), SnapshotPath: filepath.ToSlash(snapshotRelative), Digest: digest})
 	}
 	prepared = Prepared{
 		ID: options.ID, Root: runRoot, Workspace: workspace,
@@ -104,6 +119,37 @@ func Prepare(options Options) (prepared Prepared, err error) {
 	}
 	cleanup = false
 	return prepared, nil
+}
+
+func copyBoundFile(sourcePath, destinationRoot, destinationRelative, expectedDigest string) error {
+	sourceFile, err := os.Open(sourcePath) // #nosec G304 -- source passed contained regular-file policy.
+	if err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(destinationRoot)
+	if err != nil {
+		_ = sourceFile.Close()
+		return err
+	}
+	destinationFile, err := root.OpenFile(destinationRelative, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	rootCloseErr := root.Close()
+	if err != nil {
+		_ = sourceFile.Close()
+		return errors.Join(err, rootCloseErr)
+	}
+	if rootCloseErr != nil {
+		return errors.Join(rootCloseErr, destinationFile.Close(), sourceFile.Close())
+	}
+	_, copyErr := io.Copy(destinationFile, sourceFile)
+	err = errors.Join(copyErr, destinationFile.Sync(), destinationFile.Close(), sourceFile.Close())
+	if err != nil {
+		return err
+	}
+	observed, err := digestFile(filepath.Join(destinationRoot, destinationRelative))
+	if err != nil || observed != expectedDigest {
+		return errors.New("native input changed while snapshotting")
+	}
+	return nil
 }
 
 func validID(value string) bool {

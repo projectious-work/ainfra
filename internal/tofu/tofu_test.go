@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	childexec "github.com/projectious-work/ainfra/internal/exec"
@@ -27,17 +28,42 @@ func TestAdapterPreservesNativeInputOrderAndIntent(t *testing.T) {
 		requests = append(requests, request)
 		return childexec.Result{Started: true}, nil
 	}}
-	if _, err := adapter.Init(context.Background(), root, "tofu", []string{"backend-one.hcl", "backend-two.hcl"}); err != nil {
+	if _, err := adapter.Init(context.Background(), root, "tofu", []string{"../backend-one.hcl", "../backend-two.hcl"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := adapter.Plan(context.Background(), root, "tofu", "plan.tfplan", []string{"one.tfvars", "two.tfvars"}, true); err != nil {
+	if _, err := adapter.Plan(context.Background(), root, "tofu", "../plan.tfplan", []string{"../one.tfvars", "../two.tfvars"}, true); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(requests[0].Args, []string{"init", "-input=false", "-no-color", "-backend-config=backend-one.hcl", "-backend-config=backend-two.hcl"}) {
+	if !reflect.DeepEqual(requests[0].Args, []string{"init", "-input=false", "-no-color", "-backend-config=../backend-one.hcl", "-backend-config=../backend-two.hcl"}) {
 		t.Fatalf("init args: %#v", requests[0].Args)
 	}
-	if !reflect.DeepEqual(requests[1].Args, []string{"plan", "-input=false", "-no-color", "-out=plan.tfplan", "-destroy", "-var-file=one.tfvars", "-var-file=two.tfvars"}) {
+	if !reflect.DeepEqual(requests[1].Args, []string{"plan", "-input=false", "-no-color", "-out=../plan.tfplan", "-destroy", "-var-file=../one.tfvars", "-var-file=../two.tfvars"}) {
 		t.Fatalf("plan args: %#v", requests[1].Args)
+	}
+}
+
+func TestShowSummaryRetainsOnlyStructuralActionCounts(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "tofu"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "plan.tfplan"), []byte("sensitive"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	adapter := tofu.Adapter{Run: func(_ context.Context, request childexec.Request) (childexec.Result, error) {
+		if strings.Join(request.Args, " ") != "show -json ../plan.tfplan" {
+			t.Fatalf("show args: %#v", request.Args)
+		}
+		_, _ = request.IO.Stdout.Write([]byte(`{"resource_changes":[{"change":{"actions":["create"]}},{"change":{"actions":["delete","create"]}},{"change":{"actions":["no-op"]}}],"secret":"must-not-survive"}`))
+		return childexec.Result{Started: true}, nil
+	}}
+	summary, _, err := adapter.ShowSummary(context.Background(), root, "tofu", "../plan.tfplan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Create != 1 || summary.Replace != 1 || summary.NoOp != 1 {
+		t.Fatalf("summary: %#v", summary)
 	}
 }
 
