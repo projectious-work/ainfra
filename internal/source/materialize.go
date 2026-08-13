@@ -20,7 +20,11 @@ type Materialized struct {
 // digest-addressed cache entry. The source root and cache root are explicit
 // policy outputs; this function never consults ambient configuration.
 func MaterializeLocal(sourceRoot, cacheRoot string) (Materialized, error) {
-	if err := requireSeparateRoots(sourceRoot, cacheRoot); err != nil {
+	return materializeLocal(sourceRoot, cacheRoot, false)
+}
+
+func materializeLocal(sourceRoot, cacheRoot string, allowContainedSource bool) (Materialized, error) {
+	if err := requireSeparateRoots(sourceRoot, cacheRoot, allowContainedSource); err != nil {
 		return Materialized{}, err
 	}
 	digest, err := TreeDigest(sourceRoot)
@@ -82,7 +86,7 @@ func MaterializeLocal(sourceRoot, cacheRoot string) (Materialized, error) {
 	return Materialized{Path: destination, Digest: digest}, nil
 }
 
-func requireSeparateRoots(sourceRoot, cacheRoot string) error {
+func requireSeparateRoots(sourceRoot, cacheRoot string, allowContainedSource bool) error {
 	canonicalSource, err := filepath.Abs(sourceRoot)
 	if err != nil {
 		return fmt.Errorf("resolve local source root: %w", err)
@@ -91,7 +95,8 @@ func requireSeparateRoots(sourceRoot, cacheRoot string) error {
 	if err != nil {
 		return fmt.Errorf("resolve template cache root: %w", err)
 	}
-	if pathContains(canonicalSource, canonicalCache) || pathContains(canonicalCache, canonicalSource) {
+	if pathContains(canonicalSource, canonicalCache) ||
+		!allowContainedSource && pathContains(canonicalCache, canonicalSource) {
 		return errors.New("local source and template cache roots must not overlap")
 	}
 	return nil
