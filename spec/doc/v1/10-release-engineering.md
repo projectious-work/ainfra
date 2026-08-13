@@ -126,9 +126,11 @@ Dockerfile is source and is validated, not published as an image artifact.
 10. Run the owner-approved host container-validation script against the
     optional Dockerfile; retain its build, runtime-smoke, SBOM, image-scan, and
     cleanup evidence.
-11. Cross-build all four supported targets.
-12. Smoke-test archives on representative Linux/macOS systems.
-13. Generate checksums and SBOMs; scan final artifacts.
+11. Cross-build all four supported targets in the development container.
+12. Generate checksums and SBOMs in the development container.
+13. Prepare the host gate only from those checksum-verified artifacts; the
+    host MUST NOT compile release binaries. Smoke-test the archives on
+    representative Linux/macOS systems and scan final artifacts.
 14. Verify changelog, migration notes, phase notes, supported versions, and
     security docs against the implemented behavior.
 15. Run disposable live acceptance when provider/template behavior changed.
