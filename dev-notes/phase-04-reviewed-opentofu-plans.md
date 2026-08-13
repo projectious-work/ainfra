@@ -90,3 +90,26 @@ before invoking this adapter.
 The next slice composes preparation with `tofu init` and saved apply planning,
 then atomically publishes the immutable reviewed-plan record and structural
 summary without yet enabling apply.
+
+### 2026-08-13 — Saved apply-plan creation
+
+- Snapshotted declared backend and variable files into the private run before
+  engine execution so OpenTofu cannot consume mutable deployment inputs after
+  their digests are bound.
+- Corrected adapter path validation to evaluate arguments from the actual
+  engine working directory while still proving containment by the run root.
+- Composed verified preparation, ordered `tofu init`, saved apply planning, and
+  `tofu show -json` through the controlled adapter.
+- Reduced raw plan JSON in memory to action counts only; values and other
+  potentially secret fields are neither represented nor persisted.
+- Published private `plan.json`, `plan-record.json`, and `run.json` only after
+  successful initialization, planning, summary decoding, and saved-plan
+  hashing. The plan record binds every pre-engine input and the final plan
+  bytes.
+- Added end-to-end application coverage for argument paths and ordering,
+  plan-byte binding, private record permissions, and secret non-persistence.
+
+The next slice exposes `ainfra plan` through trusted configuration and stable
+text/JSON results, with generated collision-resistant run IDs and complete
+failure cleanup. Apply remains unavailable until exact reviewed-plan loading
+and immediate binding reverification are implemented.
