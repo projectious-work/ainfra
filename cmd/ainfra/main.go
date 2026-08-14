@@ -47,6 +47,13 @@ func main() {
 			}
 			return app.Plan(context.Background(), request, options)
 		},
+		Apply: func(request app.ApplyRequest) (output.Execution, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Execution{}, err
+			}
+			return app.Apply(context.Background(), request, options)
+		},
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,
 		) (app.DoctorEnvironmentResponse, error) {

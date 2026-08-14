@@ -120,6 +120,27 @@ func TestPlanDispatchesCanonicalResult(t *testing.T) {
 	}
 }
 
+func TestApplyRequiresAndDispatchesExactPlanID(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var request app.ApplyRequest
+	code := command.Run([]string{"apply", "example", "--plan", "reviewed-plan-0123456789",
+		"--format=json"}, command.Options{IO: command.IO{Stdout: &stdout,
+		Stderr: &bytes.Buffer{}}, Apply: func(value app.ApplyRequest) (output.Execution, error) {
+		request = value
+		exitCode := 0
+		return output.Execution{Deployment: output.Deployment{Name: "example", Root: "/tmp/example"},
+			RunID: value.PlanID, Operation: "apply", ExecutionOutcome: "succeeded",
+			EngineReports: []output.EngineReport{{Engine: "opentofu", Status: "succeeded",
+				ExitCode: &exitCode, Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}}},
+			Evidence: []output.Evidence{}, Recovery: output.Recovery{NextCommands: []string{}}}, nil
+	}})
+	if code != command.ExitSuccess || request.PlanID != "reviewed-plan-0123456789" ||
+		request.Target != "example" || !strings.Contains(stdout.String(), `"command":"apply"`) {
+		t.Fatalf("exit=%d request=%+v stdout=%q", code, request, stdout.String())
+	}
+}
+
 func TestTemplateLockDispatchesCanonicalResult(t *testing.T) {
 	t.Parallel()
 	var stdout bytes.Buffer

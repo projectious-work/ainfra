@@ -21,6 +21,16 @@ const treeDigestDomain = "ainfra-template-tree-v1"
 // must be an existing real directory. Git metadata is excluded; runtime state,
 // symbolic links, and special files are rejected.
 func TreeDigest(root string) (string, error) {
+	return treeDigest(root, false, false)
+}
+
+// EngineWorkspaceDigest hashes template-controlled files while excluding only
+// OpenTofu's declared initialization artifacts.
+func EngineWorkspaceDigest(root string, templateIncludesLock bool) (string, error) {
+	return treeDigest(root, true, templateIncludesLock)
+}
+
+func treeDigest(root string, isEngineWorkspace, templateIncludesLock bool) (string, error) {
 	rootInfo, err := os.Lstat(root)
 	if err != nil {
 		return "", fmt.Errorf("inspect template root: %w", err)
@@ -53,6 +63,15 @@ func TreeDigest(root string) (string, error) {
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if isEngineWorkspace && firstPathSegment(normalizedPath) == ".terraform" {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if isEngineWorkspace && !templateIncludesLock && normalizedPath == ".terraform.lock.hcl" {
 			return nil
 		}
 		if isRuntimeArtifact(normalizedPath) {

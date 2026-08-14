@@ -42,6 +42,27 @@ func TestAdapterPreservesNativeInputOrderAndIntent(t *testing.T) {
 	}
 }
 
+func TestApplyUsesOnlyExactSavedPlan(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "tofu"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "plan.tfplan"), []byte("plan"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	adapter := tofu.Adapter{Run: func(_ context.Context, request childexec.Request) (childexec.Result, error) {
+		want := []string{"apply", "-input=false", "-no-color", "../plan.tfplan"}
+		if !reflect.DeepEqual(request.Args, want) {
+			t.Fatalf("apply args=%#v", request.Args)
+		}
+		return childexec.Result{Started: true}, nil
+	}}
+	if _, err := adapter.Apply(context.Background(), root, "tofu", "../plan.tfplan"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestShowSummaryRetainsOnlyStructuralActionCounts(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

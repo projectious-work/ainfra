@@ -75,6 +75,10 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 			strings.Join(result.NextCommands, "\nnext: "),
 		)
 		return err
+	case Execution:
+		_, err := fmt.Fprintf(writer, "%s %s for %s: %s\n",
+			result.Operation, result.RunID, result.Deployment.Name, result.ExecutionOutcome)
+		return err
 	case Template:
 		state := "unchanged"
 		if result.Changed {
