@@ -44,9 +44,10 @@ artifacts remain marked sensitive.
 ainfra deploy ./deployments/example --plan RUN_ID
 ```
 
-It never creates an implicit plan. Infrastructure-only templates return typed
-`not-applicable` results for output and inventory, skip Ansible, and do not
-require `ansible-runner` to be installed.
+It never creates an implicit plan. Its JSON result includes ordered stage
+reports for output, inventory, configure, and configure-check. Infrastructure-
+only templates record all four stages as `not-applicable`, skip Ansible, and do
+not require `ansible-runner` to be installed.
 
 ## SSH trust
 

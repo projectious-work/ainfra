@@ -185,9 +185,19 @@ type Execution struct {
 	RunID            string         `json:"runId"`
 	Operation        string         `json:"operation"`
 	ExecutionOutcome string         `json:"executionOutcome"`
+	Stages           []StageReport  `json:"stages,omitempty"`
 	EngineReports    []EngineReport `json:"engineReports"`
 	Evidence         []Evidence     `json:"evidence"`
 	Recovery         Recovery       `json:"recovery"`
+}
+
+// StageReport records the applicability and outcome of a composed lifecycle
+// stage, including stages that intentionally do not invoke an engine.
+type StageReport struct {
+	Operation     string `json:"operation"`
+	Applicability string `json:"applicability"`
+	Status        string `json:"status"`
+	Reason        string `json:"reason,omitempty"`
 }
 
 // Recovery states whether and how a failed execution may continue.

@@ -5,6 +5,37 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.5] - 2026-08-14
+
+### Added
+
+- Added strict standardized OpenTofu output collection and deterministic
+  Ansible inventory generation with typed applicability results.
+- Added controlled `output`, `inventory`, `configure`, and composed `deploy`
+  commands with stable text and v1 JSON results.
+- Added Ansible configuration and independent exact-host, zero-change
+  check-mode verification using retained Runner event evidence.
+
+### Changed
+
+- Extended reviewed plan bindings to include native Ansible variable files and
+  the deployment's SSH `known_hosts` input.
+- Added ordered deploy-stage reports, including explicit `not-applicable`
+  records for infrastructure-only templates.
+- Added the output, inventory, Ansible, convergence, and evidence workflow to
+  user documentation.
+
+### Security
+
+- Added closed child environments, forced SSH host-key checking, populated
+  bound `known_hosts` enforcement, shell-free Runner invocation, and private
+  atomic run artifacts.
+- Added secret-shaped output refusal, corrupt and symlinked Runner evidence
+  refusal, cancellation propagation, replay refusal, and deployment operation
+  locking.
+- Added compiled black-box, race, schema, vulnerability, static-security, and
+  independent requirement-sweep coverage.
+
 ## [1.0.0-alpha.4] - 2026-08-14
 
 ### Added
@@ -125,3 +156,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 [1.0.0-alpha.2]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.1...v1.0.0-alpha.2
 [1.0.0-alpha.3]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.2...v1.0.0-alpha.3
 [1.0.0-alpha.4]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.3...v1.0.0-alpha.4
+[1.0.0-alpha.5]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.4...v1.0.0-alpha.5

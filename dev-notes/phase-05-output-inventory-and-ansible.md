@@ -16,6 +16,22 @@ declared Ansible configuration through controlled subprocess boundaries. A
 subsequent run demonstrates zero infrastructure and configuration drift while
 durable evidence identifies every executed stage.
 
+## Requirement and disposition matrix
+
+| Normative requirement | Disposition | Phase 5 implementation and evidence |
+|---|---|---|
+| `AINFRA-CONTRACT-022`–`027` | implement | Preserve declared Ansible variable-file order and opaque bytes; consume only reviewed snapshots without merging, renaming, defaulting, generating, or interpreting native values. |
+| `AINFRA-CONTRACT-030`–`038` | implement | Require a non-sensitive declared OpenTofu output, strictly validate the closed v1 shape, reject unknown versions, fields, connections, names, counts, reserved facts, and secret-shaped material, then generate only the documented deterministic inventory mapping. |
+| `AINFRA-INV-001`–`004` | implement | Pure sorted inventory conversion, atomic private output/inventory publication, structural and secret-pattern refusal, and typed infrastructure-only applicability behavior. |
+| `AINFRA-TPL-002`, `005`, `009`–`010` | supporting | Native variable transport and minimized output remain template contracts; configure/check consume them without reinterpretation and require exact-host zero-change Runner evidence after convergence. |
+| `AINFRA-CLI-001`–`005`, `007`–`013` | supporting | Output, inventory, configure, and deploy use established target resolution, static help, text/JSON selection, stream separation, cancellation, confirmation, invocation, and exit contracts. Direct child-tool documentation is retained with the user workflow. |
+| `AINFRA-OUTPUT-001`–`008`, `010`–`015` | implement | Shared typed results, one closed JSON envelope, stable text, centralized redaction, schema validation, engine attribution, and explicit `applicable` or `not-applicable` results. |
+| `AINFRA-SEC-010`–`015`, `020`–`027`, `040`–`042` | implement | Shell-free argv, fingerprinted tools, closed environments, contained directories, sensitive evidence, structural/secret scanning, forced host-key verification, bound populated `known_hosts`, no key generation, and no implicit agent forwarding. |
+| `AINFRA-SEC-030`–`032` | supporting | Output is obtained through OpenTofu's output protocol without reading state; all native inputs remain opaque reviewed-plan bindings. |
+| `AINFRA-TEST-001`–`003`, `010`–`018` | implement for Phase 5 behavior | Unit, schema, CLI-contract, compiled black-box, malformed/corrupt/symlink, cancellation, concurrency, race, coverage, vulnerability, security, and container gates cover the owned parsers and lifecycle. |
+| `AINFRA-DOC-010`–`013`; applicable `AINFRA-DOC-001`–`005` | implement | The phase record and user documentation describe commands, applicability, native boundaries, security controls, evidence, convergence, and release state without claiming unpublished support. |
+| Destruction, consolidated logs, recovery hardening, and live provider certification | deferred | These remain explicitly owned by Phases 6, 9, and later template-certification work and are not used to claim Phase 5 completion. |
+
 ## Delivery sequence
 
 1. Freeze the standardized output and inventory contracts.
@@ -84,3 +100,19 @@ Phase 5 implementation is release-gate ready. The roadmap remains
 `in_progress` until a Phase 5 release is packaged, host-verified, signed,
 published, and independently verified; only then may it transition to
 `shipped` and Phase 6 begin.
+
+### 2026-08-14 — Independent requirement sweep and gap closure
+
+The release sweep checked implementation, tests, schemas, examples, user
+documentation, and retained evidence against every row above. It found one
+blocking `AINFRA-INV-004` lifecycle-reporting gap: for `inventory: none`, the
+composed deploy path omitted its skipped post-apply stages instead of recording
+them as not applicable. Deploy results now carry ordered typed stage reports;
+infrastructure-only runs record output, inventory, configure, and
+configure-check as `not-applicable`, while applicable runs record the actual
+stage outcomes. Schema, unit, and compiled CLI coverage protect the result.
+
+After that correction, the sweep found no unexplained skip, specification
+inconsistency, overclaim, or unowned Phase 5 implementation gap. Release
+packaging may begin, but shipment still requires the owner-executed host gate,
+keyless signing, publication, and independent artifact verification.
