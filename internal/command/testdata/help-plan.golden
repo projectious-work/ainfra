@@ -8,6 +8,11 @@ Arguments:
 
 Options:
   --destroy          Create a destroy plan.
+  -v, -vv, -vvv      Increase operational log verbosity.
+  --log-level LEVEL  Set operational log level.
+  --log-format text|json Set operational sink format.
+  --log-file PATH    Add a rotating file sink.
+  --syslog           Enable the local syslog sink.
   --format text|json Select output format.
   --output-style auto|rich|plain Select text presentation.
   --color auto|always|never Control terminal color.

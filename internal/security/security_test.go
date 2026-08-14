@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/projectious-work/ainfra/internal/security"
@@ -111,6 +112,22 @@ func TestRedactingWriterAcrossChunks(t *testing.T) {
 	}
 	if output.String() != "before <redacted> after" {
 		t.Errorf("redacted output = %q", output.String())
+	}
+}
+
+func TestRedactStringCoversCommonCredentialShapes(t *testing.T) {
+	t.Parallel()
+	input := "Bearer abcdefghijklmnop https://user:pass@example.invalid/x?access_token=value " +
+		"api_key=another ghp_abcdefghijklmnopqrstuvwxyz AKIAABCDEFGHIJKLMNOP"
+	redacted := security.RedactString(input, nil)
+	for _, secret := range []string{"abcdefghijklmnop", "user:pass", "value", "another",
+		"ghp_abcdefghijklmnopqrstuvwxyz", "AKIAABCDEFGHIJKLMNOP"} {
+		if strings.Contains(redacted, secret) {
+			t.Fatalf("credential shape %q leaked in %q", secret, redacted)
+		}
+	}
+	if strings.Count(redacted, "<redacted>") < 6 {
+		t.Fatalf("credential shapes not fully redacted: %q", redacted)
 	}
 }
 

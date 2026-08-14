@@ -5,6 +5,11 @@ import "github.com/projectious-work/ainfra/internal/output"
 func helpFor(topic string) (output.Help, bool) {
 	options := func(extra ...output.HelpOption) []output.HelpOption {
 		return append(extra,
+			output.HelpOption{Names: []string{"-v", "-vv", "-vvv"}, Summary: "Increase operational log verbosity."},
+			output.HelpOption{Names: []string{"--log-level"}, ValueName: "LEVEL", Summary: "Set operational log level."},
+			output.HelpOption{Names: []string{"--log-format"}, ValueName: "text|json", Summary: "Set operational sink format."},
+			output.HelpOption{Names: []string{"--log-file"}, ValueName: "PATH", Summary: "Add a rotating file sink."},
+			output.HelpOption{Names: []string{"--syslog"}, Summary: "Enable the local syslog sink."},
 			output.HelpOption{Names: []string{"--format"}, ValueName: "text|json", Summary: "Select output format."},
 			output.HelpOption{Names: []string{"--output-style"}, ValueName: "auto|rich|plain", Summary: "Select text presentation."},
 			output.HelpOption{Names: []string{"--color"}, ValueName: "auto|always|never", Summary: "Control terminal color."},

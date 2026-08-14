@@ -978,6 +978,15 @@ func splitInvocation(arguments []string) (
 			}
 			continue
 		}
+		if argument == "--log-level" || argument == "--log-format" || argument == "--log-file" {
+			if index+1 < len(arguments) {
+				index++
+			}
+			continue
+		}
+		if argument == "--syslog" || argument == "-v" || argument == "-vv" || argument == "-vvv" {
+			continue
+		}
 		if stringsHasRenderPrefix(argument) {
 			renderArguments = append(renderArguments, argument)
 			continue

@@ -3,6 +3,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -173,7 +176,7 @@ func main() {
 	os.Exit(int(code))
 }
 
-func hostOperationalLogger(arguments []string, stderr *os.File) (operational.Logger, func() error, error) {
+func hostOperationalLogger(arguments []string, stderr io.Writer) (operational.Logger, func() error, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return operational.Logger{}, nil, err
@@ -206,13 +209,84 @@ func hostOperationalLogger(arguments []string, stderr *os.File) (operational.Log
 			environment[name] = value
 		}
 	}
+	if err := applyLoggingFlags(arguments, environment); err != nil {
+		return operational.Logger{}, nil, err
+	}
 	effective, err := config.Resolve(config.ResolveOptions{Defaults: config.Defaults(
 		filepath.Join(cache, "ainfra"), filepath.Join(cache, "ainfra", "runs")),
 		Files: files, Environment: environment})
 	if err != nil {
 		return operational.Logger{}, nil, err
 	}
+	// Structured command output owns both process streams. Keep the default
+	// operational stderr sink from contaminating its machine-readable contract;
+	// explicitly configured file and syslog sinks remain active.
+	if structuredOutput(arguments) {
+		stderr = io.Discard
+	}
 	return operational.Build(effective.Settings.Logging, stderr)
+}
+
+func structuredOutput(arguments []string) bool {
+	for index, argument := range arguments {
+		if argument == "--format" && index+1 < len(arguments) {
+			if arguments[index+1] == "json" || arguments[index+1] == "yaml" {
+				return true
+			}
+			continue
+		}
+		if value, found := strings.CutPrefix(argument, "--format="); found {
+			if value == "json" || value == "yaml" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func applyLoggingFlags(arguments []string, environment map[string]string) error {
+	verbosity, explicitLevel := 0, ""
+	for index := 0; index < len(arguments); index++ {
+		argument := arguments[index]
+		switch argument {
+		case "-v":
+			verbosity++
+		case "-vv":
+			verbosity += 2
+		case "-vvv":
+			verbosity += 3
+		case "-vvvv":
+			return errors.New("verbosity may not exceed -vvv")
+		case "--syslog":
+			environment["AINFRA_LOG_SYSLOG"] = "true"
+		case "--log-level", "--log-format", "--log-file":
+			if index+1 >= len(arguments) {
+				return fmt.Errorf("%s requires a value", argument)
+			}
+			index++
+			value := arguments[index]
+			switch argument {
+			case "--log-level":
+				explicitLevel = value
+			case "--log-format":
+				environment["AINFRA_LOG_FORMAT"] = value
+			case "--log-file":
+				environment["AINFRA_LOG_FILE"] = value
+			}
+		}
+	}
+	if verbosity > 3 {
+		return errors.New("verbosity may not exceed -vvv")
+	}
+	if verbosity > 0 && explicitLevel != "" {
+		return errors.New("-v and --log-level are mutually exclusive")
+	}
+	if explicitLevel != "" {
+		environment["AINFRA_LOG_LEVEL"] = explicitLevel
+	} else if verbosity > 0 {
+		environment["AINFRA_LOG_LEVEL"] = []string{"", "info", "debug", "trace"}[verbosity]
+	}
+	return nil
 }
 
 func readBuild() app.Build {

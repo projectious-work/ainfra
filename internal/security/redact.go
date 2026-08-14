@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
 	"sync"
 )
 
@@ -14,8 +15,20 @@ func RedactString(value string, sensitiveValues []string) string {
 	writer := NewRedactingWriter(&output, sensitiveValues)
 	_, _ = writer.Write([]byte(value))
 	_ = writer.Close()
-	return output.String()
+	redacted := output.String()
+	redacted = bearerPattern.ReplaceAllString(redacted, "Bearer "+redaction)
+	redacted = credentialPattern.ReplaceAllString(redacted, "${1}"+redaction)
+	redacted = urlUserinfoPattern.ReplaceAllString(redacted, "${1}"+redaction+"@")
+	redacted = tokenShapePattern.ReplaceAllString(redacted, redaction)
+	return redacted
 }
+
+var (
+	bearerPattern      = regexp.MustCompile(`(?i)Bearer[ \t]+[A-Za-z0-9._~+/=-]{8,}`)
+	credentialPattern  = regexp.MustCompile(`(?i)((?:access_token|api[_-]?key|password|secret|token)=)[^&\s]+`)
+	urlUserinfoPattern = regexp.MustCompile(`([A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@`)
+	tokenShapePattern  = regexp.MustCompile(`\b(?:gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\b`)
+)
 
 const redaction = "<redacted>"
 
