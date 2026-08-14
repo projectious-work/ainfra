@@ -12,6 +12,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/run"
 	"github.com/projectious-work/ainfra/internal/security"
 	"github.com/projectious-work/ainfra/internal/source"
+	"github.com/projectious-work/ainfra/internal/tofu"
 )
 
 func TestPrepareCreatesPrivateVerifiedWorkspaceAndBindings(t *testing.T) {
@@ -68,6 +69,47 @@ func TestPrepareRefusesReuseAndPoisonedCacheWithoutPartialRun(t *testing.T) {
 		t.Fatalf("partial run was retained: %v", err)
 	}
 }
+
+func TestLoadReviewedReverifiesBindingsAndRecordsEvents(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	prepared, err := run.Prepare(fixture.options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(prepared.Root, "plan.tfplan"), "saved plan")
+	if _, err := run.PublishPlan(prepared, fixture.options.Deployment.Metadata.Name,
+		"1.10.0", time.Now(), structSummary()); err != nil {
+		t.Fatal(err)
+	}
+	reviewed, err := run.LoadReviewed(run.ReviewOptions{ID: fixture.options.ID,
+		RunsRoot: fixture.options.RunsRoot, CacheRoot: fixture.options.CacheRoot,
+		Deployment: fixture.options.Deployment, Lock: fixture.lock,
+		Executable: fixture.options.Executable, EngineVersion: "1.10.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := run.AppendExecutionEvent(reviewed, "started", time.Now(), nil); err != nil {
+		t.Fatal(err)
+	}
+	exitCode := 0
+	if err := run.AppendExecutionEvent(reviewed, "succeeded", time.Now(), &exitCode); err != nil {
+		t.Fatal(err)
+	}
+	events, err := os.ReadFile(filepath.Join(reviewed.Root, "events.jsonl"))
+	if err != nil || len(events) == 0 {
+		t.Fatalf("events=%q err=%v", events, err)
+	}
+	writeFile(t, fixture.options.Deployment.Target.ManifestPath, "changed")
+	if _, err := run.LoadReviewed(run.ReviewOptions{ID: fixture.options.ID,
+		RunsRoot: fixture.options.RunsRoot, CacheRoot: fixture.options.CacheRoot,
+		Deployment: fixture.options.Deployment, Lock: fixture.lock,
+		Executable: fixture.options.Executable, EngineVersion: "1.10.0"}); err == nil {
+		t.Fatal("changed deployment unexpectedly retained plan authorization")
+	}
+}
+
+func structSummary() tofu.Summary { return tofu.Summary{Create: 1} }
 
 type fixture struct {
 	options      run.Options

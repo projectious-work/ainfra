@@ -97,6 +97,15 @@ func (adapter Adapter) Plan(ctx context.Context, root, directory, output string,
 	return adapter.execute(ctx, root, directory, arguments)
 }
 
+// Apply executes only an existing contained saved plan.
+func (adapter Adapter) Apply(ctx context.Context, root, directory, planPath string) (Outcome, error) {
+	if err := validateInputPath(root, directory, planPath); err != nil {
+		return Outcome{}, fmt.Errorf("saved plan: %w", err)
+	}
+	return adapter.execute(ctx, root, directory,
+		[]string{"apply", "-input=false", "-no-color", filepath.Clean(planPath)})
+}
+
 // ShowSummary derives action counts without retaining values from raw plan JSON.
 func (adapter Adapter) ShowSummary(ctx context.Context, root, directory, planPath string) (Summary, Outcome, error) {
 	if err := validateInputPath(root, directory, planPath); err != nil {

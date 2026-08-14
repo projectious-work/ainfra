@@ -164,13 +164,18 @@ func Plan(ctx context.Context, request PlanRequest, options PlanHostOptions) (ou
 	if request.Destroy {
 		intent = "destroy"
 	}
+	nextCommand := "ainfra apply "
+	if request.Destroy {
+		nextCommand = "ainfra destroy "
+	}
+	successExitCode := 0
 	return output.Plan{Deployment: output.Deployment{Name: deployment.Metadata.Name, Root: deployment.Target.Root},
 		RunID: record.RunID, Intent: intent, PlanDigest: record.Plan.Digest,
 		TemplateDigest: record.Template.Digest, InputDigest: planInputDigest(record),
-		EngineReport: output.EngineReport{Engine: "opentofu", Status: "succeeded", ExitCode: 0,
+		EngineReport: output.EngineReport{Engine: "opentofu", Status: "succeeded", ExitCode: &successExitCode,
 			Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}},
 		Evidence:     []output.Evidence{{Kind: "plan-summary", Path: "plan.json", Sensitive: false}},
-		NextCommands: []string{"ainfra apply " + deployment.Metadata.Name + " --plan " + record.RunID}}, nil
+		NextCommands: []string{nextCommand + deployment.Metadata.Name + " --plan " + record.RunID}}, nil
 }
 
 func planInputDigest(record runstate.PlanRecord) string {

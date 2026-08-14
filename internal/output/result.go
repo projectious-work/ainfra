@@ -32,6 +32,8 @@ const (
 	CommandTemplateUpdate Command = "template.update"
 	// CommandPlan identifies saved planning.
 	CommandPlan Command = "plan"
+	// CommandApply identifies exact reviewed-plan execution.
+	CommandApply Command = "apply"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )
@@ -165,8 +167,26 @@ type Protocol struct {
 type EngineReport struct {
 	Engine   string   `json:"engine"`
 	Status   string   `json:"status"`
-	ExitCode int      `json:"exitCode"`
+	ExitCode *int     `json:"exitCode"`
 	Protocol Protocol `json:"protocol"`
+}
+
+// Execution is the semantic result of one mutating lifecycle operation.
+type Execution struct {
+	Deployment       Deployment     `json:"deployment"`
+	RunID            string         `json:"runId"`
+	Operation        string         `json:"operation"`
+	ExecutionOutcome string         `json:"executionOutcome"`
+	EngineReports    []EngineReport `json:"engineReports"`
+	Evidence         []Evidence     `json:"evidence"`
+	Recovery         Recovery       `json:"recovery"`
+}
+
+// Recovery states whether and how a failed execution may continue.
+type Recovery struct {
+	AutomaticRetryAllowed bool     `json:"automaticRetryAllowed"`
+	InspectionRequired    bool     `json:"inspectionRequired"`
+	NextCommands          []string `json:"nextCommands"`
 }
 
 // Evidence points to one retained run artifact.

@@ -131,3 +131,23 @@ The next slice loads an exact reviewed plan ID, reverifies all immutable
 bindings immediately before execution, and implements saved-plan-only apply
 with durable started and terminal evidence. Destroy execution remains deferred
 to Phase 6.
+
+### 2026-08-14 — Exact reviewed-plan apply
+
+- Exposed `ainfra apply [DEPLOYMENT] --plan RUN_ID` while continuing to refuse
+  destroy-plan execution through the apply command.
+- Acquired the deployment operation lock, reloaded the deployment, and
+  immediately reverified the manifest, ordered native inputs, template lock,
+  cache and workspace template bytes, OpenTofu executable and version, summary,
+  and saved-plan bytes.
+- Executed only `tofu apply` with the reviewed `plan.tfplan`; no implicit plan
+  generation or argument-string shell boundary was introduced.
+- Added exclusive durable `started` evidence plus `succeeded`, `failed`, or
+  `cancelled` terminal evidence. Ambiguous interruption additionally records
+  `inspection-required` and disables automatic retry.
+- Added stale-binding, exact-argument, lifecycle-event, command-dispatch, and
+  workspace-runtime-exclusion coverage.
+
+The next slice hardens cancellation and evidence-failure paths with compiled
+black-box fixtures, adds concurrent-operation coverage, and completes Phase 4
+release-gate conformance before publication.
