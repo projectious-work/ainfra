@@ -7,6 +7,16 @@ import (
 	"sync"
 )
 
+// RedactString applies the same chunk-safe exact-value boundary used for child
+// streams to one complete structured field.
+func RedactString(value string, sensitiveValues []string) string {
+	var output bytes.Buffer
+	writer := NewRedactingWriter(&output, sensitiveValues)
+	_, _ = writer.Write([]byte(value))
+	_ = writer.Close()
+	return output.String()
+}
+
 const redaction = "<redacted>"
 
 // RedactingWriter removes registered exact sensitive values across writes.
