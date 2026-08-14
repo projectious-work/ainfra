@@ -2,6 +2,7 @@ package security
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -56,6 +57,11 @@ func ResolveExecutable(path string) (Executable, error) {
 // Path returns the canonical executable path.
 func (executable Executable) Path() string {
 	return executable.path
+}
+
+// Digest returns the immutable executable byte binding.
+func (executable Executable) Digest() string {
+	return "sha256:" + hex.EncodeToString(executable.digest[:])
 }
 
 // VerifyUnchanged refuses an executable whose bytes changed after resolution.

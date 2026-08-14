@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/v1/plan-record.schema.json",
+  "title": "ainfra v1 reviewed OpenTofu plan record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "intent", "deployment", "template", "inputs", "engine", "plan"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "runId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{15,127}$"},
+    "intent": {"enum": ["apply", "destroy"]},
+    "deployment": {"$ref": "#/$defs/binding"},
+    "template": {"$ref": "#/$defs/templateBinding"},
+    "inputs": {"type": "array", "items": {"$ref": "#/$defs/inputBinding"}, "uniqueItems": true},
+    "engine": {"$ref": "#/$defs/engineBinding"},
+    "plan": {"$ref": "#/$defs/planBinding"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "binding": {"type": "object", "additionalProperties": false, "required": ["name", "digest"], "properties": {"name": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}}},
+    "templateBinding": {"type": "object", "additionalProperties": false, "required": ["source", "digest"], "properties": {"source": {"type": "string", "minLength": 1}, "commit": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"}, "digest": {"$ref": "#/$defs/digest"}}},
+    "inputBinding": {"type": "object", "additionalProperties": false, "required": ["path", "digest"], "properties": {"path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"}, "digest": {"$ref": "#/$defs/digest"}}},
+    "engineBinding": {"type": "object", "additionalProperties": false, "required": ["name", "version", "executableDigest"], "properties": {"name": {"const": "opentofu"}, "version": {"type": "string", "minLength": 1}, "executableDigest": {"$ref": "#/$defs/digest"}}},
+    "planBinding": {"type": "object", "additionalProperties": false, "required": ["path", "digest", "summaryPath"], "properties": {"path": {"const": "plan.tfplan"}, "digest": {"$ref": "#/$defs/digest"}, "summaryPath": {"const": "plan.json"}}}
+  }
+}

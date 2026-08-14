@@ -16,6 +16,26 @@ type Materialized struct {
 	Reused bool
 }
 
+// CopyVerifiedTemplate copies an already materialized template into an empty
+// destination and verifies the expected digest before and after copying.
+func CopyVerifiedTemplate(sourceRoot, destinationRoot, expectedDigest string) error {
+	observed, err := TreeDigest(sourceRoot)
+	if err != nil || observed != expectedDigest {
+		return errors.New("source template failed expected digest verification")
+	}
+	if err := os.Mkdir(destinationRoot, 0o700); err != nil {
+		return fmt.Errorf("create template workspace: %w", err)
+	}
+	if err := copyTemplateTree(sourceRoot, destinationRoot); err != nil {
+		return err
+	}
+	observed, err = TreeDigest(destinationRoot)
+	if err != nil || observed != expectedDigest {
+		return errors.New("copied template workspace failed digest verification")
+	}
+	return nil
+}
+
 // MaterializeLocal copies a validated local template tree into a private,
 // digest-addressed cache entry. The source root and cache root are explicit
 // policy outputs; this function never consults ambient configuration.

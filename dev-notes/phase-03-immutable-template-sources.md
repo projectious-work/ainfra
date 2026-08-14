@@ -1,6 +1,6 @@
 # Phase 3: Immutable template sources
 
-Status: in progress.
+Status: shipped in `v1.0.0-alpha.3`.
 
 Phase 3 implements the immutable source boundary assigned by the canonical v1
 specification. It starts from Phase 2 release `v1.0.0-alpha.2` and adds source
@@ -267,3 +267,15 @@ The structural release audit reported 0 errors. Its sole warning notes that
 `src/context` contains no processkit skills, which is intentional for this
 application release. Full validation, release publication, independent
 artifact verification, and roadmap shipment remain the release gates.
+
+### 2026-08-13 — Release publication and shipment
+
+Release `v1.0.0-alpha.3` was built from clean release commit `c41ce20`, passed
+the native macOS and hardened container gate, and published with four platform
+archives, four SPDX JSON SBOMs, a SHA-256 manifest, and its keyless Sigstore
+bundle. Publication independently downloaded and verified every checksum and
+the signature bound to `info@projectious.work` with the GitHub OIDC issuer.
+
+The externally verifiable release satisfies the final shipment gate. Phase 3
+is shipped, and Phase 4 now owns reviewed OpenTofu plan creation, plan-time
+source-digest enforcement, and application of the exact saved plan.

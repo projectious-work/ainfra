@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.projectious.work/ainfra/v1/run-record.schema.json",
+  "title": "ainfra v1 lifecycle run record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "operation", "state", "createdAt", "planRecord"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "runId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{15,127}$"},
+    "operation": {"enum": ["plan", "apply", "destroy"]},
+    "state": {"enum": ["created", "started", "succeeded", "failed", "cancelled", "inspection-required"]},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "planRecord": {"const": "plan-record.json"},
+    "outcomeReferences": {"type": "array", "items": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"}, "uniqueItems": true}
+  }
+}

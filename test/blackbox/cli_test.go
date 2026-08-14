@@ -196,6 +196,180 @@ spec:
 	}
 }
 
+func TestReviewedPlanApplyAndStalePlanRefusal(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	templateRoot := filepath.Join(root, "template")
+	if err := os.CopyFS(templateRoot, os.DirFS("../../spec/examples/v1/template-example")); err != nil {
+		t.Fatal(err)
+	}
+	deployment := filepath.Join(root, "deployment")
+	if err := os.Mkdir(deployment, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: reviewed-apply
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(deployment, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(root, "applied-arguments")
+	tofuPath := filepath.Join(root, "tofu")
+	fakeTofu := `#!/bin/sh
+case "$1" in
+  version) printf '%s\n' '{"terraform_version":"1.10.0"}' ;;
+  init) mkdir -p .terraform ;;
+  plan)
+    for argument in "$@"; do
+      case "$argument" in -out=*) output="${argument#-out=}" ;; esac
+    done
+    printf '%s\n' 'saved-plan' > "$output"
+    ;;
+  show) printf '%s\n' '{"resource_changes":[{"change":{"actions":["create"]}}]}' ;;
+  apply) sleep 1; printf '%s\n' "$@" > ` + shellLiteral(marker) + ` ;;
+  *) exit 91 ;;
+esac
+`
+	if err := os.WriteFile(tofuPath, []byte(fakeTofu), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cacheRoot, runsRoot := filepath.Join(root, "cache"), filepath.Join(root, "runs")
+	configPath := filepath.Join(root, "config.yaml")
+	configuration := `apiVersion: ainfra.projectious.work/v1
+kind: CLIConfig
+paths:
+  cache: ` + cacheRoot + `
+  runs: ` + runsRoot + `
+executables:
+  tofu: ` + tofuPath + "\n"
+	if err := os.WriteFile(configPath, []byte(configuration), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	environment := []string{"HOME=" + home, "XDG_CONFIG_HOME=" + filepath.Join(home, "config"),
+		"XDG_CACHE_HOME=" + filepath.Join(home, "cache"), "PATH=" + os.Getenv("PATH")}
+	run := func(arguments ...string) ([]byte, int, string) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		command := exec.CommandContext(ctx, binary, arguments...)
+		command.Dir, command.Env = root, environment
+		var stdout, stderr bytes.Buffer
+		command.Stdout, command.Stderr = &stdout, &stderr
+		err := command.Run()
+		if err == nil {
+			return stdout.Bytes(), 0, stderr.String()
+		}
+		exitError, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatalf("run %v: %v", arguments, err)
+		}
+		return stdout.Bytes(), exitError.ExitCode(), stderr.String()
+	}
+	if stdout, code, stderr := run("template", "lock", deployment, "--config", configPath,
+		"--format=json"); code != 0 {
+		t.Fatalf("template lock exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	planOutput, code, stderr := run("plan", deployment, "--config", configPath, "--format=json")
+	if code != 0 {
+		t.Fatalf("plan exit=%d stderr=%s", code, stderr)
+	}
+	var planned struct {
+		Result struct {
+			RunID string `json:"runId"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(planOutput, &planned); err != nil || planned.Result.RunID == "" {
+		t.Fatalf("plan result=%s err=%v", planOutput, err)
+	}
+	type concurrentResult struct {
+		output []byte
+		code   int
+		err    error
+	}
+	results := make(chan concurrentResult, 2)
+	for range 2 {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			command := exec.CommandContext(ctx, binary, "apply", deployment, "--plan",
+				planned.Result.RunID, "--config", configPath, "--format=json")
+			command.Dir, command.Env = root, environment
+			var stdout bytes.Buffer
+			command.Stdout = &stdout
+			err := command.Run()
+			if err == nil {
+				results <- concurrentResult{output: stdout.Bytes()}
+				return
+			}
+			exitError, ok := err.(*exec.ExitError)
+			if !ok {
+				results <- concurrentResult{err: err}
+				return
+			}
+			results <- concurrentResult{output: stdout.Bytes(), code: exitError.ExitCode()}
+		}()
+	}
+	successes, stale := 0, 0
+	for range 2 {
+		result := <-results
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		switch result.code {
+		case 0:
+			if !bytes.Contains(result.output, []byte(`"executionOutcome":"succeeded"`)) {
+				t.Fatalf("unexpected apply output: %s", result.output)
+			}
+			successes++
+		case 5:
+			stale++
+		default:
+			t.Fatalf("concurrent apply exit=%d output=%s", result.code, result.output)
+		}
+	}
+	if successes != 1 || stale != 1 {
+		t.Fatalf("concurrent results: success=%d stale=%d", successes, stale)
+	}
+	arguments, err := os.ReadFile(marker)
+	if err != nil || !bytes.Contains(arguments, []byte("../../plan.tfplan")) {
+		t.Fatalf("apply arguments=%q err=%v", arguments, err)
+	}
+	events, err := os.ReadFile(filepath.Join(runsRoot, planned.Result.RunID, "events.jsonl"))
+	if err != nil || !bytes.Contains(events, []byte(`"state":"started"`)) ||
+		!bytes.Contains(events, []byte(`"state":"succeeded"`)) {
+		t.Fatalf("events=%q err=%v", events, err)
+	}
+	if _, code, _ := run("apply", deployment, "--plan", planned.Result.RunID,
+		"--config", configPath, "--format=json"); code != 5 {
+		t.Fatalf("replayed apply exit=%d, want 5", code)
+	}
+	secondOutput, code, stderr := run("plan", deployment, "--config", configPath, "--format=json")
+	if code != 0 || json.Unmarshal(secondOutput, &planned) != nil {
+		t.Fatalf("second plan exit=%d stdout=%s stderr=%s", code, secondOutput, stderr)
+	}
+	planPath := filepath.Join(runsRoot, planned.Result.RunID, "plan.tfplan")
+	if err := os.WriteFile(planPath, []byte("tampered"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, code, _ := run("apply", deployment, "--plan", planned.Result.RunID,
+		"--config", configPath, "--format=json"); code != 5 {
+		t.Fatalf("tampered apply exit=%d, want 5", code)
+	}
+}
+
+func shellLiteral(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
 func TestUnknownCommand(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

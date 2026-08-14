@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"runtime/debug"
 	"time"
@@ -38,6 +39,20 @@ func main() {
 				return output.Template{}, err
 			}
 			return app.TemplateUpdate(request, options)
+		},
+		Plan: func(request app.PlanRequest) (output.Plan, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Plan{}, err
+			}
+			return app.Plan(context.Background(), request, options)
+		},
+		Apply: func(request app.ApplyRequest) (output.Execution, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Execution{}, err
+			}
+			return app.Apply(context.Background(), request, options)
 		},
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,
