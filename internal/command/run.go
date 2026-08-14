@@ -432,6 +432,10 @@ func runLogs(arguments, controlArguments, positional []string, renderOptions out
 	runID := flags.String("run", "", "retained run ID")
 	source := flags.String("source", "", "evidence source")
 	errorsOnly := flags.Bool("errors", false, "show attributed errors")
+	raw := flags.Bool("raw", false, "show sensitive raw evidence")
+	stream := flags.String("stream", "", "retained stream")
+	nonInteractive := flags.Bool("non-interactive", false, "disable prompts")
+	yes := flags.Bool("yes", false, "confirm raw access")
 	if err := flags.Parse(controlArguments); err != nil {
 		return failInvocation(arguments, err.Error(), options.IO)
 	}
@@ -441,19 +445,58 @@ func runLogs(arguments, controlArguments, positional []string, renderOptions out
 	if options.Logs == nil {
 		return failInvocation(arguments, "logs is unavailable", options.IO)
 	}
+	if *raw {
+		if renderOptions.Format == output.FormatJSON {
+			return failInvocation(arguments, "--raw and --format json are mutually exclusive", options.IO)
+		}
+		if *errorsOnly {
+			return failInvocation(arguments, "--raw and --errors are mutually exclusive", options.IO)
+		}
+		if !confirmRawAccess(*nonInteractive, *yes, options.IO) {
+			return failInvocation(arguments, "raw evidence access requires confirmation", options.IO)
+		}
+	}
 	target := ""
 	if len(positional) == 2 {
 		target = positional[1]
 	}
 	result, err := options.Logs(app.EvidenceRequest{Target: target, ProjectPath: *projectPath,
-		ConfigPath: *configPath, RunID: *runID, Source: *source, Errors: *errorsOnly})
+		ConfigPath: *configPath, RunID: *runID, Source: *source, Errors: *errorsOnly,
+		Raw: *raw, Stream: *stream})
 	if err != nil {
 		return failCommand(output.CommandLogs, "AINFRA-E4501", "logs", err, renderOptions, options.IO)
+	}
+	if *raw {
+		_, _ = io.WriteString(options.IO.Stderr,
+			"WARNING: writing sensitive raw engine evidence to stdout only.\n")
+		for _, record := range result.Records {
+			if _, err := io.WriteString(options.IO.Stdout, record); err != nil {
+				return ExitOperationFailed
+			}
+		}
+		return ExitSuccess
 	}
 	if output.Render(options.IO.Stdout, output.Success(output.CommandLogs, result), renderOptions) != nil {
 		return ExitOperationFailed
 	}
 	return ExitSuccess
+}
+
+func confirmRawAccess(nonInteractive, yes bool, streams IO) bool {
+	if nonInteractive {
+		return yes
+	}
+	if yes || !streams.IsTerminal || streams.Stdin == nil {
+		return false
+	}
+	_, _ = io.WriteString(streams.Stderr,
+		"WARNING: raw engine evidence may contain credentials and secrets. Continue? [y/N] ")
+	answer, err := bufio.NewReader(streams.Stdin).ReadString('\n')
+	if err != nil && len(answer) == 0 {
+		return false
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "y" || answer == "yes"
 }
 
 func runStatus(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
@@ -909,7 +952,8 @@ func splitInvocation(arguments []string) (
 			renderArguments = append(renderArguments, argument)
 			continue
 		}
-		if argument == "--config" || argument == "--project" || argument == "--plan" || argument == "--run" {
+		if argument == "--config" || argument == "--project" || argument == "--plan" ||
+			argument == "--run" || argument == "--source" || argument == "--stream" {
 			controlArguments = append(controlArguments, argument)
 			if index+1 < len(arguments) {
 				index++
@@ -918,7 +962,8 @@ func splitInvocation(arguments []string) (
 			continue
 		}
 		if argument == "--reconcile" || argument == "--non-interactive" ||
-			argument == "--yes" || argument == "--destroy" || argument == "--check" {
+			argument == "--yes" || argument == "--destroy" || argument == "--check" ||
+			argument == "--errors" || argument == "--raw" {
 			controlArguments = append(controlArguments, argument)
 			continue
 		}

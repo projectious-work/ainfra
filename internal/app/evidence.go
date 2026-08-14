@@ -20,6 +20,8 @@ type EvidenceRequest struct {
 	Target, ProjectPath, ConfigPath, RunID string
 	Source                                 string
 	Errors                                 bool
+	Raw                                    bool
+	Stream                                 string
 }
 
 func evidenceDeployment(request EvidenceRequest, options PlanHostOptions) (project.Deployment, string, error) {
@@ -44,6 +46,9 @@ func evidenceDeployment(request EvidenceRequest, options PlanHostOptions) (proje
 func Logs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error) {
 	if request.RunID == "" {
 		return output.Logs{}, errors.New("logs requires --run RUN_ID")
+	}
+	if request.Raw {
+		return rawLogs(request, options)
 	}
 	if request.Source == "" {
 		request.Source = "ainfra"
@@ -85,6 +90,36 @@ func Logs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error)
 		RunID: request.RunID, View: view, Source: "ainfra", StructuredFiltering: "available",
 		DisplayedRecords: len(records), Evidence: []output.Evidence{{Kind: "run-events", Path: "events.jsonl"}},
 		Records: records}, nil
+}
+
+func rawLogs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error) {
+	if request.Errors {
+		return output.Logs{}, errors.New("--raw and --errors are mutually exclusive")
+	}
+	if request.Source != "opentofu" && request.Source != "ansible-runner" {
+		return output.Logs{}, errors.New("--raw requires an explicit child-engine --source")
+	}
+	if request.Stream != "stdout" && request.Stream != "stderr" && request.Stream != "events" {
+		return output.Logs{}, errors.New("--raw requires --stream stdout, stderr, or events")
+	}
+	deployment, runsRoot, err := evidenceDeployment(request, options)
+	if err != nil {
+		return output.Logs{}, err
+	}
+	root, err := security.ResolveContained(runsRoot, request.RunID)
+	if err != nil {
+		return output.Logs{}, errors.New("retained run ID is invalid")
+	}
+	name := request.Source + "." + request.Stream
+	contents, err := readPrivateArtifact(root, name, 64<<20)
+	if err != nil {
+		return output.Logs{}, fmt.Errorf("read retained raw stream: %w", err)
+	}
+	return output.Logs{Deployment: output.Deployment{Name: deployment.Metadata.Name,
+		Root: deployment.Target.Root}, RunID: request.RunID, View: "timeline",
+		Source: request.Source, StructuredFiltering: "unavailable",
+		DisplayedRecords: 1, Evidence: []output.Evidence{{Kind: "raw-engine-stream",
+			Engine: request.Source, Path: name, Sensitive: true}}, Records: []string{string(contents)}}, nil
 }
 
 // Status derives lifecycle outcomes only from strict ainfra-owned records.

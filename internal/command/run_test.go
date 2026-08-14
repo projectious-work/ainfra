@@ -162,6 +162,37 @@ func TestDestroyRequiresAndDispatchesExactPlanID(t *testing.T) {
 	}
 }
 
+func TestRawLogsRequireConfirmationAndBypassJSON(t *testing.T) {
+	t.Parallel()
+	operation := func(value app.EvidenceRequest) (output.Logs, error) {
+		return output.Logs{Deployment: output.Deployment{Name: "example", Root: "/tmp/example"},
+			RunID: value.RunID, View: "timeline", Source: "opentofu",
+			StructuredFiltering: "unavailable", DisplayedRecords: 1,
+			Evidence: []output.Evidence{}, Records: []string{"raw-secret\n"}}, nil
+	}
+	var refused bytes.Buffer
+	code := command.Run([]string{"logs", "example", "--run", "reviewed-plan-0123456789",
+		"--source", "opentofu", "--raw", "--stream", "stderr"}, command.Options{
+		IO: command.IO{Stdout: &bytes.Buffer{}, Stderr: &refused}, Logs: operation})
+	if code != command.ExitInvalidInput {
+		t.Fatalf("unconfirmed raw exit=%d", code)
+	}
+	var stdout bytes.Buffer
+	code = command.Run([]string{"logs", "example", "--run", "reviewed-plan-0123456789",
+		"--source", "opentofu", "--raw", "--stream", "stderr", "--non-interactive", "--yes"},
+		command.Options{IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}}, Logs: operation})
+	if code != command.ExitSuccess || stdout.String() != "raw-secret\n" {
+		t.Fatalf("confirmed raw exit=%d stdout=%q", code, stdout.String())
+	}
+	code = command.Run([]string{"logs", "example", "--run", "reviewed-plan-0123456789",
+		"--source", "opentofu", "--raw", "--stream", "stderr", "--non-interactive", "--yes",
+		"--format=json"}, command.Options{IO: command.IO{Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{}}, Logs: operation})
+	if code != command.ExitInvalidInput {
+		t.Fatalf("raw JSON exit=%d", code)
+	}
+}
+
 func TestArtifactCommandsRequireAndDispatchExactRunID(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"output", "inventory"} {

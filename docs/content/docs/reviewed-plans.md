@@ -110,3 +110,26 @@ read-only facilities before deciding whether a new plan is safe.
 Saved plans are sensitive even though the structural summary is sanitized.
 Do not copy run directories into source control, attach them to public issues,
 or parse `plan.tfplan` outside the trusted local environment.
+
+## Retained status and logs
+
+`ainfra status DEPLOYMENT` derives lifecycle state only from private run
+records and events. It does not inspect OpenTofu state. Interrupted mutations
+are inspection-required and are never marked safe for automatic retry.
+
+`ainfra logs DEPLOYMENT --run RUN_ID` shows the sanitized ainfra event
+timeline. Add `--errors` to select typed failed, cancelled, and
+inspection-required states; it never searches localized prose. Raw child
+evidence requires an explicitly retained stream, child source, stream, and
+interactive confirmation:
+
+```sh
+ainfra logs DEPLOYMENT --run RUN_ID --source opentofu \
+  --raw --stream stderr
+```
+
+Automation must add both `--non-interactive` and `--yes`. Raw access is
+incompatible with `--errors` and JSON output. Selected bytes go directly to
+stdout and the warning goes to stderr; raw bytes never enter the result
+envelope or normal renderer. Stream files must be private regular files inside
+the selected run.

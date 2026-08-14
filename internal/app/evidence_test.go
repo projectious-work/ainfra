@@ -52,6 +52,22 @@ func TestStatusReportsInterruptedRecoveryWithoutReadingState(t *testing.T) {
 	}
 }
 
+func TestRawLogsRequirePrivateExplicitChildStream(t *testing.T) {
+	t.Parallel()
+	deployment, runs, id := evidenceFixture(t)
+	write(t, filepath.Join(runs, id, "opentofu.stderr"), "token=unredacted-test-value\n")
+	result, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id,
+		Raw: true, Source: "opentofu", Stream: "stderr"}, evidenceOptions(t, runs))
+	if err != nil || len(result.Records) != 1 ||
+		result.Records[0] != "token=unredacted-test-value\n" || !result.Evidence[0].Sensitive {
+		t.Fatalf("raw result=%+v err=%v", result, err)
+	}
+	if _, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id,
+		Raw: true, Source: "ainfra", Stream: "stderr"}, evidenceOptions(t, runs)); err == nil {
+		t.Fatal("raw ainfra source unexpectedly accepted")
+	}
+}
+
 func evidenceFixture(t *testing.T) (string, string, string) {
 	t.Helper()
 	deployment := runDeployment(t)
