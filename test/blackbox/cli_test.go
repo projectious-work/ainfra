@@ -403,6 +403,7 @@ executables:
 	deployResult, code, stderr := run("deploy", deployment, "--plan", planned.Result.RunID,
 		"--config", configPath, "--format=json")
 	if code != 0 || !bytes.Contains(deployResult, []byte(`"operation":"deploy"`)) ||
+		!bytes.Contains(deployResult, []byte(`"stages":[{"operation":"output","applicability":"applicable","status":"succeeded"}`)) ||
 		!bytes.Contains(deployResult, []byte(`ansible-runner/configure/artifacts`)) ||
 		!bytes.Contains(deployResult, []byte(`ansible-runner/configure-check/artifacts`)) {
 		t.Fatalf("deploy exit=%d stdout=%s stderr=%s", code, deployResult, stderr)
