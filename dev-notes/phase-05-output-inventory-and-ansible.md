@@ -63,6 +63,24 @@ Tracking WorkItem:
   reviewed apply-to-output-to-inventory-to-Ansible path and the composed
   deploy path.
 
-The remaining Phase 5 release-gate work is adversarial cancellation,
-concurrency, corrupted Runner-evidence, SSH-policy, redaction, and race
-coverage plus final user documentation and the complete validation sweep.
+### 2026-08-14 — Phase 5 release-gate hardening
+
+- Forced Ansible's host-key policy through a closed environment and proved
+  inherited disabling overrides cannot cross the child-process boundary.
+- Added negative coverage for missing and empty `known_hosts`, while proving
+  local inventory neither requires nor receives SSH configuration.
+- Added cancellation propagation, corrupt and symlinked Runner artifact
+  refusal, duplicate terminal-summary refusal, and bounded root-scoped event
+  traversal.
+- Ran competing configuration starts under the deployment operation lock and
+  proved exactly one can enter the mutating stage.
+- Passed the full normal, race, coverage, static-analysis, schema, container,
+  vulnerability, and security validation gates.
+- Passed the live and shipped-context structural release audit with zero
+  errors. Its sole warning is the existing absence of processkit skills under
+  `src/context/skills/`, unrelated to the ainfra Phase 5 deliverable.
+
+Phase 5 implementation is release-gate ready. The roadmap remains
+`in_progress` until a Phase 5 release is packaged, host-verified, signed,
+published, and independently verified; only then may it transition to
+`shipped` and Phase 6 begin.
