@@ -200,3 +200,28 @@ The externally verifiable release satisfies the final shipment gate. Phase 4
 is shipped, and Phase 5 now owns standardized non-secret output,
 deterministic inventory generation, Ansible execution with native variables,
 and zero-change convergence verification.
+
+### 2026-08-14 — Post-shipment independent requirement sweep
+
+The post-shipment sweep rechecked the Phase 4 implementation, tests, schemas,
+examples, user documentation, and release evidence against every normative
+requirement owned or exercised by reviewed OpenTofu planning and apply. The
+sweep used the published `v1.0.0-alpha.4` boundary and the retained Phase 4
+implementation record; later Phase 5 changes were not used to satisfy a Phase
+4 claim.
+
+| Requirement group | Disposition | Evidence and conclusion |
+|---|---|---|
+| `AINFRA-LAYOUT-005`, `AINFRA-LOCK-002`–`003` | satisfied | Private run storage keeps plans and runtime artifacts out of source trees. Planning reverifies the locked digest, and apply consumes and reverifies only the plan-bound materialization. |
+| `AINFRA-CONTRACT-020`–`021`, `024`, `028`–`029`; `AINFRA-SEC-030`–`032` | satisfied | Backend and variable files remain opaque, ordered native inputs; their pointers and bytes are snapshotted and digest-bound without parsing or inspecting OpenTofu state. |
+| `AINFRA-PLAN-001`–`004` | satisfied | Collision-resistant safe run IDs, owner-only saved plans, sanitized structural summaries, complete review bindings, and strict apply/destroy intent separation have unit, command, and compiled black-box coverage. |
+| `AINFRA-APPLY-001`–`005` | satisfied | Apply requires an exact run ID, immediately reverifies every binding and saved-plan byte, invokes only `tofu apply <saved-plan>`, records exclusive started and terminal events, and routes ambiguous interruption to inspection. |
+| `AINFRA-CLI-001`–`013`; `AINFRA-OUTPUT-001`–`008`, `010`–`015` | satisfied for the Phase 4 commands | Plan and apply use the established target resolution, static help, typed text/JSON results, stream separation, exit semantics, cancellation forwarding, redaction, and schema validation. Direct engine equivalents are represented by the retained sanitized argv boundary. |
+| `AINFRA-SEC-001`–`004`, `010`–`015`, `020`–`027`, `033` | satisfied | Immutable verified sources, shell-free argv, fingerprinted executables, closed environments, contained workspaces, sensitive-file permissions, redacted diagnostics, secret scanning, and refusal of unreviewed destruction are covered by negative and security tests. |
+| `AINFRA-LOG-001`–`005`; `AINFRA-LOGS-001`–`006` | accepted Phase 4 boundary | Phase 4 owns durable sanitized apply lifecycle events and interruption evidence. The consolidated `logs` command, engine-evidence browsing, raw access, sink hardening, and complete structured OpenTofu UI classification remain explicitly assigned to Phase 6. |
+| `AINFRA-TEST-001`–`003`, `010`–`018` | satisfied for changed behavior | Unit, controlled-adapter, compiled black-box, tampering, replay, concurrency, cancellation, race, coverage, schema, vulnerability, static-security, and container gates passed without an unexpected skip. Broader cross-contract fuzz ownership remains distributed across the phases that own each parser. |
+| `AINFRA-DOC-010`–`013`; applicable `AINFRA-DOC-001`–`005` | satisfied | Phase notes and user documentation describe the plan-review-apply boundary, exact commands, security behavior, recovery, evidence, and deferrals; the release artifacts and public tag were independently verified. |
+
+The sweep found no unexplained skip, specification inconsistency, Phase 4
+overclaim, or unowned implementation gap. It confirms the existing shipped
+status; it does not retroactively change the published release artifacts.
