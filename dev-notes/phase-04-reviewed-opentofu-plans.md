@@ -173,3 +173,17 @@ Phase 4 implementation is release-gate ready. The roadmap remains
 `in_progress` until a Phase 4 release is packaged, host-verified, signed,
 published, and independently verified; only then may it transition to
 `shipped` and Phase 5 begin.
+
+### 2026-08-14 — Reviewed-plan user documentation
+
+- Replaced the Phase 3-only usage and quick-start guidance with the complete
+  plan-review-apply workflow available on the development branch.
+- Added configuration, plan intent, stable JSON result, immutable binding,
+  exact saved-plan invocation, evidence, replay, concurrency, and recovery
+  guidance.
+- Kept the root README release claims unchanged because the latest published
+  release remains `v1.0.0-alpha.3` without Phase 4 functionality.
+
+This closes the Phase 4 implementation documentation gap. The remaining work
+is the continuous Phase 4 release flow and post-publication roadmap transition,
+which require an explicit release request.

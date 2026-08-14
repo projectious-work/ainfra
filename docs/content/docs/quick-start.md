@@ -3,9 +3,9 @@ title: Quick Start
 weight: 20
 ---
 
-The Phase 3 CLI can validate a local deployment, resolve and lock a local or
-Git template source, and diagnose the resulting immutable binding without
-contacting infrastructure providers.
+The development CLI can validate a local deployment, lock a local or Git
+template source, create a reviewed OpenTofu plan, and apply only that exact
+saved plan.
 
 Start by checking local prerequisites:
 
@@ -53,6 +53,22 @@ ainfra doctor template path/to/template
 
 Doctor is read-only unless `--reconcile` is explicitly supplied and its plan
 is confirmed. It verifies the lock, contained cache entry, digest, and local
-source drift without reacquiring mutable Git refs. OpenTofu and Ansible
-lifecycle execution follows in later phases, so this release does not turn a
-doctor result into infrastructure changes.
+source drift without reacquiring mutable Git refs.
+
+Create a reviewed apply plan:
+
+```sh
+ainfra plan path/to/deployment
+```
+
+Review the structural action counts and digests in the result. Then copy its
+exact next command, for example:
+
+```sh
+ainfra apply path/to/deployment \
+  --plan 20260814T120000Z-0123456789abcdef0123456789abcdef
+```
+
+Immediately before OpenTofu starts, ainfra reverifies the deployment, native
+input files, template binding, workspace, OpenTofu executable and version, and
+saved-plan bytes. Ansible execution and standardized output follow in Phase 5.
