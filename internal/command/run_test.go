@@ -6,11 +6,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/command"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/initialize"
+	operational "github.com/projectious-work/ainfra/internal/logging"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/reconcile"
 )
@@ -27,6 +29,25 @@ func run(arguments ...string) (command.ExitCode, string, string) {
 		IO: command.IO{Stdout: &stdout, Stderr: &stderr},
 	})
 	return code, stdout.String(), stderr.String()
+}
+
+func TestCommandEmitsOperationalStartAndFinishIndependentOfResultFormat(t *testing.T) {
+	t.Parallel()
+	var logs, stdout bytes.Buffer
+	logger := operational.Logger{Level: "info", Sinks: []operational.Sink{
+		operational.WriterSink{Writer: &logs, Format: "json"},
+	}}
+	code := command.Run([]string{"version", "--format", "json"}, command.Options{
+		Build: app.Build{Version: "1.0.0", Commit: "commit", BuiltAt: "2026-08-14T00:00:00Z"},
+		IO:    command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}}, Operational: &logger,
+		Now: func() time.Time { return time.Unix(0, 0) },
+	})
+	if code != command.ExitSuccess || strings.Count(logs.String(), `"component":"command"`) != 2 ||
+		!strings.Contains(logs.String(), "command started") ||
+		!strings.Contains(logs.String(), "command finished") ||
+		!strings.Contains(stdout.String(), `"command":"version"`) {
+		t.Fatalf("exit=%d logs=%q stdout=%q", code, logs.String(), stdout.String())
+	}
 }
 
 func runWithDoctor(arguments ...string) (command.ExitCode, string, string) {

@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/initialize"
+	operational "github.com/projectious-work/ainfra/internal/logging"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/reconcile"
 	"github.com/projectious-work/ainfra/internal/security"
@@ -45,10 +47,38 @@ type Options struct {
 	Configure         func(app.ConfigureRequest) (output.Execution, error)
 	Deploy            func(app.DeployRequest) (output.Execution, error)
 	Initialize        func(string) (initialize.Result, error)
+	Operational       *operational.Logger
+	Now               func() time.Time
 }
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
-func Run(arguments []string, options Options) ExitCode {
+func Run(arguments []string, options Options) (exit ExitCode) {
+	if options.Operational != nil {
+		now := time.Now
+		if options.Now != nil {
+			now = options.Now
+		}
+		commandName := "help"
+		if len(arguments) > 0 {
+			commandName = arguments[0]
+		}
+		if err := options.Operational.Write(operational.NewEvent(now(), "info", "command",
+			"command started", commandName, "", nil)); err != nil {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: initialize operational logging: %s\n", err)
+			return ExitOperationFailed
+		}
+		defer func() {
+			level, message := "info", "command finished"
+			if exit != ExitSuccess {
+				level, message = "error", "command failed"
+			}
+			if err := options.Operational.Write(operational.NewEvent(now(), level, "command",
+				message, commandName, "", nil)); err != nil {
+				_, _ = fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: finalize operational logging: %s\n", err)
+				exit = ExitOperationFailed
+			}
+		}()
+	}
 	renderArguments, controlArguments, positional, helpRequested := splitInvocation(arguments)
 	renderOptions, err := parseRenderOptions(renderArguments, options.IO.IsTerminal)
 	if err != nil {

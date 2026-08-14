@@ -8,11 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/syslog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/projectious-work/ainfra/internal/config"
 	"github.com/projectious-work/ainfra/internal/security"
 )
 
@@ -40,9 +43,91 @@ func NewEvent(at time.Time, level, component, message, command, runID string,
 type Sink interface{ WriteEvent(Event) error }
 
 // Logger fans one immutable event out to configured sinks.
-type Logger struct{ Sinks []Sink }
+type Logger struct {
+	Sinks []Sink
+	Level string
+}
+
+// Build constructs every explicitly configured sink or fails atomically.
+func Build(settings config.Logging, stderr io.Writer) (Logger, func() error, error) {
+	sinks := make([]Sink, 0, len(settings.Destinations))
+	closers := make([]io.Closer, 0)
+	closeAll := func() error {
+		var failures []error
+		for _, closer := range closers {
+			failures = append(failures, closer.Close())
+		}
+		return errors.Join(failures...)
+	}
+	for _, destination := range settings.Destinations {
+		switch destination.Type {
+		case "stderr":
+			sinks = append(sinks, WriterSink{Writer: stderr, Format: destination.Format})
+		case "file":
+			file, err := NewFileSink(FileOptions{Path: destination.Path,
+				Format: destination.Format, MaxBytes: int64(destination.Rotation.MaxSizeMiB) << 20,
+				MaxBackups: destination.Rotation.MaxBackups,
+				MaxAge:     time.Duration(destination.Rotation.MaxAgeDays) * 24 * time.Hour,
+				Compress:   destination.Rotation.Compress})
+			if err != nil {
+				_ = closeAll()
+				return Logger{}, nil, err
+			}
+			sinks = append(sinks, file)
+		case "syslog":
+			writer, err := syslog.Dial("", "", syslogFacility(destination.Facility)|syslog.LOG_INFO,
+				destination.Tag)
+			if err != nil {
+				_ = closeAll()
+				return Logger{}, nil, fmt.Errorf("initialize local syslog: %w", err)
+			}
+			closers = append(closers, writer)
+			sinks = append(sinks, syslogSink{writer: writer})
+		default:
+			_ = closeAll()
+			return Logger{}, nil, fmt.Errorf("unsupported operational log sink %q", destination.Type)
+		}
+	}
+	return Logger{Sinks: sinks, Level: settings.Level}, closeAll, nil
+}
+
+type syslogSink struct{ writer *syslog.Writer }
+
+func (sink syslogSink) WriteEvent(event Event) error {
+	contents, err := render(event, "json")
+	if err != nil {
+		return err
+	}
+	return sink.writer.Info(strings.TrimSpace(string(contents)))
+}
+
+func syslogFacility(value string) syslog.Priority {
+	switch value {
+	case "local0":
+		return syslog.LOG_LOCAL0
+	case "local1":
+		return syslog.LOG_LOCAL1
+	case "local2":
+		return syslog.LOG_LOCAL2
+	case "local3":
+		return syslog.LOG_LOCAL3
+	case "local4":
+		return syslog.LOG_LOCAL4
+	case "local5":
+		return syslog.LOG_LOCAL5
+	case "local6":
+		return syslog.LOG_LOCAL6
+	case "local7":
+		return syslog.LOG_LOCAL7
+	default:
+		return syslog.LOG_USER
+	}
+}
 
 func (logger Logger) Write(event Event) error {
+	if !enabled(logger.Level, event.Level) {
+		return nil
+	}
 	failed := make([]int, 0)
 	var failures []error
 	for index, sink := range logger.Sinks {
@@ -65,6 +150,16 @@ func (logger Logger) Write(event Event) error {
 		_ = sink.WriteEvent(notice)
 	}
 	return errors.Join(failures...)
+}
+
+func enabled(minimum, level string) bool {
+	if minimum == "" {
+		return true
+	}
+	order := map[string]int{"error": 0, "warn": 1, "info": 2, "debug": 3, "trace": 4}
+	minimumValue, minimumOK := order[minimum]
+	levelValue, levelOK := order[level]
+	return minimumOK && levelOK && levelValue <= minimumValue
 }
 
 func contains(values []int, value int) bool {
