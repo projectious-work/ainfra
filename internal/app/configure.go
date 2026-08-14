@@ -14,6 +14,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/ansible"
 	"github.com/projectious-work/ainfra/internal/inventory"
 	"github.com/projectious-work/ainfra/internal/output"
+	"github.com/projectious-work/ainfra/internal/project"
 	runstate "github.com/projectious-work/ainfra/internal/run"
 	"github.com/projectious-work/ainfra/internal/security"
 )
@@ -58,16 +59,11 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 	if _, err := readPrivateArtifact(resolved.reviewed.Root, "inventory.yaml", 16<<20); err != nil {
 		return output.Execution{}, fmt.Errorf("read generated inventory: %w", err)
 	}
-	ssh := false
 	expectedHosts := make([]string, 0, len(standard.Hosts))
-	for name, host := range standard.Hosts {
+	for name := range standard.Hosts {
 		expectedHosts = append(expectedHosts, name)
-		ssh = ssh || host.Connection.Type == "ssh"
 	}
 	sort.Strings(expectedHosts)
-	if ssh && resolved.deployment.SSH.KnownHosts == "" {
-		return output.Execution{}, errors.New("SSH inventory requires an independently populated known_hosts file")
-	}
 	runnerPath := resolved.settings.Executables.AnsibleRunner
 	if runnerPath == "" {
 		runnerPath, err = exec.LookPath("ansible-runner")
@@ -79,17 +75,8 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("validate Ansible Runner executable: %w", err)
 	}
-	explicit := map[string]string{"ANSIBLE_HOST_KEY_CHECKING": "True"}
-	if ssh {
-		knownHosts := filepath.Join(resolved.reviewed.Root, "inputs", filepath.FromSlash(resolved.deployment.SSH.KnownHosts))
-		info, statErr := os.Stat(knownHosts)
-		if statErr != nil || info.Size() == 0 {
-			return output.Execution{}, errors.New("SSH inventory requires a populated bound known_hosts file")
-		}
-		explicit["ANSIBLE_SSH_ARGS"] = "-o StrictHostKeyChecking=yes -o UserKnownHostsFile=" + strconv.Quote(knownHosts)
-	}
-	environment, err := security.BuildEnvironment(options.ParentEnvironment,
-		[]string{"HOME", "PATH", "LANG", "LC_ALL", "SSL_CERT_DIR", "SSL_CERT_FILE"}, explicit)
+	environment, err := buildAnsibleEnvironment(options.ParentEnvironment,
+		resolved.reviewed.Root, resolved.deployment, standard)
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("build Ansible environment: %w", err)
 	}
@@ -158,4 +145,25 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 		return result, &ConfigureFailure{Result: result, Cause: runErr}
 	}
 	return result, nil
+}
+
+func buildAnsibleEnvironment(parent []string, reviewedRoot string, deployment project.Deployment, standard inventory.StandardOutput) (security.Environment, error) {
+	ssh := false
+	for _, host := range standard.Hosts {
+		ssh = ssh || host.Connection.Type == "ssh"
+	}
+	explicit := map[string]string{"ANSIBLE_HOST_KEY_CHECKING": "True"}
+	if ssh {
+		if deployment.SSH.KnownHosts == "" {
+			return security.Environment{}, errors.New("SSH inventory requires an independently populated known_hosts file")
+		}
+		knownHosts := filepath.Join(reviewedRoot, "inputs", filepath.FromSlash(deployment.SSH.KnownHosts))
+		info, err := os.Stat(knownHosts)
+		if err != nil || info.Size() == 0 {
+			return security.Environment{}, errors.New("SSH inventory requires a populated bound known_hosts file")
+		}
+		explicit["ANSIBLE_SSH_ARGS"] = "-o StrictHostKeyChecking=yes -o UserKnownHostsFile=" + strconv.Quote(knownHosts)
+	}
+	return security.BuildEnvironment(parent,
+		[]string{"HOME", "PATH", "LANG", "LC_ALL", "SSL_CERT_DIR", "SSL_CERT_FILE"}, explicit)
 }

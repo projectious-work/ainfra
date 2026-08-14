@@ -90,3 +90,48 @@ func TestReadStatsRejectsMultipleSummaries(t *testing.T) {
 		t.Fatal("accepted multiple terminal summaries")
 	}
 }
+
+func TestReadStatsRejectsCorruptAndSymlinkedEvidence(t *testing.T) {
+	root := t.TempDir()
+	artifacts := filepath.Join(root, "artifacts")
+	if err := os.Mkdir(artifacts, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(artifacts, "stats.json"), []byte(`{"event":"playbook_on_stats","event_data":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadStats(root, "artifacts"); err == nil {
+		t.Fatal("accepted corrupt evidence")
+	}
+	if err := os.Remove(filepath.Join(artifacts, "stats.json")); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "outside.json")
+	if err := os.WriteFile(target, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(artifacts, "linked.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadStats(root, "artifacts"); err == nil {
+		t.Fatal("accepted symlinked evidence")
+	}
+}
+
+func TestAdapterPropagatesCancellation(t *testing.T) {
+	root := t.TempDir()
+	executablePath := filepath.Join(root, "ansible-runner")
+	if err := os.WriteFile(executablePath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executable, err := security.ResolveExecutable(executablePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := Adapter{Executable: executable, Run: func(context.Context, childexec.Request) (childexec.Result, error) {
+		return childexec.Result{Started: true, Cancelled: true}, nil
+	}}
+	if _, err := adapter.execute(context.Background(), root, ".", []string{"run"}, childexec.IOPolicy{}); err == nil || !strings.Contains(err.Error(), "canceled") {
+		t.Fatalf("cancellation error=%v", err)
+	}
+}
