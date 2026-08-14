@@ -3,9 +3,10 @@ title: Usage
 weight: 50
 ---
 
-The Phase 3 CLI validates local contracts, diagnoses deployments, and resolves
-immutable local or Git template sources. Static help and version inspection do
-not perform project discovery, network access, or child-tool execution:
+The development CLI validates local contracts, diagnoses deployments, resolves
+immutable local or Git template sources, and creates and applies reviewed
+OpenTofu plans. Static help and version inspection do not perform project
+discovery, network access, or child-tool execution:
 
 ```sh
 ainfra help
@@ -38,6 +39,17 @@ explicit path for accepting a new source identity, Git commit, or tree digest.
 Doctor never resolves a mutable Git ref and remains read-only unless guarded
 local reconciliation is explicitly requested.
 
-The help surface also lists later lifecycle commands. OpenTofu planning,
-apply, Ansible execution, destruction, and MCP serving are not implemented in
-this release.
+Create a private, immutable saved plan and apply that exact reviewed plan with:
+
+```sh
+ainfra plan example-deployment
+ainfra apply example-deployment --plan RUN_ID
+```
+
+The plan result supplies `RUN_ID` and the complete follow-up command. Apply
+refuses missing, destroy-intent, replayed, or stale plans and never creates an
+implicit replacement plan. See [Reviewed plans](reviewed-plans/) for binding,
+evidence, JSON-output, and interruption details.
+
+Ansible execution, standardized output and inventory, destroy execution, and
+MCP serving remain later roadmap phases.
