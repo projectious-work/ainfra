@@ -4,10 +4,7 @@ weight: 45
 description: Validate OpenTofu output and configure hosts from a reviewed run.
 ---
 
-{{< pj-callout type="warning" title="Development capability" >}}
-This Phase 5 workflow is available on `v1.x-dev`. The latest published alpha,
-`v1.0.0-alpha.4`, stops after reviewed OpenTofu apply.
-{{< /pj-callout >}}
+This Phase 5 workflow is published in `v1.0.0-alpha.5`.
 
 Phase 5 keeps the OpenTofu-to-Ansible handoff narrow. A template declares one
 standardized, non-sensitive OpenTofu output. ainfra validates only that value,
