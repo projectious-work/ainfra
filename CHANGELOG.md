@@ -5,6 +5,33 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.4] - 2026-08-14
+
+### Added
+
+- Added `ainfra plan` with collision-resistant run IDs, private saved plans,
+  immutable review records, and sanitized structural action summaries.
+- Added `ainfra apply --plan RUN_ID` for exact reviewed-plan execution with
+  durable started, terminal, cancellation, and inspection-required evidence.
+- Added stable text and v1 JSON results for planning and apply execution.
+
+### Changed
+
+- Extended the deployment lifecycle from immutable template resolution through
+  controlled OpenTofu initialization, planning, and reviewed apply.
+- Added reviewed-plan usage, recovery, concurrency, and sensitive-evidence
+  guidance to the documentation.
+
+### Security
+
+- Bound deployment manifests, ordered native inputs, template content,
+  OpenTofu executable bytes and version, and saved-plan bytes before apply.
+- Added deployment operation locking, replay refusal, destroy-intent separation,
+  stale-binding detection, closed child environments, and shell-free argument
+  execution.
+- Added tampering, cancellation, evidence-failure, concurrent-operation, race,
+  vulnerability, static-security, and compiled black-box coverage.
+
 ## [1.0.0-alpha.3] - 2026-08-13
 
 ### Added
@@ -97,3 +124,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 [1.0.0-alpha.1]: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.1
 [1.0.0-alpha.2]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.1...v1.0.0-alpha.2
 [1.0.0-alpha.3]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.2...v1.0.0-alpha.3
+[1.0.0-alpha.4]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.3...v1.0.0-alpha.4

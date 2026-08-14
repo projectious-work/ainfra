@@ -3,7 +3,7 @@ title: Usage
 weight: 50
 ---
 
-The development CLI validates local contracts, diagnoses deployments, resolves
+The current alpha CLI validates local contracts, diagnoses deployments, resolves
 immutable local or Git template sources, and creates and applies reviewed
 OpenTofu plans. Static help and version inspection do not perform project
 discovery, network access, or child-tool execution:
