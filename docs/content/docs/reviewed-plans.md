@@ -97,6 +97,19 @@ code records the engine result; it is not independent proof that the provider
 contains no owned resources. Follow the certified template's provider-side
 teardown procedure after every destroy.
 
+A certified provider template's teardown procedure must identify:
+
+- the authenticated, read-only provider API or inventory command;
+- the deployment ownership labels, account, project, and region boundaries;
+- the paginated query and the exact empty-result condition;
+- a bounded wait for provider eventual consistency;
+- the sanitized evidence retained for certification; and
+- an emergency cleanup and escalation path when resources remain.
+
+The verification must query the provider directly. It must not infer absence
+from the destroy exit code, a saved plan, ainfra events, or direct inspection
+of OpenTofu state.
+
 When inspection is required, do not create or apply another plan merely to
 clear the error. Preserve the run directory, inspect it with:
 

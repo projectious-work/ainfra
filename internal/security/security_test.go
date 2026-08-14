@@ -141,3 +141,35 @@ func FuzzBuildEnvironment(f *testing.F) {
 		}
 	})
 }
+
+func FuzzRedactingWriterChunkBoundaries(f *testing.F) {
+	f.Add([]byte("secret"), []byte("before "), []byte(" after"), uint8(3), uint8(11))
+	f.Fuzz(func(t *testing.T, secret, prefix, suffix []byte, first, second uint8) {
+		if len(secret) == 0 {
+			return
+		}
+		secret = secret[:min(len(secret), 64)]
+		prefix = prefix[:min(len(prefix), 128)]
+		suffix = suffix[:min(len(suffix), 128)]
+		input := append(append(append([]byte(nil), prefix...), secret...), suffix...)
+		left := int(first) % (len(input) + 1)
+		right := int(second) % (len(input) + 1)
+		if left > right {
+			left, right = right, left
+		}
+		var output bytes.Buffer
+		writer := security.NewRedactingWriter(&output, []string{string(secret)})
+		for _, chunk := range [][]byte{input[:left], input[left:right], input[right:]} {
+			if _, err := writer.Write(chunk); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		want := bytes.ReplaceAll(input, secret, []byte("<redacted>"))
+		if !bytes.Equal(output.Bytes(), want) {
+			t.Fatalf("redacted=%q want=%q", output.Bytes(), want)
+		}
+	})
+}
