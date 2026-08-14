@@ -99,20 +99,36 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("load reviewed template contract: %w", err)
 	}
+	return ExecuteReviewedApply(ctx, ApplyExecutionOptions{Reviewed: reviewed,
+		Deployment: deployment, Template: contract, Adapter: adapter, Now: options.Now})
+}
+
+// ApplyExecutionOptions supplies already reverified apply dependencies.
+type ApplyExecutionOptions struct {
+	Reviewed   runstate.Reviewed
+	Deployment project.Deployment
+	Template   template.Contract
+	Adapter    tofu.Adapter
+	Now        func() time.Time
+}
+
+// ExecuteReviewedApply records and executes one already reverified saved plan.
+func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (output.Execution, error) {
 	now := time.Now
 	if options.Now != nil {
 		now = options.Now
 	}
+	reviewed, deployment := options.Reviewed, options.Deployment
 	if err := runstate.AppendExecutionEvent(reviewed, "started", now(), nil); err != nil {
 		return output.Execution{}, fmt.Errorf("record apply start: %w", err)
 	}
-	directory := filepath.Join("workspace", filepath.FromSlash(contract.Tofu.Directory))
+	directory := filepath.Join("workspace", filepath.FromSlash(options.Template.Tofu.Directory))
 	planPath, err := filepath.Rel(filepath.Join(reviewed.Root, directory),
 		filepath.Join(reviewed.Root, reviewed.Record.Plan.Path))
 	if err != nil {
 		return output.Execution{}, err
 	}
-	outcome, applyErr := adapter.Apply(ctx, reviewed.Root, directory, planPath)
+	outcome, applyErr := options.Adapter.Apply(ctx, reviewed.Root, directory, planPath)
 	state, executionOutcome, status := "succeeded", "succeeded", "succeeded"
 	if applyErr != nil {
 		state, executionOutcome, status = "failed", "failed", "failed"

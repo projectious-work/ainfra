@@ -87,12 +87,7 @@ func LoadReviewed(options ReviewOptions) (Reviewed, error) {
 		return Reviewed{}, errors.New("reviewed plan template cache binding changed")
 	}
 	workspace := filepath.Join(root, "workspace")
-	_, lockStatErr := os.Stat(filepath.Join(cachePath, ".terraform.lock.hcl"))
-	templateIncludesLock := lockStatErr == nil
-	if lockStatErr != nil && !errors.Is(lockStatErr, os.ErrNotExist) {
-		return Reviewed{}, errors.New("inspect reviewed template lock file")
-	}
-	if digest, digestErr := source.EngineWorkspaceDigest(workspace, templateIncludesLock); digestErr != nil ||
+	if digest, digestErr := source.EngineWorkspaceDigest(workspace, cachePath); digestErr != nil ||
 		digest != record.Template.Digest {
 		return Reviewed{}, errors.New("reviewed plan workspace template bytes changed")
 	}

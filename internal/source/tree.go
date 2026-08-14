@@ -21,16 +21,17 @@ const treeDigestDomain = "ainfra-template-tree-v1"
 // must be an existing real directory. Git metadata is excluded; runtime state,
 // symbolic links, and special files are rejected.
 func TreeDigest(root string) (string, error) {
-	return treeDigest(root, false, false)
+	return treeDigest(root, "")
 }
 
 // EngineWorkspaceDigest hashes template-controlled files while excluding only
 // OpenTofu's declared initialization artifacts.
-func EngineWorkspaceDigest(root string, templateIncludesLock bool) (string, error) {
-	return treeDigest(root, true, templateIncludesLock)
+func EngineWorkspaceDigest(root, templateRoot string) (string, error) {
+	return treeDigest(root, templateRoot)
 }
 
-func treeDigest(root string, isEngineWorkspace, templateIncludesLock bool) (string, error) {
+func treeDigest(root, engineTemplateRoot string) (string, error) {
+	isEngineWorkspace := engineTemplateRoot != ""
 	rootInfo, err := os.Lstat(root)
 	if err != nil {
 		return "", fmt.Errorf("inspect template root: %w", err)
@@ -65,14 +66,18 @@ func treeDigest(root string, isEngineWorkspace, templateIncludesLock bool) (stri
 			}
 			return nil
 		}
-		if isEngineWorkspace && firstPathSegment(normalizedPath) == ".terraform" {
+		if isEngineWorkspace && hasPathSegment(normalizedPath, ".terraform") {
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if isEngineWorkspace && !templateIncludesLock && normalizedPath == ".terraform.lock.hcl" {
-			return nil
+		if isEngineWorkspace && filepath.Base(normalizedPath) == ".terraform.lock.hcl" {
+			if _, statErr := os.Stat(filepath.Join(engineTemplateRoot, relative)); errors.Is(statErr, os.ErrNotExist) {
+				return nil
+			} else if statErr != nil {
+				return fmt.Errorf("inspect template lock file %q: %w", normalizedPath, statErr)
+			}
 		}
 		if isRuntimeArtifact(normalizedPath) {
 			return fmt.Errorf("prohibited runtime artifact in template tree: %q", normalizedPath)
@@ -130,6 +135,15 @@ func treeDigest(root string, isEngineWorkspace, templateIncludesLock bool) (stri
 		}
 	}
 	return fmt.Sprintf("sha256:%x", digest.Sum(nil)), nil
+}
+
+func hasPathSegment(value, wanted string) bool {
+	for _, segment := range strings.Split(value, "/") {
+		if segment == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 type treeFile struct {
