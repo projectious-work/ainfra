@@ -3,7 +3,7 @@ title: Quick Start
 weight: 20
 ---
 
-The development CLI can validate a local deployment, lock a local or Git
+The current alpha CLI can validate a local deployment, lock a local or Git
 template source, create a reviewed OpenTofu plan, and apply only that exact
 saved plan.
 

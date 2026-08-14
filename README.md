@@ -17,15 +17,17 @@
 
 > [!NOTE]
 > **Maturity:** alpha — the v1 specification is complete. The current release
-> validates local contracts, diagnoses deployments, and locks immutable local
-> or Git template sources. Infrastructure execution remains under development.
+> validates and locks deployments, creates reviewed OpenTofu saved plans, and
+> applies only the exact verified plan. Later lifecycle stages remain under
+> development.
 
 ---
 
 ainfra turns infrastructure templates into a reviewed, reproducible lifecycle.
-The current alpha establishes the trust boundary before provider execution:
-strict contracts, deterministic diagnostics, immutable source resolution,
-content-addressed materialization, and drift detection.
+The current alpha carries that trust boundary through reviewed provider
+execution: strict contracts, deterministic diagnostics, immutable source
+resolution, content-addressed materialization, bound saved plans, drift
+detection, and durable lifecycle evidence.
 
 ## Why ainfra
 
@@ -43,6 +45,9 @@ ainfra doctor environment
 ainfra init example-deployment
 ainfra template lock example-deployment
 ainfra doctor deployment example-deployment
+ainfra plan example-deployment
+# Review the plan result, then run its exact next command:
+ainfra apply example-deployment --plan RUN_ID
 ```
 
 `template lock` resolves the configured local or Git source, verifies its
@@ -52,8 +57,10 @@ intentional source or content change should replace that binding.
 ## Core Workflow
 
 The shipped alpha supports contract validation, initialization, doctor scopes,
-guarded local reconciliation, and immutable template lock/update operations.
-Reviewed OpenTofu planning and apply are the next roadmap phase.
+guarded local reconciliation, immutable template lock/update operations, saved
+apply and destroy planning, and exact reviewed apply execution. Destroy
+execution, standardized output and inventory, and Ansible configuration remain
+later roadmap phases.
 
 ## Documentation
 
