@@ -1,6 +1,6 @@
 # Phase 4: Reviewed OpenTofu plans
 
-Status: in progress.
+Status: shipped in `v1.0.0-alpha.4`.
 
 Phase 4 begins from verified release `v1.0.0-alpha.3` and composes the Phase 3
 immutable template boundary into native OpenTofu planning and apply. It does
@@ -187,3 +187,16 @@ published, and independently verified; only then may it transition to
 This closes the Phase 4 implementation documentation gap. The remaining work
 is the continuous Phase 4 release flow and post-publication roadmap transition,
 which require an explicit release request.
+
+### 2026-08-14 — Release publication and shipment
+
+Release `v1.0.0-alpha.4` was built from clean release commit `fd9f315`, passed
+the native macOS and hardened container gate, and published with four platform
+archives, four SPDX JSON SBOMs, a SHA-256 manifest, and its keyless Sigstore
+bundle. Publication independently downloaded and verified every checksum and
+the signature.
+
+The externally verifiable release satisfies the final shipment gate. Phase 4
+is shipped, and Phase 5 now owns standardized non-secret output,
+deterministic inventory generation, Ansible execution with native variables,
+and zero-change convergence verification.
