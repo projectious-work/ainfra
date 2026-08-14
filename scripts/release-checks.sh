@@ -29,10 +29,13 @@ release_checks() {
   go tool gosec ./...
 
   command -v gitleaks >/dev/null || die "gitleaks is required"
+  previous_tag="$(git describe --tags --abbrev=0 HEAD^)"
+  [[ -n "${previous_tag}" ]] || die "previous release tag is unavailable"
+  scan_range="${previous_tag}..HEAD"
   if gitleaks git --help >/dev/null 2>&1; then
-    gitleaks git --redact
+    gitleaks git --redact --log-opts="${scan_range}"
   elif gitleaks detect --help >/dev/null 2>&1; then
-    gitleaks detect --redact
+    gitleaks detect --redact --log-opts="${scan_range}"
   else
     die "gitleaks does not provide a supported Git-history scan command"
   fi
