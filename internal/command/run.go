@@ -35,6 +35,8 @@ type Options struct {
 	DoctorAll         func(app.DoctorAllRequest) (app.DoctorEnvironmentResponse, error)
 	TemplateLock      func(app.TemplateLockRequest) (output.Template, error)
 	TemplateUpdate    func(app.TemplateLockRequest) (output.Template, error)
+	Plan              func(app.PlanRequest) (output.Plan, error)
+	Apply             func(app.ApplyRequest) (output.Execution, error)
 	Initialize        func(string) (initialize.Result, error)
 }
 
@@ -82,6 +84,12 @@ func Run(arguments []string, options Options) ExitCode {
 		(positional[1] == "lock" || positional[1] == "update") {
 		return runTemplateLock(arguments, controlArguments, positional, renderOptions, options)
 	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "plan" {
+		return runPlan(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "apply" {
+		return runApply(arguments, controlArguments, positional, renderOptions, options)
+	}
 	if len(positional) >= 2 && len(positional) <= 3 &&
 		positional[0] == "doctor" && positional[1] == "template" {
 		return runDoctorTemplate(
@@ -113,6 +121,104 @@ func Run(arguments []string, options Options) ExitCode {
 		if _, writeErr := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: render result: %s\n", err); writeErr != nil {
 			return ExitOperationFailed
 		}
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runApply(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("apply", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	planID := flags.String("plan", "", "reviewed plan ID")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *planID == "" {
+		return failInvocation(arguments, "apply requires --plan RUN_ID", options.IO)
+	}
+	if options.Apply == nil {
+		return failInvocation(arguments, "apply is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Apply(app.ApplyRequest{Target: target, ProjectPath: *projectPath,
+		ConfigPath: *configPath, PlanID: *planID})
+	if err == nil {
+		if renderErr := output.Render(options.IO.Stdout,
+			output.Success(output.CommandApply, result), renderOptions); renderErr != nil {
+			return ExitOperationFailed
+		}
+		return ExitSuccess
+	}
+	diagnosticValue := diagnostic.Diagnostic{Code: "AINFRA-E4002",
+		Severity: diagnostic.SeverityError, Message: err.Error(), Component: "apply",
+		NextAction: "Inspect the reviewed plan binding and retained run evidence."}
+	exit := ExitStaleBinding
+	var failure *app.ApplyFailure
+	if errors.As(err, &failure) {
+		result = failure.Result
+		exit = ExitOperationFailed
+		if result.ExecutionOutcome == "interrupted" {
+			diagnosticValue.Code = "AINFRA-E0006"
+			exit = ExitInterrupted
+		}
+		if renderOptions.Format == output.FormatJSON {
+			if output.Render(options.IO.Stdout,
+				output.PartialFailure(output.CommandApply, result, diagnosticValue), renderOptions) != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return exit
+	}
+	if renderOptions.Format == output.FormatJSON {
+		if output.Render(options.IO.Stdout,
+			output.Failure(output.CommandApply, diagnosticValue), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+	} else {
+		_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+	}
+	return exit
+}
+
+func runPlan(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("plan", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	destroy := flags.Bool("destroy", false, "create destroy plan")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if options.Plan == nil {
+		return failInvocation(arguments, "plan is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Plan(app.PlanRequest{Target: target, ProjectPath: *projectPath,
+		ConfigPath: *configPath, Destroy: *destroy})
+	if err != nil {
+		diagnosticValue := diagnostic.Diagnostic{Code: "AINFRA-E4001", Severity: diagnostic.SeverityError,
+			Message: err.Error(), Component: "plan",
+			NextAction: "Correct the deployment, lock, or OpenTofu configuration and rerun 'ainfra plan'."}
+		if renderOptions.Format == output.FormatJSON {
+			if output.Render(options.IO.Stdout, output.Failure(output.CommandPlan, diagnosticValue), renderOptions) != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return ExitOperationFailed
+	}
+	if err := output.Render(options.IO.Stdout, output.Success(output.CommandPlan, result), renderOptions); err != nil {
 		return ExitOperationFailed
 	}
 	return ExitSuccess
@@ -495,7 +601,7 @@ func splitInvocation(arguments []string) (
 			renderArguments = append(renderArguments, argument)
 			continue
 		}
-		if argument == "--config" || argument == "--project" {
+		if argument == "--config" || argument == "--project" || argument == "--plan" {
 			controlArguments = append(controlArguments, argument)
 			if index+1 < len(arguments) {
 				index++
@@ -504,7 +610,7 @@ func splitInvocation(arguments []string) (
 			continue
 		}
 		if argument == "--reconcile" || argument == "--non-interactive" ||
-			argument == "--yes" {
+			argument == "--yes" || argument == "--destroy" {
 			controlArguments = append(controlArguments, argument)
 			continue
 		}
@@ -518,8 +624,9 @@ func splitInvocation(arguments []string) (
 }
 
 func stringsHasControlPrefix(argument string) bool {
-	return len(argument) > 9 && (argument[:9] == "--config=" ||
-		(len(argument) > 10 && argument[:10] == "--project="))
+	return strings.HasPrefix(argument, "--config=") ||
+		strings.HasPrefix(argument, "--project=") ||
+		strings.HasPrefix(argument, "--plan=")
 }
 
 func runDoctorEnvironment(

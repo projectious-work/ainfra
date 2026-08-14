@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260813T180000Z-0123456789abcdef",
+  "operation": "plan",
+  "state": "succeeded",
+  "createdAt": "2026-08-13T18:00:00Z",
+  "planRecord": "plan-record.json",
+  "outcomeReferences": ["events.jsonl"]
+}

@@ -96,6 +96,51 @@ func TestInitDispatchesCanonicalResult(t *testing.T) {
 	}
 }
 
+func TestPlanDispatchesCanonicalResult(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var request app.PlanRequest
+	code := command.Run([]string{"plan", "example", "--destroy", "--format=json"},
+		command.Options{IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			Plan: func(value app.PlanRequest) (output.Plan, error) {
+				request = value
+				return output.Plan{Deployment: output.Deployment{Name: "example", Root: "/tmp/example"},
+					RunID:  "20260813T120000Z-00112233445566778899aabbccddeeff",
+					Intent: "destroy", PlanDigest: "sha256:" + strings.Repeat("a", 64),
+					TemplateDigest: "sha256:" + strings.Repeat("b", 64),
+					InputDigest:    "sha256:" + strings.Repeat("c", 64),
+					EngineReport: output.EngineReport{Engine: "opentofu", Status: "succeeded",
+						Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}},
+					Evidence: []output.Evidence{}, NextCommands: []string{"ainfra destroy"}}, nil
+			}},
+	)
+	if code != command.ExitSuccess || request.Target != "example" || !request.Destroy ||
+		!strings.Contains(stdout.String(), `"command":"plan"`) {
+		t.Fatalf("exit=%d request=%+v stdout=%q", code, request, stdout.String())
+	}
+}
+
+func TestApplyRequiresAndDispatchesExactPlanID(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var request app.ApplyRequest
+	code := command.Run([]string{"apply", "example", "--plan", "reviewed-plan-0123456789",
+		"--format=json"}, command.Options{IO: command.IO{Stdout: &stdout,
+		Stderr: &bytes.Buffer{}}, Apply: func(value app.ApplyRequest) (output.Execution, error) {
+		request = value
+		exitCode := 0
+		return output.Execution{Deployment: output.Deployment{Name: "example", Root: "/tmp/example"},
+			RunID: value.PlanID, Operation: "apply", ExecutionOutcome: "succeeded",
+			EngineReports: []output.EngineReport{{Engine: "opentofu", Status: "succeeded",
+				ExitCode: &exitCode, Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}}},
+			Evidence: []output.Evidence{}, Recovery: output.Recovery{NextCommands: []string{}}}, nil
+	}})
+	if code != command.ExitSuccess || request.PlanID != "reviewed-plan-0123456789" ||
+		request.Target != "example" || !strings.Contains(stdout.String(), `"command":"apply"`) {
+		t.Fatalf("exit=%d request=%+v stdout=%q", code, request, stdout.String())
+	}
+}
+
 func TestTemplateLockDispatchesCanonicalResult(t *testing.T) {
 	t.Parallel()
 	var stdout bytes.Buffer

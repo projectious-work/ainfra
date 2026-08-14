@@ -62,6 +62,31 @@ func TestTreeDigestBindsContentPathAndExecutableBit(t *testing.T) {
 	}
 }
 
+func TestEngineWorkspaceDigestExcludesOnlyOpenTofuInitialization(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeTreeFile(t, root, "main.tf", []byte("resource {}"), 0o600)
+	want, err := source.TreeDigest(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, ".terraform"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeTreeFile(t, root, ".terraform/provider", []byte("binary"), 0o700)
+	writeTreeFile(t, root, ".terraform.lock.hcl", []byte("generated"), 0o600)
+	templateRoot := t.TempDir()
+	writeTreeFile(t, templateRoot, "main.tf", []byte("resource {}"), 0o600)
+	got, err := source.EngineWorkspaceDigest(root, templateRoot)
+	if err != nil || got != want {
+		t.Fatalf("digest=%q want=%q err=%v", got, want, err)
+	}
+	writeTreeFile(t, root, "injected.tf", []byte("resource {}"), 0o600)
+	if got, err := source.EngineWorkspaceDigest(root, templateRoot); err != nil || got == want {
+		t.Fatalf("injected configuration was not bound: digest=%q err=%v", got, err)
+	}
+}
+
 func TestTreeDigestRejectsUnsafeTrees(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
