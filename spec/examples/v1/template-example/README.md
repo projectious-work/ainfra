@@ -114,8 +114,9 @@ and a new reviewed plan.
 
 Apply only the exact reviewed destroy plan. Success means OpenTofu reports that
 the built-in resource was destroyed. There is no independent provider API to
-inspect; the postcondition is limited to the OpenTofu result and absence of any
-remote side effect by construction.
+inspect; verify the expected local artifact is absent without reading OpenTofu
+state. A provider-backed certified template MUST instead document an
+authenticated provider inventory/API check scoped by its ownership labels.
 
 ## Compatibility and versioning
 

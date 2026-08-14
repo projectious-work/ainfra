@@ -157,6 +157,47 @@ func TestExecuteReviewedApplyRoutesEvidenceFailureToInspection(t *testing.T) {
 	}
 }
 
+func TestExecuteReviewedDestroyAppliesOnlySavedPlanAndRecordsEvidence(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "workspace", "tofu"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writePlanFixture(t, filepath.Join(root, "plan.tfplan"), "saved destroy plan")
+	executablePath := filepath.Join(t.TempDir(), "tofu")
+	if err := os.WriteFile(executablePath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executable, err := security.ResolveExecutable(executablePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var arguments []string
+	adapter := tofu.Adapter{Executable: executable,
+		Run: func(_ context.Context, request childexec.Request) (childexec.Result, error) {
+			arguments = append([]string(nil), request.Args...)
+			return childexec.Result{Started: true, ExitCode: 0}, nil
+		}}
+	result, err := app.ExecuteReviewedDestroy(context.Background(), app.ApplyExecutionOptions{
+		Reviewed: runstate.Reviewed{Root: root,
+			Record: runstate.PlanRecord{RunID: "reviewed-plan-0123456789",
+				Plan: runstate.PlanBinding{Path: "plan.tfplan"}}},
+		Deployment: project.Deployment{Metadata: project.Metadata{Name: "development"}},
+		Template:   template.Contract{Tofu: template.Engine{Directory: "tofu"}}, Adapter: adapter,
+	})
+	if err != nil || result.Operation != "destroy" || result.ExecutionOutcome != "succeeded" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if strings.Join(arguments, " ") != "apply -input=false -no-color ../../plan.tfplan" {
+		t.Fatalf("destroy argv=%q", arguments)
+	}
+	events, err := os.ReadFile(filepath.Join(root, "events.jsonl"))
+	if err != nil || !strings.Contains(string(events), `"operation":"destroy"`) ||
+		!strings.Contains(string(events), `"state":"succeeded"`) {
+		t.Fatalf("events=%q err=%v", events, err)
+	}
+}
+
 func writePlanFixture(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {

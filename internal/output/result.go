@@ -34,6 +34,8 @@ const (
 	CommandPlan Command = "plan"
 	// CommandApply identifies exact reviewed-plan execution.
 	CommandApply Command = "apply"
+	// CommandDestroy identifies exact reviewed destroy-plan execution.
+	CommandDestroy Command = "destroy"
 	// CommandOutput identifies standardized output collection.
 	CommandOutput Command = "output"
 	// CommandInventory identifies deterministic inventory generation.

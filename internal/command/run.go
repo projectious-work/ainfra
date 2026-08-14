@@ -37,6 +37,7 @@ type Options struct {
 	TemplateUpdate    func(app.TemplateLockRequest) (output.Template, error)
 	Plan              func(app.PlanRequest) (output.Plan, error)
 	Apply             func(app.ApplyRequest) (output.Execution, error)
+	Destroy           func(app.DestroyRequest) (output.Execution, error)
 	Output            func(app.ArtifactRequest) (output.Artifact, error)
 	Inventory         func(app.ArtifactRequest) (output.Artifact, error)
 	Configure         func(app.ConfigureRequest) (output.Execution, error)
@@ -93,6 +94,9 @@ func Run(arguments []string, options Options) ExitCode {
 	}
 	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "apply" {
 		return runApply(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "destroy" {
+		return runDestroy(arguments, controlArguments, positional, renderOptions, options)
 	}
 	if len(positional) >= 1 && len(positional) <= 2 &&
 		(positional[0] == "output" || positional[0] == "inventory") {
@@ -345,6 +349,65 @@ func runApply(arguments, controlArguments, positional []string, renderOptions ou
 	if renderOptions.Format == output.FormatJSON {
 		if output.Render(options.IO.Stdout,
 			output.Failure(output.CommandApply, diagnosticValue), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+	} else {
+		_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+	}
+	return exit
+}
+
+func runDestroy(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("destroy", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	planID := flags.String("plan", "", "reviewed destroy plan ID")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *planID == "" {
+		return failInvocation(arguments, "destroy requires --plan RUN_ID", options.IO)
+	}
+	if options.Destroy == nil {
+		return failInvocation(arguments, "destroy is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Destroy(app.DestroyRequest{Target: target, ProjectPath: *projectPath,
+		ConfigPath: *configPath, PlanID: *planID})
+	if err == nil {
+		if output.Render(options.IO.Stdout, output.Success(output.CommandDestroy, result), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+		return ExitSuccess
+	}
+	diagnosticValue := diagnostic.Diagnostic{Code: "AINFRA-E4402",
+		Severity: diagnostic.SeverityError, Message: err.Error(), Component: "destroy",
+		NextAction: "Inspect the reviewed destroy-plan binding and retained run evidence."}
+	exit := ExitStaleBinding
+	var failure *app.DestroyFailure
+	if errors.As(err, &failure) {
+		result = failure.Result
+		exit = ExitOperationFailed
+		if result.ExecutionOutcome == "interrupted" {
+			diagnosticValue.Code, exit = "AINFRA-E0006", ExitInterrupted
+		}
+		if renderOptions.Format == output.FormatJSON {
+			if output.Render(options.IO.Stdout,
+				output.PartialFailure(output.CommandDestroy, result, diagnosticValue), renderOptions) != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return exit
+	}
+	if renderOptions.Format == output.FormatJSON {
+		if output.Render(options.IO.Stdout,
+			output.Failure(output.CommandDestroy, diagnosticValue), renderOptions) != nil {
 			return ExitOperationFailed
 		}
 	} else {

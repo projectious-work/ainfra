@@ -141,6 +141,27 @@ func TestApplyRequiresAndDispatchesExactPlanID(t *testing.T) {
 	}
 }
 
+func TestDestroyRequiresAndDispatchesExactPlanID(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var request app.DestroyRequest
+	code := command.Run([]string{"destroy", "example", "--plan", "reviewed-plan-0123456789",
+		"--format=json"}, command.Options{IO: command.IO{Stdout: &stdout,
+		Stderr: &bytes.Buffer{}}, Destroy: func(value app.DestroyRequest) (output.Execution, error) {
+		request = value
+		exitCode := 0
+		return output.Execution{Deployment: output.Deployment{Name: "example", Root: "/tmp/example"},
+			RunID: value.PlanID, Operation: "destroy", ExecutionOutcome: "succeeded",
+			EngineReports: []output.EngineReport{{Engine: "opentofu", Status: "succeeded",
+				ExitCode: &exitCode, Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}}},
+			Evidence: []output.Evidence{}, Recovery: output.Recovery{NextCommands: []string{}}}, nil
+	}})
+	if code != command.ExitSuccess || request.PlanID != "reviewed-plan-0123456789" ||
+		request.Target != "example" || !strings.Contains(stdout.String(), `"command":"destroy"`) {
+		t.Fatalf("exit=%d request=%+v stdout=%q", code, request, stdout.String())
+	}
+}
+
 func TestArtifactCommandsRequireAndDispatchExactRunID(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"output", "inventory"} {

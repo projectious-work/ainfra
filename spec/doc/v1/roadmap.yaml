@@ -58,7 +58,8 @@ groups:
           Add reviewed destroy plans, teardown verification, interruption
           recovery, redaction, binding checks, cache defenses, and negative
           security fixtures.
-        status: planned
+        status: in_progress
+        devNote: dev-notes/phase-06-destruction-recovery-hardening.md
 
   - label: Automation interface
     note: read-only by default with explicitly authorized agent operations

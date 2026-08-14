@@ -53,8 +53,16 @@ ainfra plan path/to/deployment --destroy
 ```
 
 It produces a destroy-intent record and a `ainfra destroy ... --plan RUN_ID`
-next command. `ainfra apply` always refuses that record. Destroy execution is
-not available until Phase 6.
+next command. `ainfra apply` always refuses that record. After reviewing the
+structural delete counts, execute only that saved plan:
+
+```sh
+ainfra destroy path/to/deployment --plan RUN_ID
+```
+
+ainfra repeats every binding check described below and invokes `tofu apply
+<saved-destroy-plan>` as an argument array. It never runs `tofu destroy`,
+creates an implicit replacement plan, or reads OpenTofu state.
 
 ## Apply the exact reviewed plan
 
@@ -83,6 +91,11 @@ refused, including when another apply process is already using it.
 failed, or cancelled terminal event afterward. Cancellation or an ambiguous
 process interruption additionally records `inspection-required` and disables
 automatic retry.
+
+Destroy uses the same evidence and interruption boundary. A zero OpenTofu exit
+code records the engine result; it is not independent proof that the provider
+contains no owned resources. Follow the certified template's provider-side
+teardown procedure after every destroy.
 
 When inspection is required, do not create or apply another plan merely to
 clear the error. Preserve the run directory, inspect it with:

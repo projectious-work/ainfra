@@ -36,6 +36,15 @@ type Reviewed struct {
 
 // LoadReviewed strictly loads and immediately reverifies an apply plan.
 func LoadReviewed(options ReviewOptions) (Reviewed, error) {
+	return LoadReviewedIntent(options, "apply")
+}
+
+// LoadReviewedIntent strictly loads and immediately reverifies a plan whose
+// recorded intent exactly matches the requested mutating operation.
+func LoadReviewedIntent(options ReviewOptions, intent string) (Reviewed, error) {
+	if intent != "apply" && intent != "destroy" {
+		return Reviewed{}, errors.New("unsupported reviewed plan intent")
+	}
 	if !validID(options.ID) {
 		return Reviewed{}, errors.New("invalid reviewed plan ID")
 	}
@@ -47,8 +56,8 @@ func LoadReviewed(options ReviewOptions) (Reviewed, error) {
 	if err := readStrictJSON(root, "plan-record.json", &record); err != nil {
 		return Reviewed{}, fmt.Errorf("read reviewed plan record: %w", err)
 	}
-	if record.SchemaVersion != 1 || record.RunID != options.ID || record.Intent != "apply" {
-		return Reviewed{}, errors.New("reviewed plan does not authorize apply")
+	if record.SchemaVersion != 1 || record.RunID != options.ID || record.Intent != intent {
+		return Reviewed{}, fmt.Errorf("reviewed plan does not authorize %s", intent)
 	}
 	if record.Deployment.Name != options.Deployment.Metadata.Name {
 		return Reviewed{}, errors.New("reviewed plan deployment binding is stale")
@@ -129,6 +138,11 @@ type ExecutionEvent struct {
 // AppendExecutionEvent durably appends one private lifecycle event.
 func AppendExecutionEvent(reviewed Reviewed, state string, at time.Time, exitCode *int) error {
 	return appendOperationEvent(reviewed, "apply", state, at, exitCode, state == "started")
+}
+
+// AppendDestroyEvent records an exact reviewed destroy execution boundary.
+func AppendDestroyEvent(reviewed Reviewed, state string, at time.Time, exitCode *int) error {
+	return appendOperationEvent(reviewed, "destroy", state, at, exitCode, state == "started")
 }
 
 // BeginOperation durably starts a post-apply stage exactly once.

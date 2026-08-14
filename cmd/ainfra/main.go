@@ -54,6 +54,13 @@ func main() {
 			}
 			return app.Apply(context.Background(), request, options)
 		},
+		Destroy: func(request app.DestroyRequest) (output.Execution, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Execution{}, err
+			}
+			return app.Destroy(context.Background(), request, options)
+		},
 		Output: func(request app.ArtifactRequest) (output.Artifact, error) {
 			options, err := app.HostPlanOptions()
 			if err != nil {
