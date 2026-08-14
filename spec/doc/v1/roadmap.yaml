@@ -42,7 +42,7 @@ groups:
         summary: >-
           Initialize native OpenTofu configuration, create bound saved plans,
           apply only the reviewed plan, and record durable run evidence.
-        status: in_progress
+        status: shipped
         devNote: dev-notes/phase-04-reviewed-opentofu-plans.md
       - id: "5"
         title: Output, inventory, and Ansible
@@ -50,7 +50,8 @@ groups:
           Validate standardized non-secret output, generate deterministic
           inventory, run Ansible with native variables, and verify zero-change
           convergence.
-        status: planned
+        status: in_progress
+        devNote: dev-notes/phase-05-output-inventory-and-ansible.md
       - id: "6"
         title: Destruction, recovery, and hardening
         summary: >-
