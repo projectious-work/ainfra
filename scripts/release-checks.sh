@@ -29,7 +29,13 @@ release_checks() {
   go tool gosec ./...
 
   command -v gitleaks >/dev/null || die "gitleaks is required"
-  gitleaks git --redact
+  if gitleaks git --help >/dev/null 2>&1; then
+    gitleaks git --redact
+  elif gitleaks detect --help >/dev/null 2>&1; then
+    gitleaks detect --redact
+  else
+    die "gitleaks does not provide a supported Git-history scan command"
+  fi
 
   printf 'release checks passed for v%s\n' "${version}"
 }
