@@ -38,6 +38,8 @@ type Options struct {
 	Plan              func(app.PlanRequest) (output.Plan, error)
 	Apply             func(app.ApplyRequest) (output.Execution, error)
 	Destroy           func(app.DestroyRequest) (output.Execution, error)
+	Logs              func(app.EvidenceRequest) (output.Logs, error)
+	Status            func(app.EvidenceRequest) (output.Status, error)
 	Output            func(app.ArtifactRequest) (output.Artifact, error)
 	Inventory         func(app.ArtifactRequest) (output.Artifact, error)
 	Configure         func(app.ConfigureRequest) (output.Execution, error)
@@ -97,6 +99,12 @@ func Run(arguments []string, options Options) ExitCode {
 	}
 	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "destroy" {
 		return runDestroy(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "logs" {
+		return runLogs(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "status" {
+		return runStatus(arguments, controlArguments, positional, renderOptions, options)
 	}
 	if len(positional) >= 1 && len(positional) <= 2 &&
 		(positional[0] == "output" || positional[0] == "inventory") {
@@ -414,6 +422,77 @@ func runDestroy(arguments, controlArguments, positional []string, renderOptions 
 		_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
 	}
 	return exit
+}
+
+func runLogs(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("logs", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	runID := flags.String("run", "", "retained run ID")
+	source := flags.String("source", "", "evidence source")
+	errorsOnly := flags.Bool("errors", false, "show attributed errors")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *runID == "" {
+		return failInvocation(arguments, "logs requires --run RUN_ID", options.IO)
+	}
+	if options.Logs == nil {
+		return failInvocation(arguments, "logs is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Logs(app.EvidenceRequest{Target: target, ProjectPath: *projectPath,
+		ConfigPath: *configPath, RunID: *runID, Source: *source, Errors: *errorsOnly})
+	if err != nil {
+		return failCommand(output.CommandLogs, "AINFRA-E4501", "logs", err, renderOptions, options.IO)
+	}
+	if output.Render(options.IO.Stdout, output.Success(output.CommandLogs, result), renderOptions) != nil {
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runStatus(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("status", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if options.Status == nil {
+		return failInvocation(arguments, "status is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Status(app.EvidenceRequest{Target: target,
+		ProjectPath: *projectPath, ConfigPath: *configPath})
+	if err != nil {
+		return failCommand(output.CommandStatus, "AINFRA-E4601", "status", err, renderOptions, options.IO)
+	}
+	if output.Render(options.IO.Stdout, output.Success(output.CommandStatus, result), renderOptions) != nil {
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func failCommand(command output.Command, code, component string, err error, renderOptions output.RenderOptions, streams IO) ExitCode {
+	diagnosticValue := diagnostic.Diagnostic{Code: code, Severity: diagnostic.SeverityError,
+		Message: err.Error(), Component: component, NextAction: "Inspect retained run evidence and deployment configuration."}
+	if renderOptions.Format == output.FormatJSON {
+		if output.Render(streams.Stdout, output.Failure(command, diagnosticValue), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+	} else {
+		_, _ = fmt.Fprintf(streams.Stderr, "%s: %s\n", code, err)
+	}
+	return ExitInvalidInput
 }
 
 func runPlan(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {

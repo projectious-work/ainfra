@@ -36,6 +36,10 @@ const (
 	CommandApply Command = "apply"
 	// CommandDestroy identifies exact reviewed destroy-plan execution.
 	CommandDestroy Command = "destroy"
+	// CommandLogs identifies retained run-evidence browsing.
+	CommandLogs Command = "logs"
+	// CommandStatus identifies retained deployment status.
+	CommandStatus Command = "status"
 	// CommandOutput identifies standardized output collection.
 	CommandOutput Command = "output"
 	// CommandInventory identifies deterministic inventory generation.
@@ -215,6 +219,35 @@ type Evidence struct {
 	Engine    string `json:"engine,omitempty"`
 	Path      string `json:"path"`
 	Sensitive bool   `json:"sensitive"`
+}
+
+// Logs summarizes a selected retained-evidence view. Records are used only by
+// the text renderer; machine consumers follow the stable evidence references.
+type Logs struct {
+	Deployment          Deployment `json:"deployment"`
+	RunID               string     `json:"runId"`
+	View                string     `json:"view"`
+	Source              string     `json:"source,omitempty"`
+	StructuredFiltering string     `json:"structuredFiltering"`
+	DisplayedRecords    int        `json:"displayedRecords"`
+	Evidence            []Evidence `json:"evidence"`
+	Records             []string   `json:"-"`
+}
+
+// Status summarizes retained runs without interpreting engine state.
+type Status struct {
+	Deployment Deployment  `json:"deployment"`
+	Runs       []RunStatus `json:"runs"`
+}
+
+// RunStatus is derived only from ainfra-owned immutable records and events.
+type RunStatus struct {
+	RunID            string    `json:"runId"`
+	Operation        string    `json:"operation"`
+	ExecutionOutcome string    `json:"executionOutcome"`
+	StartedAt        string    `json:"startedAt"`
+	FinishedAt       string    `json:"finishedAt,omitempty"`
+	Recovery         *Recovery `json:"recovery,omitempty"`
 }
 
 // Artifact is the semantic result of producing one retained run artifact.

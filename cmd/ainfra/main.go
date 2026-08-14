@@ -61,6 +61,20 @@ func main() {
 			}
 			return app.Destroy(context.Background(), request, options)
 		},
+		Logs: func(request app.EvidenceRequest) (output.Logs, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Logs{}, err
+			}
+			return app.Logs(request, options)
+		},
+		Status: func(request app.EvidenceRequest) (output.Status, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Status{}, err
+			}
+			return app.Status(request, options)
+		},
 		Output: func(request app.ArtifactRequest) (output.Artifact, error) {
 			options, err := app.HostPlanOptions()
 			if err != nil {
