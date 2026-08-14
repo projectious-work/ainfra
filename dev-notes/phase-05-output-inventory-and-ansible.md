@@ -1,6 +1,6 @@
 # Phase 5: Output, inventory, and Ansible
 
-Status: in progress.
+Status: shipped in `v1.0.0-alpha.5`.
 
 Phase 5 begins from verified release `v1.0.0-alpha.4` and extends the reviewed
 OpenTofu apply boundary into configuration management. It standardizes
@@ -116,3 +116,16 @@ After that correction, the sweep found no unexplained skip, specification
 inconsistency, overclaim, or unowned Phase 5 implementation gap. Release
 packaging may begin, but shipment still requires the owner-executed host gate,
 keyless signing, publication, and independent artifact verification.
+
+### 2026-08-14 — Release publication and shipment
+
+Release `v1.0.0-alpha.5` was built from candidate commit `7bf9447`, passed the
+native host and hardened container gates, and published with four platform
+archives, four SPDX JSON SBOMs, a SHA-256 manifest, and its keyless Sigstore
+bundle. Publication independently downloaded and verified every checksum and
+the signature. GitHub independently reports a live, non-draft prerelease with
+all ten expected assets and the remote annotated tag.
+
+The externally verifiable release satisfies the final shipment gate. Phase 5
+is shipped. Phase 6 remains planned until its implementation is explicitly
+started.
