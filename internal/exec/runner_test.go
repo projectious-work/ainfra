@@ -25,13 +25,14 @@ func TestRunnerPreservesArgumentsAndRedacts(t *testing.T) {
 		t.Fatalf("BuildEnvironment: %v", err)
 	}
 	var stdout bytes.Buffer
+	var rawStdout bytes.Buffer
 	result, err := (childexec.Runner{}).Run(context.Background(), childexec.Request{
 		Executable:      executable,
 		Args:            []string{"-test.run=TestHelperProcess", "--", "; touch /tmp/not-run", "secret"},
 		WorkingRoot:     t.TempDir(),
 		WorkingDir:      ".",
 		Environment:     environment,
-		IO:              childexec.IOPolicy{Stdout: &stdout},
+		IO:              childexec.IOPolicy{Stdout: &stdout, RawStdout: &rawStdout},
 		SensitiveValues: []string{"secret"},
 	})
 	if err != nil {
@@ -45,6 +46,9 @@ func TestRunnerPreservesArgumentsAndRedacts(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "secret") || !strings.Contains(stdout.String(), "<redacted>") {
 		t.Errorf("sensitive output not redacted: %q", stdout.String())
+	}
+	if !strings.Contains(rawStdout.String(), "secret") || strings.Contains(rawStdout.String(), "<redacted>") {
+		t.Errorf("raw output was not preserved before redaction: %q", rawStdout.String())
 	}
 }
 

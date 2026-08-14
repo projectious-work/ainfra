@@ -176,6 +176,8 @@ func TestExecuteReviewedDestroyAppliesOnlySavedPlanAndRecordsEvidence(t *testing
 	adapter := tofu.Adapter{Executable: executable,
 		Run: func(_ context.Context, request childexec.Request) (childexec.Result, error) {
 			arguments = append([]string(nil), request.Args...)
+			_, _ = request.IO.RawStdout.Write([]byte("exact stdout secret"))
+			_, _ = request.IO.RawStderr.Write([]byte("exact stderr secret"))
 			return childexec.Result{Started: true, ExitCode: 0}, nil
 		}}
 	result, err := app.ExecuteReviewedDestroy(context.Background(), app.ApplyExecutionOptions{
@@ -195,6 +197,18 @@ func TestExecuteReviewedDestroyAppliesOnlySavedPlanAndRecordsEvidence(t *testing
 	if err != nil || !strings.Contains(string(events), `"operation":"destroy"`) ||
 		!strings.Contains(string(events), `"state":"succeeded"`) {
 		t.Fatalf("events=%q err=%v", events, err)
+	}
+	for _, fixture := range []struct{ name, want string }{
+		{"opentofu.stdout", "exact stdout secret"},
+		{"opentofu.stderr", "exact stderr secret"},
+	} {
+		contents, readErr := os.ReadFile(filepath.Join(root, fixture.name))
+		info, statErr := os.Stat(filepath.Join(root, fixture.name))
+		if readErr != nil || statErr != nil || string(contents) != fixture.want ||
+			info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s contents=%q mode=%v read=%v stat=%v",
+				fixture.name, contents, info.Mode(), readErr, statErr)
+		}
 	}
 }
 

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 
+	childexec "github.com/projectious-work/ainfra/internal/exec"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
@@ -119,7 +121,12 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 		now = options.Now
 	}
 	reviewed, deployment := options.Reviewed, options.Deployment
+	evidenceIO, closeEvidence, err := openTofuEvidence(reviewed.Root)
+	if err != nil {
+		return output.Execution{}, fmt.Errorf("create private OpenTofu evidence: %w", err)
+	}
 	if err := runstate.AppendExecutionEvent(reviewed, "started", now(), nil); err != nil {
+		_ = closeEvidence()
 		return output.Execution{}, fmt.Errorf("record apply start: %w", err)
 	}
 	directory := filepath.Join("workspace", filepath.FromSlash(options.Template.Tofu.Directory))
@@ -128,7 +135,10 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 	if err != nil {
 		return output.Execution{}, err
 	}
-	outcome, applyErr := options.Adapter.Apply(ctx, reviewed.Root, directory, planPath)
+	adapter := options.Adapter
+	adapter.EvidenceIO = evidenceIO
+	outcome, applyErr := adapter.Apply(ctx, reviewed.Root, directory, planPath)
+	applyErr = errors.Join(applyErr, closeEvidence())
 	state, executionOutcome, status := "succeeded", "succeeded", "succeeded"
 	if applyErr != nil {
 		state, executionOutcome, status = "failed", "failed", "failed"
@@ -146,7 +156,9 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 		ExecutionOutcome: executionOutcome,
 		EngineReports: []output.EngineReport{{Engine: "opentofu", Status: status,
 			ExitCode: reportedExit, Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}}},
-		Evidence: []output.Evidence{{Kind: "run-events", Path: "events.jsonl", Sensitive: false}},
+		Evidence: []output.Evidence{{Kind: "run-events", Path: "events.jsonl", Sensitive: false},
+			{Kind: "raw-engine-stream", Engine: "opentofu", Path: "opentofu.stdout", Sensitive: true},
+			{Kind: "raw-engine-stream", Engine: "opentofu", Path: "opentofu.stderr", Sensitive: true}},
 		Recovery: output.Recovery{AutomaticRetryAllowed: false,
 			InspectionRequired: executionOutcome == "interrupted", NextCommands: []string{}}}
 	if eventErr := runstate.AppendExecutionEvent(reviewed, state, now(), reportedExit); eventErr != nil {
@@ -171,4 +183,38 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 		return result, &ApplyFailure{Result: result, Cause: applyErr}
 	}
 	return result, nil
+}
+
+func openTofuEvidence(root string) (childexec.IOPolicy, func() error, error) {
+	stdout, err := security.CreatePrivateFile(root, "opentofu.stdout")
+	if err != nil {
+		return childexec.IOPolicy{}, nil, err
+	}
+	stderr, err := security.CreatePrivateFile(root, "opentofu.stderr")
+	if err != nil {
+		_ = stdout.Close()
+		_ = os.Remove(filepath.Join(root, "opentofu.stdout"))
+		return childexec.IOPolicy{}, nil, err
+	}
+	closeEvidence := func() error {
+		return errors.Join(stdout.Sync(), stderr.Sync(), stdout.Close(), stderr.Close())
+	}
+	return childexec.IOPolicy{
+		RawStdout: &rawEvidenceWriter{file: stdout, remaining: 64 << 20},
+		RawStderr: &rawEvidenceWriter{file: stderr, remaining: 64 << 20},
+	}, closeEvidence, nil
+}
+
+type rawEvidenceWriter struct {
+	file      *os.File
+	remaining int64
+}
+
+func (writer *rawEvidenceWriter) Write(contents []byte) (int, error) {
+	if int64(len(contents)) > writer.remaining {
+		return 0, errors.New("raw OpenTofu evidence exceeds size limit")
+	}
+	written, err := writer.file.Write(contents)
+	writer.remaining -= int64(written)
+	return written, err
 }

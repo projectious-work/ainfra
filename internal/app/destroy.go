@@ -109,7 +109,12 @@ func ExecuteReviewedDestroy(ctx context.Context, options ApplyExecutionOptions) 
 		now = options.Now
 	}
 	reviewed, deployment := options.Reviewed, options.Deployment
+	evidenceIO, closeEvidence, err := openTofuEvidence(reviewed.Root)
+	if err != nil {
+		return output.Execution{}, fmt.Errorf("create private OpenTofu evidence: %w", err)
+	}
 	if err := runstate.AppendDestroyEvent(reviewed, "started", now(), nil); err != nil {
+		_ = closeEvidence()
 		return output.Execution{}, fmt.Errorf("record destroy start: %w", err)
 	}
 	directory := filepath.Join("workspace", filepath.FromSlash(options.Template.Tofu.Directory))
@@ -118,7 +123,10 @@ func ExecuteReviewedDestroy(ctx context.Context, options ApplyExecutionOptions) 
 	if err != nil {
 		return output.Execution{}, err
 	}
-	outcome, destroyErr := options.Adapter.Apply(ctx, reviewed.Root, directory, planPath)
+	adapter := options.Adapter
+	adapter.EvidenceIO = evidenceIO
+	outcome, destroyErr := adapter.Apply(ctx, reviewed.Root, directory, planPath)
+	destroyErr = errors.Join(destroyErr, closeEvidence())
 	state, executionOutcome, status := "succeeded", "succeeded", "succeeded"
 	if destroyErr != nil {
 		state, executionOutcome, status = "failed", "failed", "failed"
@@ -136,7 +144,9 @@ func ExecuteReviewedDestroy(ctx context.Context, options ApplyExecutionOptions) 
 		ExecutionOutcome: executionOutcome,
 		EngineReports: []output.EngineReport{{Engine: "opentofu", Status: status,
 			ExitCode: reportedExit, Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}}},
-		Evidence: []output.Evidence{{Kind: "run-events", Path: "events.jsonl", Sensitive: false}},
+		Evidence: []output.Evidence{{Kind: "run-events", Path: "events.jsonl", Sensitive: false},
+			{Kind: "raw-engine-stream", Engine: "opentofu", Path: "opentofu.stdout", Sensitive: true},
+			{Kind: "raw-engine-stream", Engine: "opentofu", Path: "opentofu.stderr", Sensitive: true}},
 		Recovery: output.Recovery{AutomaticRetryAllowed: false,
 			InspectionRequired: executionOutcome == "interrupted", NextCommands: []string{}}}
 	if eventErr := runstate.AppendDestroyEvent(reviewed, state, now(), reportedExit); eventErr != nil {
