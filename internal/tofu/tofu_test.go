@@ -104,3 +104,40 @@ func TestAdapterRejectsUnsafePathsAndFailedChildren(t *testing.T) {
 		t.Fatal("failed child accepted")
 	}
 }
+
+func TestOutputSelectsOnlyDeclaredNonSensitiveValue(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "tofu"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	adapter := tofu.Adapter{Run: func(_ context.Context, request childexec.Request) (childexec.Result, error) {
+		if !reflect.DeepEqual(request.Args, []string{"output", "-json"}) {
+			t.Fatalf("args=%#v", request.Args)
+		}
+		_, _ = request.IO.Stdout.Write([]byte(`{"ainfra_inventory":{"sensitive":false,"value":{"schema_version":"1","hosts":{}}},"password":{"sensitive":true,"value":"do-not-return"}}`))
+		return childexec.Result{Started: true}, nil
+	}}
+	contents, _, err := adapter.Output(context.Background(), root, "tofu", "ainfra_inventory")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(contents), "do-not-return") || !strings.Contains(string(contents), "schema_version") {
+		t.Fatalf("selected=%s", contents)
+	}
+}
+
+func TestOutputRejectsSensitiveDeclaredValue(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "tofu"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	adapter := tofu.Adapter{Run: func(_ context.Context, request childexec.Request) (childexec.Result, error) {
+		_, _ = request.IO.Stdout.Write([]byte(`{"ainfra_inventory":{"sensitive":true,"value":{"secret":"x"}}}`))
+		return childexec.Result{Started: true}, nil
+	}}
+	if _, _, err := adapter.Output(context.Background(), root, "tofu", "ainfra_inventory"); err == nil {
+		t.Fatal("accepted sensitive output")
+	}
+}

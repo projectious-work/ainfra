@@ -59,6 +59,10 @@ func LoadReviewed(options ReviewOptions) (Reviewed, error) {
 	}
 	paths := append([]string(nil), options.Deployment.Inputs.TofuBackendConfigFiles...)
 	paths = append(paths, options.Deployment.Inputs.TofuVariableFiles...)
+	paths = append(paths, options.Deployment.Inputs.AnsibleVariableFiles...)
+	if options.Deployment.SSH.KnownHosts != "" {
+		paths = append(paths, options.Deployment.SSH.KnownHosts)
+	}
 	if len(paths) != len(record.Inputs) {
 		return Reviewed{}, errors.New("reviewed plan input binding set changed")
 	}
@@ -124,17 +128,50 @@ type ExecutionEvent struct {
 
 // AppendExecutionEvent durably appends one private lifecycle event.
 func AppendExecutionEvent(reviewed Reviewed, state string, at time.Time, exitCode *int) error {
+	return appendOperationEvent(reviewed, "apply", state, at, exitCode, state == "started")
+}
+
+// BeginOperation durably starts a post-apply stage exactly once.
+func BeginOperation(reviewed Reviewed, operation string, at time.Time) error {
+	if operation != "output" && operation != "inventory" && operation != "configure" && operation != "configure-check" {
+		return errors.New("invalid post-apply operation")
+	}
+	directory, err := os.OpenRoot(reviewed.Root)
+	if err != nil {
+		return err
+	}
+	contents, readErr := directory.ReadFile("events.jsonl")
+	closeErr := directory.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return err
+	}
+	for _, line := range bytes.Split(bytes.TrimSpace(contents), []byte{'\n'}) {
+		var event ExecutionEvent
+		if (operation == "configure" || operation == "configure-check") &&
+			json.Unmarshal(line, &event) == nil && event.Operation == operation && event.State == "started" {
+			return fmt.Errorf("%s already started for this run", operation)
+		}
+	}
+	return appendOperationEvent(reviewed, operation, "started", at, nil, false)
+}
+
+// AppendOperationEvent records a terminal post-apply stage event.
+func AppendOperationEvent(reviewed Reviewed, operation, state string, at time.Time, exitCode *int) error {
+	return appendOperationEvent(reviewed, operation, state, at, exitCode, false)
+}
+
+func appendOperationEvent(reviewed Reviewed, operation, state string, at time.Time, exitCode *int, exclusive bool) error {
 	if state != "started" && state != "succeeded" && state != "failed" &&
 		state != "cancelled" && state != "inspection-required" {
 		return errors.New("invalid execution event state")
 	}
-	contents, err := json.Marshal(ExecutionEvent{SchemaVersion: 1, Operation: "apply",
+	contents, err := json.Marshal(ExecutionEvent{SchemaVersion: 1, Operation: operation,
 		State: state, OccurredAt: at.UTC().Format(time.RFC3339Nano), ExitCode: exitCode})
 	if err != nil {
 		return err
 	}
 	flags := os.O_WRONLY | os.O_APPEND
-	if state == "started" {
+	if exclusive {
 		flags |= os.O_CREATE | os.O_EXCL
 	}
 	root, err := os.OpenRoot(reviewed.Root)
@@ -152,6 +189,48 @@ func AppendExecutionEvent(reviewed Reviewed, state string, at time.Time, exitCod
 	}
 	_, writeErr := file.Write(append(contents, '\n'))
 	return errors.Join(writeErr, file.Sync(), file.Close())
+}
+
+// RequireSuccessfulApply refuses post-apply stages unless durable evidence
+// proves that the exact reviewed plan completed successfully.
+func RequireSuccessfulApply(reviewed Reviewed) error {
+	directory, err := os.OpenRoot(reviewed.Root)
+	if err != nil {
+		return err
+	}
+	contents, readErr := directory.ReadFile("events.jsonl")
+	closeErr := directory.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return errors.New("successful apply evidence is unavailable")
+	}
+	if len(contents) > 4<<20 {
+		return errors.New("apply evidence exceeds size limit")
+	}
+	lines := bytes.Split(bytes.TrimSpace(contents), []byte{'\n'})
+	started, succeeded := false, false
+	for _, line := range lines {
+		var event ExecutionEvent
+		decoder := json.NewDecoder(bytes.NewReader(line))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&event); err != nil || event.SchemaVersion != 1 {
+			return errors.New("apply evidence is invalid")
+		}
+		if event.Operation != "apply" {
+			continue
+		}
+		switch event.State {
+		case "started":
+			started = true
+		case "succeeded":
+			succeeded = started
+		case "failed", "cancelled", "inspection-required":
+			succeeded = false
+		}
+	}
+	if !succeeded {
+		return errors.New("reviewed plan has no successful apply evidence")
+	}
+	return nil
 }
 
 func readStrictJSON(root, name string, target any) error {

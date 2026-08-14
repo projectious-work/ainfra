@@ -141,6 +141,54 @@ func TestApplyRequiresAndDispatchesExactPlanID(t *testing.T) {
 	}
 }
 
+func TestArtifactCommandsRequireAndDispatchExactRunID(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"output", "inventory"} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var received app.ArtifactRequest
+			operation := func(value app.ArtifactRequest) (output.Artifact, error) {
+				received = value
+				return output.Artifact{Deployment: output.Deployment{Name: "example", Root: "/tmp/example"},
+					RunID: value.RunID, Applicability: "applicable", Artifact: &output.Evidence{Kind: name, Path: name + ".json"},
+					ContentDigest: "sha256:" + strings.Repeat("a", 64)}, nil
+			}
+			options := command.Options{IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}}}
+			if name == "output" {
+				options.Output = operation
+			} else {
+				options.Inventory = operation
+			}
+			code := command.Run([]string{name, "example", "--run", "applied-run-0123456789", "--format=json"}, options)
+			if code != command.ExitSuccess || received.RunID != "applied-run-0123456789" ||
+				!strings.Contains(stdout.String(), `"command":"`+name+`"`) {
+				t.Fatalf("exit=%d request=%+v stdout=%q", code, received, stdout.String())
+			}
+		})
+	}
+}
+
+func TestConfigureDispatchesCheckMode(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var received app.ConfigureRequest
+	code := command.Run([]string{"configure", "example", "--run", "applied-run-0123456789", "--check", "--format=json"},
+		command.Options{IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			Configure: func(value app.ConfigureRequest) (output.Execution, error) {
+				received = value
+				return output.Execution{Deployment: output.Deployment{Name: "example", Root: "/tmp/example"},
+					RunID: value.RunID, Operation: "configure-check", ExecutionOutcome: "succeeded",
+					EngineReports: []output.EngineReport{{Engine: "ansible-runner", Status: "succeeded",
+						Protocol: output.Protocol{Name: "ansible-runner-events", Version: "2.4.0"}}},
+					Evidence: []output.Evidence{}, Recovery: output.Recovery{NextCommands: []string{}}}, nil
+			}})
+	if code != command.ExitSuccess || !received.Check || received.RunID != "applied-run-0123456789" ||
+		!strings.Contains(stdout.String(), `"command":"configure"`) {
+		t.Fatalf("exit=%d request=%+v stdout=%q", code, received, stdout.String())
+	}
+}
+
 func TestTemplateLockDispatchesCanonicalResult(t *testing.T) {
 	t.Parallel()
 	var stdout bytes.Buffer

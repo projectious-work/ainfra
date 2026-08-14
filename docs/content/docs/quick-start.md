@@ -71,4 +71,5 @@ ainfra apply path/to/deployment \
 
 Immediately before OpenTofu starts, ainfra reverifies the deployment, native
 input files, template binding, workspace, OpenTofu executable and version, and
-saved-plan bytes. Ansible execution and standardized output follow in Phase 5.
+saved-plan bytes. On `v1.x-dev`, continue with the
+[Phase 5 output, inventory, and Ansible workflow](../output-inventory-ansible/).

@@ -34,6 +34,14 @@ const (
 	CommandPlan Command = "plan"
 	// CommandApply identifies exact reviewed-plan execution.
 	CommandApply Command = "apply"
+	// CommandOutput identifies standardized output collection.
+	CommandOutput Command = "output"
+	// CommandInventory identifies deterministic inventory generation.
+	CommandInventory Command = "inventory"
+	// CommandConfigure identifies native Ansible configuration.
+	CommandConfigure Command = "configure"
+	// CommandDeploy identifies the complete applicable deployment pipeline.
+	CommandDeploy Command = "deploy"
 	// CommandVersion identifies the version command.
 	CommandVersion Command = "version"
 )
@@ -195,6 +203,16 @@ type Evidence struct {
 	Engine    string `json:"engine,omitempty"`
 	Path      string `json:"path"`
 	Sensitive bool   `json:"sensitive"`
+}
+
+// Artifact is the semantic result of producing one retained run artifact.
+type Artifact struct {
+	Deployment    Deployment `json:"deployment"`
+	RunID         string     `json:"runId"`
+	Applicability string     `json:"applicability"`
+	Artifact      *Evidence  `json:"artifact,omitempty"`
+	ContentDigest string     `json:"contentDigest,omitempty"`
+	Reason        string     `json:"reason,omitempty"`
 }
 
 // EffectiveConfiguration is the display-safe configuration/provenance view.

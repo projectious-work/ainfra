@@ -360,7 +360,7 @@
     "artifactEnvelope": {
       "properties": {
         "command": {"enum": ["output", "inventory"]},
-        "result": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "artifact", "contentDigest"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "artifact": {"$ref": "#/$defs/evidence"}, "contentDigest": {"$ref": "#/$defs/digest"}}}]}
+        "result": {"oneOf": [{"type": "null"}, {"oneOf": [{"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "applicability", "artifact", "contentDigest"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "applicability": {"const": "applicable"}, "artifact": {"$ref": "#/$defs/evidence"}, "contentDigest": {"$ref": "#/$defs/digest"}}}, {"type": "object", "additionalProperties": false, "required": ["deployment", "runId", "applicability", "reason"], "properties": {"deployment": {"$ref": "#/$defs/deployment"}, "runId": {"type": "string", "minLength": 1}, "applicability": {"const": "not-applicable"}, "reason": {"type": "string", "minLength": 1}}}]}]}
       }
     },
     "logsEnvelope": {

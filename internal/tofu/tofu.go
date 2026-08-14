@@ -106,6 +106,48 @@ func (adapter Adapter) Apply(ctx context.Context, root, directory, planPath stri
 		[]string{"apply", "-input=false", "-no-color", filepath.Clean(planPath)})
 }
 
+// Output reads the complete bounded output envelope, rejects a sensitive
+// declared output, and returns only that output's JSON value. Other output
+// values are never returned to the application layer or persisted.
+func (adapter Adapter) Output(ctx context.Context, root, directory, name string) ([]byte, Outcome, error) {
+	if name == "" {
+		return nil, Outcome{}, errors.New("declared output name required")
+	}
+	for _, character := range name {
+		if character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' || character == '_' || character == '-' {
+			continue
+		}
+		return nil, Outcome{}, errors.New("declared output name is invalid")
+	}
+	var output bytes.Buffer
+	outcome, err := adapter.executeWithIO(ctx, root, directory,
+		[]string{"output", "-json"},
+		childexec.IOPolicy{Stdout: &boundedWriter{destination: &output, remaining: 16 << 20}})
+	if err != nil {
+		return nil, outcome, err
+	}
+	var document map[string]struct {
+		Sensitive bool            `json:"sensitive"`
+		Value     json.RawMessage `json:"value"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	if err := decoder.Decode(&document); err != nil {
+		return nil, outcome, fmt.Errorf("decode OpenTofu outputs: %w", err)
+	}
+	selected, exists := document[name]
+	if !exists {
+		return nil, outcome, fmt.Errorf("OpenTofu omitted declared output %q", name)
+	}
+	if selected.Sensitive {
+		return nil, outcome, fmt.Errorf("declared output %q is sensitive", name)
+	}
+	if len(selected.Value) == 0 || bytes.Equal(selected.Value, []byte("null")) {
+		return nil, outcome, fmt.Errorf("declared output %q has no value", name)
+	}
+	return append([]byte(nil), selected.Value...), outcome, nil
+}
+
 // ShowSummary derives action counts without retaining values from raw plan JSON.
 func (adapter Adapter) ShowSummary(ctx context.Context, root, directory, planPath string) (Summary, Outcome, error) {
 	if err := validateInputPath(root, directory, planPath); err != nil {

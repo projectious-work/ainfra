@@ -37,6 +37,10 @@ type Options struct {
 	TemplateUpdate    func(app.TemplateLockRequest) (output.Template, error)
 	Plan              func(app.PlanRequest) (output.Plan, error)
 	Apply             func(app.ApplyRequest) (output.Execution, error)
+	Output            func(app.ArtifactRequest) (output.Artifact, error)
+	Inventory         func(app.ArtifactRequest) (output.Artifact, error)
+	Configure         func(app.ConfigureRequest) (output.Execution, error)
+	Deploy            func(app.DeployRequest) (output.Execution, error)
 	Initialize        func(string) (initialize.Result, error)
 }
 
@@ -90,6 +94,16 @@ func Run(arguments []string, options Options) ExitCode {
 	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "apply" {
 		return runApply(arguments, controlArguments, positional, renderOptions, options)
 	}
+	if len(positional) >= 1 && len(positional) <= 2 &&
+		(positional[0] == "output" || positional[0] == "inventory") {
+		return runArtifact(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "configure" {
+		return runConfigure(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "deploy" {
+		return runDeploy(arguments, controlArguments, positional, renderOptions, options)
+	}
 	if len(positional) >= 2 && len(positional) <= 3 &&
 		positional[0] == "doctor" && positional[1] == "template" {
 		return runDoctorTemplate(
@@ -121,6 +135,158 @@ func Run(arguments []string, options Options) ExitCode {
 		if _, writeErr := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: render result: %s\n", err); writeErr != nil {
 			return ExitOperationFailed
 		}
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runDeploy(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("deploy", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	planID := flags.String("plan", "", "reviewed plan ID")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *planID == "" {
+		return failInvocation(arguments, "deploy requires --plan RUN_ID", options.IO)
+	}
+	if options.Deploy == nil {
+		return failInvocation(arguments, "deploy is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Deploy(app.DeployRequest{ApplyRequest: app.ApplyRequest{Target: target,
+		ProjectPath: *projectPath, ConfigPath: *configPath, PlanID: *planID}})
+	if err == nil {
+		if output.Render(options.IO.Stdout, output.Success(output.CommandDeploy, result), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+		return ExitSuccess
+	}
+	diagnosticValue := diagnostic.Diagnostic{Code: "AINFRA-E4301", Severity: diagnostic.SeverityError,
+		Message: err.Error(), Component: "deploy", NextAction: "Inspect completed-stage evidence before resuming."}
+	var failure *app.DeployFailure
+	if errors.As(err, &failure) {
+		result = failure.Result
+		if renderOptions.Format == output.FormatJSON {
+			if output.Render(options.IO.Stdout, output.PartialFailure(output.CommandDeploy, result, diagnosticValue), renderOptions) != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return ExitOperationFailed
+	}
+	if renderOptions.Format == output.FormatJSON {
+		if output.Render(options.IO.Stdout, output.Failure(output.CommandDeploy, diagnosticValue), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+	} else {
+		_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+	}
+	return ExitOperationFailed
+}
+
+func runConfigure(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("configure", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	runID := flags.String("run", "", "applied run ID")
+	check := flags.Bool("check", false, "verify convergence in check mode")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *runID == "" {
+		return failInvocation(arguments, "configure requires --run RUN_ID", options.IO)
+	}
+	if options.Configure == nil {
+		return failInvocation(arguments, "configure is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Configure(app.ConfigureRequest{ArtifactRequest: app.ArtifactRequest{
+		Target: target, ProjectPath: *projectPath, ConfigPath: *configPath, RunID: *runID}, Check: *check})
+	if err == nil {
+		if output.Render(options.IO.Stdout, output.Success(output.CommandConfigure, result), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+		return ExitSuccess
+	}
+	diagnosticValue := diagnostic.Diagnostic{Code: "AINFRA-E4201", Severity: diagnostic.SeverityError,
+		Message: err.Error(), Component: "configure", NextAction: "Inspect generated inventory and Ansible Runner evidence."}
+	exit := ExitOperationFailed
+	var failure *app.ConfigureFailure
+	if errors.As(err, &failure) {
+		result = failure.Result
+		if result.ExecutionOutcome == "interrupted" {
+			diagnosticValue.Code, exit = "AINFRA-E0006", ExitInterrupted
+		}
+		if renderOptions.Format == output.FormatJSON {
+			if output.Render(options.IO.Stdout, output.PartialFailure(output.CommandConfigure, result, diagnosticValue), renderOptions) != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return exit
+	}
+	if renderOptions.Format == output.FormatJSON {
+		if output.Render(options.IO.Stdout, output.Failure(output.CommandConfigure, diagnosticValue), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+	} else {
+		_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+	}
+	return exit
+}
+
+func runArtifact(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet(positional[0], flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	runID := flags.String("run", "", "applied run ID")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *runID == "" {
+		return failInvocation(arguments, positional[0]+" requires --run RUN_ID", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	request := app.ArtifactRequest{Target: target, ProjectPath: *projectPath, ConfigPath: *configPath, RunID: *runID}
+	command := output.CommandOutput
+	operation := options.Output
+	if positional[0] == "inventory" {
+		command, operation = output.CommandInventory, options.Inventory
+	}
+	if operation == nil {
+		return failInvocation(arguments, positional[0]+" is unavailable", options.IO)
+	}
+	result, err := operation(request)
+	if err != nil {
+		diagnosticValue := diagnostic.Diagnostic{Code: "AINFRA-E4101", Severity: diagnostic.SeverityError,
+			Message: err.Error(), Component: positional[0],
+			NextAction: "Inspect the applied run binding and retained artifacts."}
+		if renderOptions.Format == output.FormatJSON {
+			if output.Render(options.IO.Stdout, output.Failure(command, diagnosticValue), renderOptions) != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return ExitOperationFailed
+	}
+	if err := output.Render(options.IO.Stdout, output.Success(command, result), renderOptions); err != nil {
 		return ExitOperationFailed
 	}
 	return ExitSuccess
@@ -601,7 +767,7 @@ func splitInvocation(arguments []string) (
 			renderArguments = append(renderArguments, argument)
 			continue
 		}
-		if argument == "--config" || argument == "--project" || argument == "--plan" {
+		if argument == "--config" || argument == "--project" || argument == "--plan" || argument == "--run" {
 			controlArguments = append(controlArguments, argument)
 			if index+1 < len(arguments) {
 				index++
@@ -610,7 +776,7 @@ func splitInvocation(arguments []string) (
 			continue
 		}
 		if argument == "--reconcile" || argument == "--non-interactive" ||
-			argument == "--yes" || argument == "--destroy" {
+			argument == "--yes" || argument == "--destroy" || argument == "--check" {
 			controlArguments = append(controlArguments, argument)
 			continue
 		}
@@ -626,7 +792,8 @@ func splitInvocation(arguments []string) (
 func stringsHasControlPrefix(argument string) bool {
 	return strings.HasPrefix(argument, "--config=") ||
 		strings.HasPrefix(argument, "--project=") ||
-		strings.HasPrefix(argument, "--plan=")
+		strings.HasPrefix(argument, "--plan=") ||
+		strings.HasPrefix(argument, "--run=")
 }
 
 func runDoctorEnvironment(

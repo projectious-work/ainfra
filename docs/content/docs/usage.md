@@ -51,5 +51,7 @@ refuses missing, destroy-intent, replayed, or stale plans and never creates an
 implicit replacement plan. See [Reviewed plans](reviewed-plans/) for binding,
 evidence, JSON-output, and interruption details.
 
-Ansible execution, standardized output and inventory, destroy execution, and
-MCP serving remain later roadmap phases.
+The published `v1.0.0-alpha.4` stops after reviewed apply. Phase 5 output,
+inventory, Ansible, and composed deploy commands are available on `v1.x-dev`;
+see [Output, inventory, and Ansible](output-inventory-ansible/). Destroy
+execution and MCP serving remain later roadmap phases.
