@@ -147,6 +147,35 @@ func TestTreeDigestRejectsNonDirectoryRoot(t *testing.T) {
 	}
 }
 
+func TestRequirePrivateTreeRejectsPermissionAndSymlinkDrift(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	file := writeTreeFile(t, root, "nested/file", []byte("trusted"), 0o600)
+	for _, path := range []string{root, filepath.Join(root, "nested")} {
+		if err := os.Chmod(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := source.RequirePrivateTree(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(file, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.RequirePrivateTree(root); err == nil {
+		t.Fatal("world-readable file unexpectedly accepted")
+	}
+	if err := os.Chmod(file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("file", filepath.Join(root, "nested", "link")); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.RequirePrivateTree(root); err == nil {
+		t.Fatal("symlinked entry unexpectedly accepted")
+	}
+}
+
 func FuzzTreeDigestFile(f *testing.F) {
 	f.Add([]byte("template"), false)
 	f.Add([]byte{0, 1, 2, 255}, true)

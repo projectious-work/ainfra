@@ -96,6 +96,9 @@ func LoadReviewedIntent(options ReviewOptions, intent string) (Reviewed, error) 
 		return Reviewed{}, errors.New("reviewed plan template digest is invalid")
 	}
 	cachePath := filepath.Join(options.CacheRoot, "templates", "sha256", cacheKey)
+	if privateErr := source.RequirePrivateTree(cachePath); privateErr != nil {
+		return Reviewed{}, errors.New("reviewed plan template cache permissions changed")
+	}
 	if digest, digestErr := source.TreeDigest(cachePath); digestErr != nil || digest != record.Template.Digest {
 		return Reviewed{}, errors.New("reviewed plan template cache binding changed")
 	}

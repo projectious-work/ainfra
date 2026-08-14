@@ -24,6 +24,34 @@ func TreeDigest(root string) (string, error) {
 	return treeDigest(root, "")
 }
 
+// RequirePrivateTree verifies that a retained tree is a real owner-only
+// directory hierarchy. Content digests intentionally do not encode directory
+// permissions, so cache consumers must enforce this invariant separately.
+func RequirePrivateTree(root string) error {
+	rootInfo, err := os.Lstat(root)
+	if err != nil {
+		return fmt.Errorf("inspect private tree root: %w", err)
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() ||
+		rootInfo.Mode().Perm()&0o077 != 0 {
+		return errors.New("private tree root must be a real owner-only directory")
+	}
+	return filepath.WalkDir(root, func(candidate string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return fmt.Errorf("inspect private tree entry: %w", err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
+			relative, _ := filepath.Rel(root, candidate)
+			return fmt.Errorf("private tree contains unsafe entry %q", filepath.ToSlash(relative))
+		}
+		return nil
+	})
+}
+
 // EngineWorkspaceDigest hashes template-controlled files while excluding only
 // OpenTofu's declared initialization artifacts.
 func EngineWorkspaceDigest(root, templateRoot string) (string, error) {

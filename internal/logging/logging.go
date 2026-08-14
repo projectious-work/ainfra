@@ -336,12 +336,22 @@ func backupName(path string, index int, compressed bool) string {
 }
 
 func compressFile(source, target string) error {
-	input, err := os.Open(source)
+	directory := filepath.Dir(source)
+	if filepath.Dir(target) != directory {
+		return errors.New("compressed log target must share the source directory")
+	}
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	input, err := root.Open(filepath.Base(source))
 	if err != nil {
 		return err
 	}
 	defer func() { _ = input.Close() }()
-	output, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	output, err := root.OpenFile(filepath.Base(target),
+		os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
@@ -352,5 +362,5 @@ func compressFile(source, target string) error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(source)
+	return root.Remove(filepath.Base(source))
 }
