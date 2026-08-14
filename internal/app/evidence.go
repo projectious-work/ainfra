@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/projectious-work/ainfra/internal/ansible"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
 	runstate "github.com/projectious-work/ainfra/internal/run"
@@ -53,6 +55,9 @@ func Logs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error)
 	if request.Source == "" {
 		request.Source = "ainfra"
 	}
+	if request.Source == "ansible-runner" {
+		return ansibleLogs(request, options)
+	}
 	if request.Source != "ainfra" {
 		return output.Logs{}, errors.New("retained structured evidence for selected child source is unavailable")
 	}
@@ -90,6 +95,54 @@ func Logs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error)
 		RunID: request.RunID, View: view, Source: "ainfra", StructuredFiltering: "available",
 		DisplayedRecords: len(records), Evidence: []output.Evidence{{Kind: "run-events", Path: "events.jsonl"}},
 		Records: records}, nil
+}
+
+func ansibleLogs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error) {
+	deployment, runsRoot, err := evidenceDeployment(request, options)
+	if err != nil {
+		return output.Logs{}, err
+	}
+	root, err := security.ResolveContained(runsRoot, request.RunID)
+	if err != nil {
+		return output.Logs{}, errors.New("retained run ID is invalid")
+	}
+	records := make([]string, 0)
+	evidence := make([]output.Evidence, 0)
+	for _, operation := range []string{"configure", "configure-check"} {
+		privateData := filepath.Join("ansible-runner", operation)
+		versionBytes, readErr := readPrivateArtifact(root, filepath.Join(privateData, "version"), 1024)
+		if errors.Is(readErr, os.ErrNotExist) {
+			continue
+		}
+		if readErr != nil {
+			return output.Logs{}, fmt.Errorf("read retained Ansible Runner version: %w", readErr)
+		}
+		artifactDir := filepath.Join(privateData, "artifacts")
+		events, readErr := ansible.ReadEvents(root, artifactDir, strings.TrimSpace(string(versionBytes)))
+		if readErr != nil {
+			return output.Logs{}, readErr
+		}
+		for _, event := range events {
+			if request.Errors && !event.Failure {
+				continue
+			}
+			records = append(records, fmt.Sprintf("%s ansible-runner %s %s",
+				event.Created, event.Event, event.UUID))
+		}
+		evidence = append(evidence, output.Evidence{Kind: "runner-artifacts",
+			Engine: "ansible-runner", Path: filepath.ToSlash(artifactDir), Sensitive: true})
+	}
+	if len(evidence) == 0 {
+		return output.Logs{}, errors.New("retained Ansible Runner structured evidence is unavailable")
+	}
+	view := "timeline"
+	if request.Errors {
+		view = "errors"
+	}
+	return output.Logs{Deployment: output.Deployment{Name: deployment.Metadata.Name,
+		Root: deployment.Target.Root}, RunID: request.RunID, View: view,
+		Source: "ansible-runner", StructuredFiltering: "available",
+		DisplayedRecords: len(records), Evidence: evidence, Records: records}, nil
 }
 
 func rawLogs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error) {

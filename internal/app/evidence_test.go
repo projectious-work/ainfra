@@ -3,6 +3,7 @@ package app_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/projectious-work/ainfra/internal/app"
@@ -65,6 +66,26 @@ func TestRawLogsRequirePrivateExplicitChildStream(t *testing.T) {
 	if _, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id,
 		Raw: true, Source: "ainfra", Stream: "stderr"}, evidenceOptions(t, runs)); err == nil {
 		t.Fatal("raw ainfra source unexpectedly accepted")
+	}
+}
+
+func TestAnsibleLogsUseVersionedStructuredFailureFields(t *testing.T) {
+	t.Parallel()
+	deployment, runs, id := evidenceFixture(t)
+	base := filepath.Join(runs, id, "ansible-runner", "configure")
+	if err := os.MkdirAll(filepath.Join(base, "artifacts", "job", "job_events"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(base, "version"), "2.4.1\n")
+	write(t, filepath.Join(base, "artifacts", "job", "job_events", "1.json"),
+		`{"created":"2026-08-14T18:00:00Z","uuid":"ok","event":"runner_on_ok","stdout":"ERROR is only prose"}`)
+	write(t, filepath.Join(base, "artifacts", "job", "job_events", "2.json"),
+		`{"created":"2026-08-14T18:00:01Z","uuid":"failed","event":"runner_on_failed"}`)
+	result, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id,
+		Source: "ansible-runner", Errors: true}, evidenceOptions(t, runs))
+	if err != nil || result.StructuredFiltering != "available" ||
+		result.DisplayedRecords != 1 || !strings.Contains(result.Records[0], "runner_on_failed") {
+		t.Fatalf("Ansible logs=%+v err=%v", result, err)
 	}
 }
 

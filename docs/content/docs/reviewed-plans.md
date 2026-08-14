@@ -133,3 +133,10 @@ incompatible with `--errors` and JSON output. Selected bytes go directly to
 stdout and the warning goes to stderr; raw bytes never enter the result
 envelope or normal renderer. Stream files must be private regular files inside
 the selected run.
+
+For Ansible-backed runs, `--source ansible-runner` reads the retained native
+Runner v2 job-event artifacts. `--errors` selects only native failure,
+unreachable, asynchronous-failure, and error event types. Words such as
+`ERROR` in localized `stdout` never determine classification, and event data
+is not copied into the sanitized display. Unsupported Runner protocol majors,
+symlinks, public files, excessive trees, and oversized artifacts fail closed.

@@ -100,6 +100,9 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 			return output.Execution{}, fmt.Errorf("create Ansible Runner directory: %w", err)
 		}
 	}
+	if err := writeRunnerVersion(resolved.reviewed.Root, privateData, version); err != nil {
+		return output.Execution{}, fmt.Errorf("retain Ansible Runner version: %w", err)
+	}
 	if err := runstate.BeginOperation(resolved.reviewed, operation, now()); err != nil {
 		return output.Execution{}, err
 	}
@@ -145,6 +148,15 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 		return result, &ConfigureFailure{Result: result, Cause: runErr}
 	}
 	return result, nil
+}
+
+func writeRunnerVersion(root, privateData, version string) error {
+	file, err := security.CreatePrivateFile(root, filepath.Join(privateData, "version"))
+	if err != nil {
+		return err
+	}
+	_, writeErr := file.WriteString(version + "\n")
+	return errors.Join(writeErr, file.Sync(), file.Close())
 }
 
 func buildAnsibleEnvironment(parent []string, reviewedRoot string, deployment project.Deployment, standard inventory.StandardOutput) (security.Environment, error) {
