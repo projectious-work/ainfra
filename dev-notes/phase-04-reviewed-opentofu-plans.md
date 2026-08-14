@@ -151,3 +151,25 @@ to Phase 6.
 The next slice hardens cancellation and evidence-failure paths with compiled
 black-box fixtures, adds concurrent-operation coverage, and completes Phase 4
 release-gate conformance before publication.
+
+### 2026-08-14 — Phase 4 release-gate hardening
+
+- Added a compiled CLI fixture that locks a local template, creates a reviewed
+  plan, and applies it through a controlled fake OpenTofu executable.
+- Proved the child receives only the exact saved-plan apply arguments and that
+  started and succeeded evidence survives the process boundary.
+- Ran competing apply processes against one reviewed plan: the deployment lock
+  and exclusive start record permit exactly one execution and refuse the other.
+- Added replay and tampered-plan refusal coverage, cancellation-to-inspection
+  assertions, post-execution evidence-failure handling, and race execution.
+- Corrected workspace reverification to exclude nested `.terraform` runtime
+  directories and generated lock files only when those lock files were absent
+  from the reviewed template; injected configuration remains digest-bound.
+- Passed the context and shipped-context release audit with zero errors. Its
+  sole warning is the existing absence of processkit skills under
+  `src/context/skills/`, unrelated to the ainfra Phase 4 deliverable.
+
+Phase 4 implementation is release-gate ready. The roadmap remains
+`in_progress` until a Phase 4 release is packaged, host-verified, signed,
+published, and independently verified; only then may it transition to
+`shipped` and Phase 5 begin.

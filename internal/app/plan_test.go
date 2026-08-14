@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,6 +88,72 @@ func TestCreateApplyPlanPublishesBoundSanitizedRecords(t *testing.T) {
 		if info.Mode().Perm() != 0o600 {
 			t.Fatalf("%s mode: %v", name, info.Mode().Perm())
 		}
+	}
+	reviewed, err := runstate.LoadReviewed(runstate.ReviewOptions{ID: record.RunID,
+		RunsRoot: runsRoot, CacheRoot: cacheRoot, Deployment: deployment,
+		Lock: document, Executable: executable, EngineVersion: "1.10.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelledAdapter := tofu.Adapter{Executable: executable,
+		Run: func(context.Context, childexec.Request) (childexec.Result, error) {
+			return childexec.Result{Started: true, Cancelled: true}, nil
+		}}
+	result, err := app.ExecuteReviewedApply(context.Background(), app.ApplyExecutionOptions{
+		Reviewed: reviewed, Deployment: deployment,
+		Template: template.Contract{Tofu: template.Engine{Directory: "tofu"}},
+		Adapter:  cancelledAdapter, Now: func() time.Time {
+			return time.Date(2026, 8, 14, 10, 0, 0, 0, time.UTC)
+		},
+	})
+	var failure *app.ApplyFailure
+	if !errors.As(err, &failure) || result.ExecutionOutcome != "interrupted" ||
+		!result.Recovery.InspectionRequired {
+		t.Fatalf("cancelled result=%+v err=%v", result, err)
+	}
+	events, err := os.ReadFile(filepath.Join(reviewed.Root, "events.jsonl"))
+	if err != nil || !strings.Contains(string(events), `"state":"cancelled"`) ||
+		!strings.Contains(string(events), `"state":"inspection-required"`) {
+		t.Fatalf("events=%q err=%v", events, err)
+	}
+}
+
+func TestExecuteReviewedApplyRoutesEvidenceFailureToInspection(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "workspace", "tofu"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writePlanFixture(t, filepath.Join(root, "plan.tfplan"), "saved-plan")
+	executablePath := filepath.Join(t.TempDir(), "tofu")
+	if err := os.WriteFile(executablePath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executable, err := security.ResolveExecutable(executablePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := tofu.Adapter{Executable: executable,
+		Run: func(_ context.Context, request childexec.Request) (childexec.Result, error) {
+			if err := os.Remove(filepath.Join(request.WorkingRoot, "events.jsonl")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(filepath.Join(request.WorkingRoot, "events.jsonl"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			return childexec.Result{Started: true}, nil
+		}}
+	result, err := app.ExecuteReviewedApply(context.Background(), app.ApplyExecutionOptions{
+		Reviewed: runstate.Reviewed{Root: root,
+			Record: runstate.PlanRecord{RunID: "reviewed-plan-0123456789",
+				Plan: runstate.PlanBinding{Path: "plan.tfplan"}}},
+		Deployment: project.Deployment{Metadata: project.Metadata{Name: "development"}},
+		Template:   template.Contract{Tofu: template.Engine{Directory: "tofu"}}, Adapter: adapter,
+	})
+	var failure *app.ApplyFailure
+	if !errors.As(err, &failure) || result.ExecutionOutcome != "interrupted" ||
+		!result.Recovery.InspectionRequired {
+		t.Fatalf("evidence failure result=%+v err=%v", result, err)
 	}
 }
 
