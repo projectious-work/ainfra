@@ -235,10 +235,25 @@ case "$1" in
     ;;
   show) printf '%s\n' '{"resource_changes":[{"change":{"actions":["create"]}}]}' ;;
   apply) sleep 1; printf '%s\n' "$@" > ` + shellLiteral(marker) + ` ;;
+  output) printf '%s\n' '{"ainfra_inventory":{"sensitive":false,"value":{"schema_version":"1","hosts":{"localhost":{"groups":["local"],"connection":{"type":"local"}}}}}}' ;;
   *) exit 91 ;;
 esac
 `
 	if err := os.WriteFile(tofuPath, []byte(fakeTofu), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runnerPath := filepath.Join(root, "ansible-runner")
+	fakeRunner := `#!/bin/sh
+if [ "$1" = "--version" ]; then printf '%s\n' 'ansible-runner 2.4.1'; exit 0; fi
+artifact=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--artifact-dir" ]; then artifact="$2"; shift 2; continue; fi
+  shift
+done
+mkdir -p "$artifact/job_events"
+printf '%s\n' '{"event":"playbook_on_stats","event_data":{"changed":{},"dark":{},"failures":{},"ok":{"localhost":2},"processed":{"localhost":1},"skipped":{}}}' > "$artifact/job_events/stats.json"
+`
+	if err := os.WriteFile(runnerPath, []byte(fakeRunner), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	cacheRoot, runsRoot := filepath.Join(root, "cache"), filepath.Join(root, "runs")
@@ -249,7 +264,8 @@ paths:
   cache: ` + cacheRoot + `
   runs: ` + runsRoot + `
 executables:
-  tofu: ` + tofuPath + "\n"
+  tofu: ` + tofuPath + `
+  ansibleRunner: ` + runnerPath + "\n"
 	if err := os.WriteFile(configPath, []byte(configuration), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -352,9 +368,48 @@ executables:
 		"--config", configPath, "--format=json"); code != 5 {
 		t.Fatalf("replayed apply exit=%d, want 5", code)
 	}
+	outputResult, code, stderr := run("output", deployment, "--run", planned.Result.RunID,
+		"--config", configPath, "--format=json")
+	if code != 0 || !bytes.Contains(outputResult, []byte(`"command":"output"`)) {
+		t.Fatalf("output exit=%d stdout=%s stderr=%s", code, outputResult, stderr)
+	}
+	inventoryResult, code, stderr := run("inventory", deployment, "--run", planned.Result.RunID,
+		"--config", configPath, "--format=json")
+	if code != 0 || !bytes.Contains(inventoryResult, []byte(`"command":"inventory"`)) {
+		t.Fatalf("inventory exit=%d stdout=%s stderr=%s", code, inventoryResult, stderr)
+	}
+	inventoryContents, err := os.ReadFile(filepath.Join(runsRoot, planned.Result.RunID, "inventory.yaml"))
+	if err != nil || string(inventoryContents) != "local:\n  hosts:\n    localhost:\n      ansible_connection: local\n" {
+		t.Fatalf("inventory=%q err=%v", inventoryContents, err)
+	}
+	configureResult, code, stderr := run("configure", deployment, "--run", planned.Result.RunID,
+		"--config", configPath, "--format=json")
+	if code != 0 || !bytes.Contains(configureResult, []byte(`"operation":"configure"`)) {
+		t.Fatalf("configure exit=%d stdout=%s stderr=%s", code, configureResult, stderr)
+	}
+	checkResult, code, stderr := run("configure", deployment, "--run", planned.Result.RunID,
+		"--check", "--config", configPath, "--format=json")
+	if code != 0 || !bytes.Contains(checkResult, []byte(`"operation":"configure-check"`)) {
+		t.Fatalf("configure check exit=%d stdout=%s stderr=%s", code, checkResult, stderr)
+	}
+	if _, code, _ := run("configure", deployment, "--run", planned.Result.RunID,
+		"--config", configPath, "--format=json"); code != 1 {
+		t.Fatalf("replayed configure exit=%d, want 1", code)
+	}
 	secondOutput, code, stderr := run("plan", deployment, "--config", configPath, "--format=json")
 	if code != 0 || json.Unmarshal(secondOutput, &planned) != nil {
 		t.Fatalf("second plan exit=%d stdout=%s stderr=%s", code, secondOutput, stderr)
+	}
+	deployResult, code, stderr := run("deploy", deployment, "--plan", planned.Result.RunID,
+		"--config", configPath, "--format=json")
+	if code != 0 || !bytes.Contains(deployResult, []byte(`"operation":"deploy"`)) ||
+		!bytes.Contains(deployResult, []byte(`ansible-runner/configure/artifacts`)) ||
+		!bytes.Contains(deployResult, []byte(`ansible-runner/configure-check/artifacts`)) {
+		t.Fatalf("deploy exit=%d stdout=%s stderr=%s", code, deployResult, stderr)
+	}
+	thirdOutput, code, stderr := run("plan", deployment, "--config", configPath, "--format=json")
+	if code != 0 || json.Unmarshal(thirdOutput, &planned) != nil {
+		t.Fatalf("third plan exit=%d stdout=%s stderr=%s", code, thirdOutput, stderr)
 	}
 	planPath := filepath.Join(runsRoot, planned.Result.RunID, "plan.tfplan")
 	if err := os.WriteFile(planPath, []byte("tampered"), 0o600); err != nil {

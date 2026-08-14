@@ -34,3 +34,35 @@ owned by Phase 6.
 
 Tracking WorkItem:
 `BACK-20260814_1013-SteadyDell-phase-five-output-inventory-ansible`.
+
+## Implementation progress
+
+### 2026-08-14 — Standardized handoff and configuration lifecycle
+
+- Extended reviewed-plan bindings to cover every declared Ansible variable
+  file and the deployment's `known_hosts` input, so configuration cannot
+  consume bytes outside the reviewed run.
+- Added bounded OpenTofu output collection that retains only the declared,
+  non-sensitive output value and strictly validates the closed v1 schema.
+- Added pure deterministic inventory conversion with sorted groups, hosts,
+  keys, and stable YAML serialization. Unknown fields, unsupported connection
+  shapes, invalid names, and secret-shaped material fail closed.
+- Added atomic private `output.json` and `inventory.yaml` publication with
+  SHA-256 artifact results and typed `not-applicable` results for
+  infrastructure-only templates.
+- Added a shell-free Ansible Runner adapter, bounded version negotiation,
+  contained project/inventory/input paths, forced SSH host-key checking, and a
+  populated bound `known_hosts` requirement for SSH inventories.
+- Added normal configuration and independent check-mode verification. Runner
+  `playbook_on_stats` evidence must cover the exact expected host set with zero
+  changes, failures, and unreachable hosts.
+- Added `output`, `inventory`, `configure`, and composed `deploy` command
+  dispatch with stable text/JSON results, durable stage events, replay refusal
+  for mutating configuration, and retained Runner artifact references.
+- Added unit, CLI-contract, schema, and compiled black-box coverage for the
+  reviewed apply-to-output-to-inventory-to-Ansible path and the composed
+  deploy path.
+
+The remaining Phase 5 release-gate work is adversarial cancellation,
+concurrency, corrupted Runner-evidence, SSH-policy, redaction, and race
+coverage plus final user documentation and the complete validation sweep.

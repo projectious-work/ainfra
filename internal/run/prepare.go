@@ -84,6 +84,10 @@ func Prepare(options Options) (prepared Prepared, err error) {
 	}
 	inputPaths := append([]string(nil), options.Deployment.Inputs.TofuBackendConfigFiles...)
 	inputPaths = append(inputPaths, options.Deployment.Inputs.TofuVariableFiles...)
+	inputPaths = append(inputPaths, options.Deployment.Inputs.AnsibleVariableFiles...)
+	if options.Deployment.SSH.KnownHosts != "" {
+		inputPaths = append(inputPaths, options.Deployment.SSH.KnownHosts)
+	}
 	inputsRoot := filepath.Join(runRoot, "inputs")
 	if len(inputPaths) > 0 {
 		if err := os.Mkdir(inputsRoot, 0o700); err != nil {

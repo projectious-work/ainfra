@@ -54,6 +54,34 @@ func main() {
 			}
 			return app.Apply(context.Background(), request, options)
 		},
+		Output: func(request app.ArtifactRequest) (output.Artifact, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Artifact{}, err
+			}
+			return app.CollectOutput(context.Background(), request, options)
+		},
+		Inventory: func(request app.ArtifactRequest) (output.Artifact, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Artifact{}, err
+			}
+			return app.GenerateInventory(context.Background(), request, options)
+		},
+		Configure: func(request app.ConfigureRequest) (output.Execution, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Execution{}, err
+			}
+			return app.Configure(context.Background(), request, options)
+		},
+		Deploy: func(request app.DeployRequest) (output.Execution, error) {
+			options, err := app.HostPlanOptions()
+			if err != nil {
+				return output.Execution{}, err
+			}
+			return app.Deploy(context.Background(), request, options)
+		},
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,
 		) (app.DoctorEnvironmentResponse, error) {

@@ -79,6 +79,16 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 		_, err := fmt.Fprintf(writer, "%s %s for %s: %s\n",
 			result.Operation, result.RunID, result.Deployment.Name, result.ExecutionOutcome)
 		return err
+	case Artifact:
+		if result.Applicability == "not-applicable" {
+			_, err := fmt.Fprintf(writer, "%s for %s: not applicable (%s)\n",
+				envelope.Command, result.Deployment.Name, result.Reason)
+			return err
+		}
+		_, err := fmt.Fprintf(writer, "%s %s for %s\ndigest %s\n",
+			result.Artifact.Kind, result.Artifact.Path, result.Deployment.Name,
+			result.ContentDigest)
+		return err
 	case Template:
 		state := "unchanged"
 		if result.Changed {

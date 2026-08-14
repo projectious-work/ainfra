@@ -121,6 +121,45 @@ func writeJSON(root, name string, value any) error {
 	return nil
 }
 
+// PublishArtifact atomically writes one private, validated run artifact and
+// returns its content digest.
+func PublishArtifact(root, name string, contents []byte) (string, error) {
+	if name != "output.json" && name != "inventory.yaml" {
+		return "", errors.New("unsupported run artifact")
+	}
+	staging := "." + name + ".staging"
+	file, err := security.CreatePrivateFile(root, staging)
+	if err != nil {
+		return "", fmt.Errorf("create %s: %w", name, err)
+	}
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(root + string(os.PathSeparator) + staging)
+		}
+	}()
+	_, writeErr := file.Write(contents)
+	err = errors.Join(writeErr, file.Sync(), file.Close())
+	if err != nil {
+		return "", fmt.Errorf("write %s: %w", name, err)
+	}
+	privateRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return "", fmt.Errorf("open run root: %w", err)
+	}
+	renameErr := privateRoot.Rename(staging, name)
+	closeErr := privateRoot.Close()
+	if err := errors.Join(renameErr, closeErr); err != nil {
+		return "", fmt.Errorf("publish %s: %w", name, err)
+	}
+	cleanup = false
+	digest, err := digestFile(root + string(os.PathSeparator) + name)
+	if err != nil {
+		return "", fmt.Errorf("digest %s: %w", name, err)
+	}
+	return digest, nil
+}
+
 func gitCommit(resolved string) string {
 	if len(resolved) == 40 || len(resolved) == 64 {
 		return resolved
