@@ -1,10 +1,10 @@
 # Phase 6: Destruction, recovery, and hardening
 
-Status: in progress
+Status: shipped in `v1.0.0-alpha.6`.
 
-Phase 6 closes the destructive lifecycle and retained-evidence boundaries. It
-does not declare shipment: the roadmap moves to `shipped` only after
-`v1.0.0-alpha.6` is published and independently verified.
+Phase 6 closes the destructive lifecycle and retained-evidence boundaries.
+Release `v1.0.0-alpha.6` was published and independently verified on
+2026-08-15.
 
 ## Requirement disposition
 
@@ -24,10 +24,11 @@ concurrent structured-log integrity, combined retained-timeline, typed
 OpenTofu filtering-unavailable, and symlinked evidence gaps. The processkit
 release audit reports no errors for either the live or shipped context tree.
 
-Phase 6 remains `in_progress`. Release packaging, host verification, signing,
-publication, and independent verification for `v1.0.0-alpha.6` are separate
-release gates; only their successful completion may move the roadmap phase to
-`shipped`.
+Release `v1.0.0-alpha.6` was built from candidate commit `62a35fb`, passed the
+clean host container gate, was signed through Sigstore, and was published with
+four platform archives, four SPDX SBOMs, checksums, and the verified signature
+bundle. Independent download verification completed successfully, so Phase 6
+is shipped.
 
 ## Delivery slices
 

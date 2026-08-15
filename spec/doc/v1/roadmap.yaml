@@ -58,7 +58,7 @@ groups:
           Add reviewed destroy plans, teardown verification, interruption
           recovery, redaction, binding checks, cache defenses, and negative
           security fixtures.
-        status: in_progress
+        status: shipped
         devNote: dev-notes/phase-06-destruction-recovery-hardening.md
 
   - label: Automation interface
