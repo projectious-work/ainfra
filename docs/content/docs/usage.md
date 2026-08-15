@@ -67,8 +67,9 @@ ainfra logs example-deployment --run RUN_ID
 ainfra doctor run example-deployment
 ```
 
-The published `v1.0.0-alpha.5` includes output, inventory, Ansible, and composed
-deploy commands; see
-[Output, inventory, and Ansible](output-inventory-ansible/). Reviewed destroy,
-recovery, retained logs, and operational logging are being completed for
-Phase 6. Guarded MCP serving remains a later roadmap phase.
+The published `v1.0.0-alpha.6` includes output, inventory, Ansible, composed
+deploy commands, reviewed destruction, recovery status, retained logs, and
+operational logging. See
+[Output, inventory, and Ansible](output-inventory-ansible/) and
+[Reviewed plans](reviewed-plans/). Guarded MCP serving remains a later roadmap
+phase.
