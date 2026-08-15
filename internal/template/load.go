@@ -13,6 +13,7 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/project"
 	"github.com/projectious-work/ainfra/internal/security"
+	"github.com/projectious-work/ainfra/internal/source"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -92,6 +93,9 @@ func Load(path string) (Contract, error) {
 // LoadMaterialized validates a digest-addressed cache tree. Its directory
 // basename is a content digest rather than the declared template name.
 func LoadMaterialized(path string) (Contract, error) {
+	if err := source.RequirePrivateTree(path); err != nil {
+		return Contract{}, fmt.Errorf("validate private template cache: %w", err)
+	}
 	return load(path, false)
 }
 

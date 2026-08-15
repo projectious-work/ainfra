@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -259,9 +260,31 @@ func readPrivateArtifact(root, name string, limit int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	contents, readErr := privateRoot.ReadFile(name)
+	pathInfo, lstatErr := privateRoot.Lstat(name)
+	if lstatErr != nil {
+		_ = privateRoot.Close()
+		return nil, lstatErr
+	}
+	if !pathInfo.Mode().IsRegular() || pathInfo.Mode().Perm()&0o077 != 0 {
+		_ = privateRoot.Close()
+		return nil, errors.New("artifact is not a private regular file")
+	}
+	handle, openErr := privateRoot.Open(name)
+	if openErr != nil {
+		_ = privateRoot.Close()
+		return nil, openErr
+	}
+	information, statErr := handle.Stat()
+	if statErr != nil || !information.Mode().IsRegular() ||
+		information.Mode().Perm()&0o077 != 0 || !os.SameFile(pathInfo, information) {
+		_ = handle.Close()
+		_ = privateRoot.Close()
+		return nil, errors.New("artifact is not a private regular file")
+	}
+	contents, readErr := io.ReadAll(io.LimitReader(handle, int64(limit)+1))
+	handleCloseErr := handle.Close()
 	closeErr := privateRoot.Close()
-	if err := errors.Join(readErr, closeErr); err != nil {
+	if err := errors.Join(readErr, handleCloseErr, closeErr); err != nil {
 		return nil, err
 	}
 	if len(contents) == 0 || len(contents) > limit {

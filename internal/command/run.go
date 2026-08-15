@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/initialize"
+	operational "github.com/projectious-work/ainfra/internal/logging"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/reconcile"
 	"github.com/projectious-work/ainfra/internal/security"
@@ -37,15 +39,46 @@ type Options struct {
 	TemplateUpdate    func(app.TemplateLockRequest) (output.Template, error)
 	Plan              func(app.PlanRequest) (output.Plan, error)
 	Apply             func(app.ApplyRequest) (output.Execution, error)
+	Destroy           func(app.DestroyRequest) (output.Execution, error)
+	Logs              func(app.EvidenceRequest) (output.Logs, error)
+	Status            func(app.EvidenceRequest) (output.Status, error)
 	Output            func(app.ArtifactRequest) (output.Artifact, error)
 	Inventory         func(app.ArtifactRequest) (output.Artifact, error)
 	Configure         func(app.ConfigureRequest) (output.Execution, error)
 	Deploy            func(app.DeployRequest) (output.Execution, error)
 	Initialize        func(string) (initialize.Result, error)
+	Operational       *operational.Logger
+	Now               func() time.Time
 }
 
 // Run parses one CLI invocation, renders its result, and returns its exit code.
-func Run(arguments []string, options Options) ExitCode {
+func Run(arguments []string, options Options) (exit ExitCode) {
+	if options.Operational != nil {
+		now := time.Now
+		if options.Now != nil {
+			now = options.Now
+		}
+		commandName := "help"
+		if len(arguments) > 0 {
+			commandName = arguments[0]
+		}
+		if err := options.Operational.Write(operational.NewEvent(now(), "info", "command",
+			"command started", commandName, "", nil)); err != nil {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: initialize operational logging: %s\n", err)
+			return ExitOperationFailed
+		}
+		defer func() {
+			level, message := "info", "command finished"
+			if exit != ExitSuccess {
+				level, message = "error", "command failed"
+			}
+			if err := options.Operational.Write(operational.NewEvent(now(), level, "command",
+				message, commandName, "", nil)); err != nil {
+				_, _ = fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: finalize operational logging: %s\n", err)
+				exit = ExitOperationFailed
+			}
+		}()
+	}
 	renderArguments, controlArguments, positional, helpRequested := splitInvocation(arguments)
 	renderOptions, err := parseRenderOptions(renderArguments, options.IO.IsTerminal)
 	if err != nil {
@@ -93,6 +126,15 @@ func Run(arguments []string, options Options) ExitCode {
 	}
 	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "apply" {
 		return runApply(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "destroy" {
+		return runDestroy(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "logs" {
+		return runLogs(arguments, controlArguments, positional, renderOptions, options)
+	}
+	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "status" {
+		return runStatus(arguments, controlArguments, positional, renderOptions, options)
 	}
 	if len(positional) >= 1 && len(positional) <= 2 &&
 		(positional[0] == "output" || positional[0] == "inventory") {
@@ -351,6 +393,179 @@ func runApply(arguments, controlArguments, positional []string, renderOptions ou
 		_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
 	}
 	return exit
+}
+
+func runDestroy(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("destroy", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	planID := flags.String("plan", "", "reviewed destroy plan ID")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *planID == "" {
+		return failInvocation(arguments, "destroy requires --plan RUN_ID", options.IO)
+	}
+	if options.Destroy == nil {
+		return failInvocation(arguments, "destroy is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Destroy(app.DestroyRequest{Target: target, ProjectPath: *projectPath,
+		ConfigPath: *configPath, PlanID: *planID})
+	if err == nil {
+		if output.Render(options.IO.Stdout, output.Success(output.CommandDestroy, result), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+		return ExitSuccess
+	}
+	diagnosticValue := diagnostic.Diagnostic{Code: "AINFRA-E4402",
+		Severity: diagnostic.SeverityError, Message: err.Error(), Component: "destroy",
+		NextAction: "Inspect the reviewed destroy-plan binding and retained run evidence."}
+	exit := ExitStaleBinding
+	var failure *app.DestroyFailure
+	if errors.As(err, &failure) {
+		result = failure.Result
+		exit = ExitOperationFailed
+		if result.ExecutionOutcome == "interrupted" {
+			diagnosticValue.Code, exit = "AINFRA-E0006", ExitInterrupted
+		}
+		if renderOptions.Format == output.FormatJSON {
+			if output.Render(options.IO.Stdout,
+				output.PartialFailure(output.CommandDestroy, result, diagnosticValue), renderOptions) != nil {
+				return ExitOperationFailed
+			}
+		} else {
+			_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+		}
+		return exit
+	}
+	if renderOptions.Format == output.FormatJSON {
+		if output.Render(options.IO.Stdout,
+			output.Failure(output.CommandDestroy, diagnosticValue), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+	} else {
+		_, _ = fmt.Fprintf(options.IO.Stderr, "%s: %s\n", diagnosticValue.Code, err)
+	}
+	return exit
+}
+
+func runLogs(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("logs", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	runID := flags.String("run", "", "retained run ID")
+	source := flags.String("source", "", "evidence source")
+	errorsOnly := flags.Bool("errors", false, "show attributed errors")
+	raw := flags.Bool("raw", false, "show sensitive raw evidence")
+	stream := flags.String("stream", "", "retained stream")
+	nonInteractive := flags.Bool("non-interactive", false, "disable prompts")
+	yes := flags.Bool("yes", false, "confirm raw access")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if *runID == "" {
+		return failInvocation(arguments, "logs requires --run RUN_ID", options.IO)
+	}
+	if options.Logs == nil {
+		return failInvocation(arguments, "logs is unavailable", options.IO)
+	}
+	if *raw {
+		if renderOptions.Format == output.FormatJSON {
+			return failInvocation(arguments, "--raw and --format json are mutually exclusive", options.IO)
+		}
+		if *errorsOnly {
+			return failInvocation(arguments, "--raw and --errors are mutually exclusive", options.IO)
+		}
+		if !confirmRawAccess(*nonInteractive, *yes, options.IO) {
+			return failInvocation(arguments, "raw evidence access requires confirmation", options.IO)
+		}
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Logs(app.EvidenceRequest{Target: target, ProjectPath: *projectPath,
+		ConfigPath: *configPath, RunID: *runID, Source: *source, Errors: *errorsOnly,
+		Raw: *raw, Stream: *stream})
+	if err != nil {
+		return failCommand(output.CommandLogs, "AINFRA-E4501", "logs", err, renderOptions, options.IO)
+	}
+	if *raw {
+		_, _ = io.WriteString(options.IO.Stderr,
+			"WARNING: writing sensitive raw engine evidence to stdout only.\n")
+		for _, record := range result.Records {
+			if _, err := io.WriteString(options.IO.Stdout, record); err != nil {
+				return ExitOperationFailed
+			}
+		}
+		return ExitSuccess
+	}
+	if output.Render(options.IO.Stdout, output.Success(output.CommandLogs, result), renderOptions) != nil {
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func confirmRawAccess(nonInteractive, yes bool, streams IO) bool {
+	if nonInteractive {
+		return yes
+	}
+	if yes || !streams.IsTerminal || streams.Stdin == nil {
+		return false
+	}
+	_, _ = io.WriteString(streams.Stderr,
+		"WARNING: raw engine evidence may contain credentials and secrets. Continue? [y/N] ")
+	answer, err := bufio.NewReader(streams.Stdin).ReadString('\n')
+	if err != nil && len(answer) == 0 {
+		return false
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "y" || answer == "yes"
+}
+
+func runStatus(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
+	flags := flag.NewFlagSet("status", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	projectPath := flags.String("project", "", "deployment project")
+	configPath := flags.String("config", "", "configuration path")
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if options.Status == nil {
+		return failInvocation(arguments, "status is unavailable", options.IO)
+	}
+	target := ""
+	if len(positional) == 2 {
+		target = positional[1]
+	}
+	result, err := options.Status(app.EvidenceRequest{Target: target,
+		ProjectPath: *projectPath, ConfigPath: *configPath})
+	if err != nil {
+		return failCommand(output.CommandStatus, "AINFRA-E4601", "status", err, renderOptions, options.IO)
+	}
+	if output.Render(options.IO.Stdout, output.Success(output.CommandStatus, result), renderOptions) != nil {
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func failCommand(command output.Command, code, component string, err error, renderOptions output.RenderOptions, streams IO) ExitCode {
+	diagnosticValue := diagnostic.Diagnostic{Code: code, Severity: diagnostic.SeverityError,
+		Message: err.Error(), Component: component, NextAction: "Inspect retained run evidence and deployment configuration."}
+	if renderOptions.Format == output.FormatJSON {
+		if output.Render(streams.Stdout, output.Failure(command, diagnosticValue), renderOptions) != nil {
+			return ExitOperationFailed
+		}
+	} else {
+		_, _ = fmt.Fprintf(streams.Stderr, "%s: %s\n", code, err)
+	}
+	return ExitInvalidInput
 }
 
 func runPlan(arguments, controlArguments, positional []string, renderOptions output.RenderOptions, options Options) ExitCode {
@@ -763,11 +978,21 @@ func splitInvocation(arguments []string) (
 			}
 			continue
 		}
+		if argument == "--log-level" || argument == "--log-format" || argument == "--log-file" {
+			if index+1 < len(arguments) {
+				index++
+			}
+			continue
+		}
+		if argument == "--syslog" || argument == "-v" || argument == "-vv" || argument == "-vvv" {
+			continue
+		}
 		if stringsHasRenderPrefix(argument) {
 			renderArguments = append(renderArguments, argument)
 			continue
 		}
-		if argument == "--config" || argument == "--project" || argument == "--plan" || argument == "--run" {
+		if argument == "--config" || argument == "--project" || argument == "--plan" ||
+			argument == "--run" || argument == "--source" || argument == "--stream" {
 			controlArguments = append(controlArguments, argument)
 			if index+1 < len(arguments) {
 				index++
@@ -776,7 +1001,8 @@ func splitInvocation(arguments []string) (
 			continue
 		}
 		if argument == "--reconcile" || argument == "--non-interactive" ||
-			argument == "--yes" || argument == "--destroy" || argument == "--check" {
+			argument == "--yes" || argument == "--destroy" || argument == "--check" ||
+			argument == "--errors" || argument == "--raw" {
 			controlArguments = append(controlArguments, argument)
 			continue
 		}

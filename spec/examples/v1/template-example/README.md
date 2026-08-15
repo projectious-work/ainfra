@@ -114,8 +114,9 @@ and a new reviewed plan.
 
 Apply only the exact reviewed destroy plan. Success means OpenTofu reports that
 the built-in resource was destroyed. There is no independent provider API to
-inspect; the postcondition is limited to the OpenTofu result and absence of any
-remote side effect by construction.
+inspect; verify the expected local artifact is absent without reading OpenTofu
+state. A provider-backed certified template MUST instead document an
+authenticated provider inventory/API check scoped by its ownership labels.
 
 ## Compatibility and versioning
 
@@ -130,8 +131,9 @@ The schemas, documentation structure, native inputs, and deterministic fixtures
 were reviewed on 2026-08-06. The provider-free native lifecycle passed with
 OpenTofu 1.12.5 and Ansible Core 2.18.7, including plan, apply, output matching,
 normal configuration, zero-change check mode, destroy plan, and destroy apply.
-Full ainfra black-box validation remains pending implementation of the v1 Go
-CLI. This is a conforming reference template, not evidence of a released CLI or
+The ainfra CLI suites additionally cover saved apply and destroy-plan bindings,
+interruption recovery, retained evidence, and command behavior with isolated
+fake tools. This is a conforming reference template, not evidence of a
 certified provider deployment.
 
 See [`tests/`](tests/) for the executable lifecycle acceptance sequence and

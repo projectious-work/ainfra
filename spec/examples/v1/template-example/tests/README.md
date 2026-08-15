@@ -15,6 +15,6 @@ A complete validation executes these steps from `examples/minimal/`:
 
 Run `./validate.sh` to exercise the available native-tool portion in a
 disposable directory. It requires `tofu`, `ansible-playbook`, and `jq`. The Go
-CLI implementation will add schema, ainfra inventory-generation, Runner-event,
-saved-plan-binding, and command-surface checks when those lifecycle commands
-exist.
+CLI suite separately covers schemas, inventory generation, Runner events,
+saved apply and destroy-plan bindings, interruption recovery, and the command
+surface with credential-free fake tools.

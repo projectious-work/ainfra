@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 
-	childexec "github.com/projectious-work/ainfra/internal/exec"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
@@ -20,24 +18,22 @@ import (
 	"github.com/projectious-work/ainfra/internal/tofu"
 )
 
-// ApplyRequest selects one exact reviewed apply plan.
-type ApplyRequest struct {
-	Target, ProjectPath, ConfigPath, PlanID string
-}
+// DestroyRequest selects one exact reviewed destroy plan.
+type DestroyRequest = ApplyRequest
 
-// ApplyFailure retains a terminal result for a failed or interrupted child.
-type ApplyFailure struct {
+// DestroyFailure retains a terminal result for a failed or interrupted child.
+type DestroyFailure struct {
 	Result output.Execution
 	Cause  error
 }
 
-func (failure *ApplyFailure) Error() string { return failure.Cause.Error() }
-func (failure *ApplyFailure) Unwrap() error { return failure.Cause }
+func (failure *DestroyFailure) Error() string { return failure.Cause.Error() }
+func (failure *DestroyFailure) Unwrap() error { return failure.Cause }
 
-// Apply reverifies and executes only the exact reviewed saved plan.
-func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (output.Execution, error) {
+// Destroy reverifies and executes only the exact reviewed destroy plan.
+func Destroy(ctx context.Context, request DestroyRequest, options PlanHostOptions) (output.Execution, error) {
 	if request.PlanID == "" {
-		return output.Execution{}, errors.New("--plan requires an exact reviewed plan ID")
+		return output.Execution{}, errors.New("--plan requires an exact reviewed destroy plan ID")
 	}
 	environmentPath := options.Environment["AINFRA_PROJECT"]
 	if request.Target != "" && (request.ProjectPath != "" || environmentPath != "") {
@@ -51,7 +47,7 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 	settings, err := resolvePlanConfiguration(PlanRequest{ConfigPath: request.ConfigPath},
 		deployment.Target.Root, options)
 	if err != nil {
-		return output.Execution{}, fmt.Errorf("resolve apply configuration: %w", err)
+		return output.Execution{}, fmt.Errorf("resolve destroy configuration: %w", err)
 	}
 	tofuPath := settings.Executables.Tofu
 	if tofuPath == "" {
@@ -89,11 +85,11 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("read template lock: %w", err)
 	}
-	reviewed, err := runstate.LoadReviewed(runstate.ReviewOptions{ID: request.PlanID,
+	reviewed, err := runstate.LoadReviewedIntent(runstate.ReviewOptions{ID: request.PlanID,
 		RunsRoot: settings.Paths.Runs, CacheRoot: settings.Paths.Cache,
-		Deployment: deployment, Lock: lock, Executable: executable, EngineVersion: version})
+		Deployment: deployment, Lock: lock, Executable: executable, EngineVersion: version}, "destroy")
 	if err != nil {
-		return output.Execution{}, fmt.Errorf("reverify reviewed plan: %w", err)
+		return output.Execution{}, fmt.Errorf("reverify reviewed destroy plan: %w", err)
 	}
 	cachePath := filepath.Join(settings.Paths.Cache, "templates", "sha256",
 		reviewed.Record.Template.Digest[len("sha256:"):])
@@ -101,21 +97,13 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("load reviewed template contract: %w", err)
 	}
-	return ExecuteReviewedApply(ctx, ApplyExecutionOptions{Reviewed: reviewed,
+	return ExecuteReviewedDestroy(ctx, ApplyExecutionOptions{Reviewed: reviewed,
 		Deployment: deployment, Template: contract, Adapter: adapter, Now: options.Now})
 }
 
-// ApplyExecutionOptions supplies already reverified apply dependencies.
-type ApplyExecutionOptions struct {
-	Reviewed   runstate.Reviewed
-	Deployment project.Deployment
-	Template   template.Contract
-	Adapter    tofu.Adapter
-	Now        func() time.Time
-}
-
-// ExecuteReviewedApply records and executes one already reverified saved plan.
-func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (output.Execution, error) {
+// ExecuteReviewedDestroy applies the saved destroy plan without generating a
+// new plan or reading OpenTofu state.
+func ExecuteReviewedDestroy(ctx context.Context, options ApplyExecutionOptions) (output.Execution, error) {
 	now := time.Now
 	if options.Now != nil {
 		now = options.Now
@@ -125,9 +113,9 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("create private OpenTofu evidence: %w", err)
 	}
-	if err := runstate.AppendExecutionEvent(reviewed, "started", now(), nil); err != nil {
+	if err := runstate.AppendDestroyEvent(reviewed, "started", now(), nil); err != nil {
 		_ = closeEvidence()
-		return output.Execution{}, fmt.Errorf("record apply start: %w", err)
+		return output.Execution{}, fmt.Errorf("record destroy start: %w", err)
 	}
 	directory := filepath.Join("workspace", filepath.FromSlash(options.Template.Tofu.Directory))
 	planPath, err := filepath.Rel(filepath.Join(reviewed.Root, directory),
@@ -137,12 +125,12 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 	}
 	adapter := options.Adapter
 	adapter.EvidenceIO = evidenceIO
-	outcome, applyErr := adapter.Apply(ctx, reviewed.Root, directory, planPath)
-	applyErr = errors.Join(applyErr, closeEvidence())
+	outcome, destroyErr := adapter.Apply(ctx, reviewed.Root, directory, planPath)
+	destroyErr = errors.Join(destroyErr, closeEvidence())
 	state, executionOutcome, status := "succeeded", "succeeded", "succeeded"
-	if applyErr != nil {
+	if destroyErr != nil {
 		state, executionOutcome, status = "failed", "failed", "failed"
-		if errors.Is(applyErr, context.Canceled) || outcome.Result.Cancelled || outcome.Result.Signalled {
+		if errors.Is(destroyErr, context.Canceled) || outcome.Result.Cancelled || outcome.Result.Signalled {
 			state, executionOutcome, status = "cancelled", "interrupted", "interrupted"
 		}
 	}
@@ -152,7 +140,7 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 		reportedExit = &exitCode
 	}
 	result := output.Execution{Deployment: output.Deployment{Name: deployment.Metadata.Name,
-		Root: deployment.Target.Root}, RunID: reviewed.Record.RunID, Operation: "apply",
+		Root: deployment.Target.Root}, RunID: reviewed.Record.RunID, Operation: "destroy",
 		ExecutionOutcome: executionOutcome,
 		EngineReports: []output.EngineReport{{Engine: "opentofu", Status: status,
 			ExitCode: reportedExit, Protocol: output.Protocol{Name: "opentofu-json-ui", Version: "1.2"}}},
@@ -161,60 +149,24 @@ func ExecuteReviewedApply(ctx context.Context, options ApplyExecutionOptions) (o
 			{Kind: "raw-engine-stream", Engine: "opentofu", Path: "opentofu.stderr", Sensitive: true}},
 		Recovery: output.Recovery{AutomaticRetryAllowed: false,
 			InspectionRequired: executionOutcome == "interrupted", NextCommands: []string{}}}
-	if eventErr := runstate.AppendExecutionEvent(reviewed, state, now(), reportedExit); eventErr != nil {
+	if eventErr := runstate.AppendDestroyEvent(reviewed, state, now(), reportedExit); eventErr != nil {
 		result.ExecutionOutcome = "interrupted"
 		result.EngineReports[0].Status = "interrupted"
 		result.Recovery.InspectionRequired = true
 		result.Recovery.NextCommands = []string{"ainfra doctor run " + deployment.Metadata.Name}
-		return result, &ApplyFailure{Result: result,
-			Cause: fmt.Errorf("record apply outcome after execution: %w", eventErr)}
+		return result, &DestroyFailure{Result: result,
+			Cause: fmt.Errorf("record destroy outcome after execution: %w", eventErr)}
 	}
 	if executionOutcome == "interrupted" {
-		if eventErr := runstate.AppendExecutionEvent(reviewed, "inspection-required", now(), reportedExit); eventErr != nil {
+		if eventErr := runstate.AppendDestroyEvent(reviewed, "inspection-required", now(), reportedExit); eventErr != nil {
 			result.Recovery.NextCommands = []string{"ainfra doctor run " + deployment.Metadata.Name}
-			return result, &ApplyFailure{Result: result,
-				Cause: fmt.Errorf("record apply inspection requirement: %w", eventErr)}
+			return result, &DestroyFailure{Result: result,
+				Cause: fmt.Errorf("record destroy inspection requirement: %w", eventErr)}
 		}
+		result.Recovery.NextCommands = []string{"ainfra doctor run " + deployment.Metadata.Name}
 	}
-	if applyErr != nil {
-		if executionOutcome == "interrupted" {
-			result.Recovery.NextCommands = []string{"ainfra doctor run " + deployment.Metadata.Name}
-		}
-		return result, &ApplyFailure{Result: result, Cause: applyErr}
+	if destroyErr != nil {
+		return result, &DestroyFailure{Result: result, Cause: destroyErr}
 	}
 	return result, nil
-}
-
-func openTofuEvidence(root string) (childexec.IOPolicy, func() error, error) {
-	stdout, err := security.CreatePrivateFile(root, "opentofu.stdout")
-	if err != nil {
-		return childexec.IOPolicy{}, nil, err
-	}
-	stderr, err := security.CreatePrivateFile(root, "opentofu.stderr")
-	if err != nil {
-		_ = stdout.Close()
-		_ = os.Remove(filepath.Join(root, "opentofu.stdout"))
-		return childexec.IOPolicy{}, nil, err
-	}
-	closeEvidence := func() error {
-		return errors.Join(stdout.Sync(), stderr.Sync(), stdout.Close(), stderr.Close())
-	}
-	return childexec.IOPolicy{
-		RawStdout: &rawEvidenceWriter{file: stdout, remaining: 64 << 20},
-		RawStderr: &rawEvidenceWriter{file: stderr, remaining: 64 << 20},
-	}, closeEvidence, nil
-}
-
-type rawEvidenceWriter struct {
-	file      *os.File
-	remaining int64
-}
-
-func (writer *rawEvidenceWriter) Write(contents []byte) (int, error) {
-	if int64(len(contents)) > writer.remaining {
-		return 0, errors.New("raw OpenTofu evidence exceeds size limit")
-	}
-	written, err := writer.file.Write(contents)
-	writer.remaining -= int64(written)
-	return written, err
 }

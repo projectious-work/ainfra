@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/projectious-work/ainfra/internal/security"
@@ -114,6 +115,22 @@ func TestRedactingWriterAcrossChunks(t *testing.T) {
 	}
 }
 
+func TestRedactStringCoversCommonCredentialShapes(t *testing.T) {
+	t.Parallel()
+	input := "Bearer abcdefghijklmnop https://user:pass@example.invalid/x?access_token=value " +
+		"api_key=another ghp_abcdefghijklmnopqrstuvwxyz AKIAABCDEFGHIJKLMNOP"
+	redacted := security.RedactString(input, nil)
+	for _, secret := range []string{"abcdefghijklmnop", "user:pass", "value", "another",
+		"ghp_abcdefghijklmnopqrstuvwxyz", "AKIAABCDEFGHIJKLMNOP"} {
+		if strings.Contains(redacted, secret) {
+			t.Fatalf("credential shape %q leaked in %q", secret, redacted)
+		}
+	}
+	if strings.Count(redacted, "<redacted>") < 6 {
+		t.Fatalf("credential shapes not fully redacted: %q", redacted)
+	}
+}
+
 func FuzzBuildEnvironment(f *testing.F) {
 	f.Add("LANG=C")
 	f.Add("TOKEN=secret")
@@ -121,6 +138,38 @@ func FuzzBuildEnvironment(f *testing.F) {
 		environment, err := security.BuildEnvironment([]string{entry}, nil, nil)
 		if err == nil && len(environment.Values()) != 0 {
 			t.Fatalf("empty allowlist leaked %q", environment.Values())
+		}
+	})
+}
+
+func FuzzRedactingWriterChunkBoundaries(f *testing.F) {
+	f.Add([]byte("secret"), []byte("before "), []byte(" after"), uint8(3), uint8(11))
+	f.Fuzz(func(t *testing.T, secret, prefix, suffix []byte, first, second uint8) {
+		if len(secret) == 0 {
+			return
+		}
+		secret = secret[:min(len(secret), 64)]
+		prefix = prefix[:min(len(prefix), 128)]
+		suffix = suffix[:min(len(suffix), 128)]
+		input := append(append(append([]byte(nil), prefix...), secret...), suffix...)
+		left := int(first) % (len(input) + 1)
+		right := int(second) % (len(input) + 1)
+		if left > right {
+			left, right = right, left
+		}
+		var output bytes.Buffer
+		writer := security.NewRedactingWriter(&output, []string{string(secret)})
+		for _, chunk := range [][]byte{input[:left], input[left:right], input[right:]} {
+			if _, err := writer.Write(chunk); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		want := bytes.ReplaceAll(input, secret, []byte("<redacted>"))
+		if !bytes.Equal(output.Bytes(), want) {
+			t.Fatalf("redacted=%q want=%q", output.Bytes(), want)
 		}
 	})
 }

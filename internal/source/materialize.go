@@ -19,6 +19,9 @@ type Materialized struct {
 // CopyVerifiedTemplate copies an already materialized template into an empty
 // destination and verifies the expected digest before and after copying.
 func CopyVerifiedTemplate(sourceRoot, destinationRoot, expectedDigest string) error {
+	if err := RequirePrivateTree(sourceRoot); err != nil {
+		return errors.New("source template failed private cache verification")
+	}
 	observed, err := TreeDigest(sourceRoot)
 	if err != nil || observed != expectedDigest {
 		return errors.New("source template failed expected digest verification")
@@ -64,6 +67,9 @@ func materializeLocal(sourceRoot, cacheRoot string, allowContainedSource bool) (
 		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 			return Materialized{}, errors.New("template cache entry is not a real directory")
 		}
+		if err := RequirePrivateTree(destination); err != nil {
+			return Materialized{}, errors.New("template cache entry failed private permission verification")
+		}
 		observed, digestErr := TreeDigest(destination)
 		if digestErr != nil || observed != digest {
 			return Materialized{}, errors.New("template cache entry failed digest verification")
@@ -95,8 +101,9 @@ func materializeLocal(sourceRoot, cacheRoot string, allowContainedSource bool) (
 	}
 	if err := os.Rename(staging, destination); err != nil {
 		if _, statErr := os.Stat(destination); statErr == nil {
+			privateErr := RequirePrivateTree(destination)
 			observed, digestErr := TreeDigest(destination)
-			if digestErr == nil && observed == digest {
+			if privateErr == nil && digestErr == nil && observed == digest {
 				return Materialized{Path: destination, Digest: digest, Reused: true}, nil
 			}
 		}

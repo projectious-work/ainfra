@@ -59,7 +59,11 @@ func deploymentTemplateFacts(
 	cachePath := filepath.Join(
 		cacheRoot, "templates", "sha256", strings.TrimPrefix(document.Template.Digest, "sha256:"),
 	)
-	observed, digestErr := source.TreeDigest(cachePath)
+	privateErr := source.RequirePrivateTree(cachePath)
+	observed, digestErr := "", privateErr
+	if privateErr == nil {
+		observed, digestErr = source.TreeDigest(cachePath)
+	}
 	if digestErr != nil {
 		facts = append(facts,
 			lockFact("template.cache", "AINFRA-E2312", cachePath, "fail",

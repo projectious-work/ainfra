@@ -79,6 +79,21 @@ func Render(writer io.Writer, envelope Envelope, options RenderOptions) error {
 		_, err := fmt.Fprintf(writer, "%s %s for %s: %s\n",
 			result.Operation, result.RunID, result.Deployment.Name, result.ExecutionOutcome)
 		return err
+	case Logs:
+		for _, record := range result.Records {
+			if _, err := fmt.Fprintln(writer, record); err != nil {
+				return err
+			}
+		}
+		return nil
+	case Status:
+		for _, run := range result.Runs {
+			if _, err := fmt.Fprintf(writer, "%s %s: %s\n",
+				run.RunID, run.Operation, run.ExecutionOutcome); err != nil {
+				return err
+			}
+		}
+		return nil
 	case Artifact:
 		if result.Applicability == "not-applicable" {
 			_, err := fmt.Fprintf(writer, "%s for %s: not applicable (%s)\n",

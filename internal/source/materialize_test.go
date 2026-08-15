@@ -61,6 +61,44 @@ func TestMaterializeLocalRejectsPoisonedCacheEntry(t *testing.T) {
 	}
 }
 
+func TestMaterializeLocalRejectsPermissionPoisonedCacheEntry(t *testing.T) {
+	t.Parallel()
+	templateRoot := t.TempDir()
+	writeTreeFile(t, templateRoot, "file", []byte("trusted"), 0o600)
+	cacheRoot := t.TempDir()
+	result, err := source.MaterializeLocal(templateRoot, cacheRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(result.Path, "file"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := source.MaterializeLocal(templateRoot, cacheRoot); err == nil {
+		t.Fatal("permission-poisoned cache entry unexpectedly reused")
+	}
+}
+
+func TestMaterializeLocalRejectsSymlinkedCacheEntry(t *testing.T) {
+	t.Parallel()
+	templateRoot := t.TempDir()
+	writeTreeFile(t, templateRoot, "file", []byte("trusted"), 0o600)
+	digest, err := source.TreeDigest(templateRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cacheRoot := t.TempDir()
+	entries := filepath.Join(cacheRoot, "templates", "sha256")
+	if err := os.MkdirAll(entries, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(templateRoot, filepath.Join(entries, digest[len("sha256:"):])); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := source.MaterializeLocal(templateRoot, cacheRoot); err == nil {
+		t.Fatal("symlinked cache entry unexpectedly reused")
+	}
+}
+
 func TestMaterializeLocalRejectsUnsafeSource(t *testing.T) {
 	t.Parallel()
 	templateRoot := t.TempDir()

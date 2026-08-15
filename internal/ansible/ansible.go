@@ -42,6 +42,100 @@ type Stats struct {
 	Skipped   map[string]int `json:"skipped"`
 }
 
+// EventRecord is a display-safe attribution selected from one native Runner
+// job event. It deliberately excludes stdout and event_data values.
+type EventRecord struct {
+	Created string
+	UUID    string
+	Event   string
+	Failure bool
+}
+
+// ReadEvents validates and classifies native Ansible Runner v2 job events.
+func ReadEvents(root, artifactDir, version string) ([]EventRecord, error) {
+	major, err := strconv.Atoi(strings.SplitN(version, ".", 2)[0])
+	if err != nil || major != 2 {
+		return nil, fmt.Errorf("unsupported Ansible Runner evidence version %q", version)
+	}
+	directory, err := security.ResolveContained(root, artifactDir)
+	if err != nil {
+		return nil, err
+	}
+	artifactRoot, err := os.OpenRoot(directory)
+	if err != nil {
+		return nil, fmt.Errorf("open Ansible artifacts: %w", err)
+	}
+	defer func() { _ = artifactRoot.Close() }()
+	records := make([]EventRecord, 0)
+	files := 0
+	var visit func(string, int) error
+	visit = func(relative string, depth int) error {
+		if depth > 8 {
+			return errors.New("ansible artifact tree exceeds depth limit")
+		}
+		handle, err := artifactRoot.Open(relative)
+		if err != nil {
+			return err
+		}
+		entries, readErr := handle.ReadDir(-1)
+		closeErr := handle.Close()
+		if err := errors.Join(readErr, closeErr); err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if entry.Type()&os.ModeSymlink != 0 {
+				return errors.New("symlink in Ansible artifacts")
+			}
+			path := filepath.Join(relative, entry.Name())
+			if entry.IsDir() {
+				if err := visit(path, depth+1); err != nil {
+					return err
+				}
+				continue
+			}
+			if filepath.Ext(entry.Name()) != ".json" {
+				continue
+			}
+			files++
+			if files > 100000 {
+				return errors.New("too many Ansible event artifacts")
+			}
+			info, err := entry.Info()
+			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 || info.Size() > 4<<20 {
+				return errors.New("invalid Ansible event artifact")
+			}
+			contents, err := artifactRoot.ReadFile(path)
+			if err != nil {
+				return errors.New("invalid Ansible event artifact")
+			}
+			var event struct {
+				Created string `json:"created"`
+				UUID    string `json:"uuid"`
+				Event   string `json:"event"`
+			}
+			decoder := json.NewDecoder(bytes.NewReader(contents))
+			if decoder.Decode(&event) != nil || event.Event == "" {
+				return errors.New("invalid Ansible event artifact")
+			}
+			failure := event.Event == "runner_on_failed" || event.Event == "runner_on_unreachable" ||
+				event.Event == "runner_on_async_failed" || event.Event == "error"
+			records = append(records, EventRecord{Created: event.Created, UUID: event.UUID,
+				Event: event.Event, Failure: failure})
+		}
+		return nil
+	}
+	if err := visit(".", 0); err != nil {
+		return nil, fmt.Errorf("read Ansible events: %w", err)
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].Created == records[j].Created {
+			return records[i].UUID < records[j].UUID
+		}
+		return records[i].Created < records[j].Created
+	})
+	return records, nil
+}
+
 func (adapter Adapter) Version(ctx context.Context, root string) (string, error) {
 	var output bytes.Buffer
 	_, err := adapter.execute(ctx, root, ".", []string{"--version"},

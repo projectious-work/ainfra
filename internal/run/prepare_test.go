@@ -109,6 +109,53 @@ func TestLoadReviewedReverifiesBindingsAndRecordsEvents(t *testing.T) {
 	}
 }
 
+func TestLoadReviewedRejectsPermissionDriftInTemplateCache(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	prepared, err := run.Prepare(fixture.options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(prepared.Root, "plan.tfplan"), "saved plan")
+	if _, err := run.PublishPlan(prepared, fixture.options.Deployment.Metadata.Name,
+		"1.10.0", time.Now(), structSummary()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(fixture.materialized.Path, "ainfra-template.yaml"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run.LoadReviewed(run.ReviewOptions{ID: fixture.options.ID,
+		RunsRoot: fixture.options.RunsRoot, CacheRoot: fixture.options.CacheRoot,
+		Deployment: fixture.options.Deployment, Lock: fixture.lock,
+		Executable: fixture.options.Executable, EngineVersion: "1.10.0"}); err == nil {
+		t.Fatal("permission-drifted cache unexpectedly retained plan authorization")
+	}
+}
+
+func TestLoadReviewedIntentSeparatesApplyAndDestroyAuthorization(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	prepared, err := run.Prepare(fixture.options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(prepared.Root, "plan.tfplan"), "saved destroy plan")
+	if _, err := run.PublishPlanIntent(prepared, fixture.options.Deployment.Metadata.Name,
+		"1.10.0", "destroy", time.Now(), tofu.Summary{Delete: 1}); err != nil {
+		t.Fatal(err)
+	}
+	options := run.ReviewOptions{ID: fixture.options.ID,
+		RunsRoot: fixture.options.RunsRoot, CacheRoot: fixture.options.CacheRoot,
+		Deployment: fixture.options.Deployment, Lock: fixture.lock,
+		Executable: fixture.options.Executable, EngineVersion: "1.10.0"}
+	if _, err := run.LoadReviewed(options); err == nil {
+		t.Fatal("destroy plan unexpectedly authorized apply")
+	}
+	if _, err := run.LoadReviewedIntent(options, "destroy"); err != nil {
+		t.Fatalf("destroy plan was not authorized: %v", err)
+	}
+}
+
 func structSummary() tofu.Summary { return tofu.Summary{Create: 1} }
 
 type fixture struct {

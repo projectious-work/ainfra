@@ -22,7 +22,9 @@ hostname = "ainfra"             # Hostname visible inside the container
 user     = "aibox"              # User inside the container (controls mount paths)
 
 [container.image]
-release_version = "latest"       # Target base image version. Use "latest" to resolve newest published image on apply.
+# Last release with the complete supply-chain addon. Do not use the v1 alpha
+# catalog until that addon returns.
+release_version = "0.32.4"
 base            = "debian"          # Published base image flavor. Options: debian
 
 [container.paths]
@@ -433,13 +435,14 @@ staticcheck = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or
 hadolint = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 shellcheck = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
-# Selected addon not found in the loaded addon catalog.
+# Tools/supply-chain — Secret scanning, vulnerability analysis, SBOM
+# generation, and signing
 [addons.supply-chain.tools]
-cosign = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-gitleaks = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-grype = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-osv-scanner = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
-syft = {} # options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+gitleaks = { version = "8.30.1" }
+osv-scanner = { version = "2.4.0" }
+syft = { version = "1.50.0" }
+grype = { version = "0.116.1" }
+cosign = { version = "3.1.2" }
 
 # =============================================================================
 # [ai] — AI agent harnesses and model providers

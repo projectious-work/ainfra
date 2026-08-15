@@ -31,17 +31,45 @@ uv run scripts/validate-v1-spec
 
 Documentation changes must also pass a clean production build.
 
-## Host container gate
+## Release environments
 
-The restricted development container first packages all four supported targets,
-including their SBOMs and checksum manifest:
+The release deliberately crosses one trust boundary. Run commands in this
+order and in the environment shown:
+
+| Order | Environment | Command | Required tools | Result |
+|---|---|---|---|---|
+| 1 | Devcontainer | `release-package` | Git, Go, tar, gzip, Syft, sha256sum | Four cross-built archives, four archive SBOMs, and checksums |
+| 2 | Host | `release-host-prepare` | Git, Python | Immutable, checksum-verified gate input |
+| 3 | Host | `release-host` | uv, Docker, Syft, Grype | Container smoke-test, image SBOM, vulnerability report, and evidence |
+| 4 | Host | `release-sign` | Cosign | Signed and verified checksum manifest |
+| 5 | Host | `release-publish` | Git, GitHub CLI, Cosign | Tag, prerelease assets, and independent verification |
+
+`release-package` is the only command that compiles Go. Do not run it on the
+host. Syft is required in both environments for different subjects: the
+devcontainer inventories the publishable archives, while the host inventories
+the independently built container image. The host never compiles or modifies
+the release archives.
+
+### 1. Package in the devcontainer
+
+The restricted devcontainer packages all four supported targets, including
+their SBOMs and checksum manifest:
 
 ```bash
 scripts/maintain.sh release-package --version=1.0.0-alpha.2
 ```
 
-No Go build occurs after this point. On the host, preparation verifies those
-packaged archives and copies their binaries into an immutable validation input:
+The repository pins an aibox release that provides its complete
+`supply-chain` addon. After changing that pin or its tool selections, run
+`aibox apply` on the host and rebuild the devcontainer. Before packaging,
+verify `go version`, `gitleaks version`, `osv-scanner --version`,
+`syft version`, `grype version`, and `cosign version` inside the rebuilt
+devcontainer.
+
+### 2. Prepare and run the gate on the host
+
+After packaging, leave the devcontainer. On the host, preparation verifies the
+archives and copies their binaries into an immutable validation input:
 
 ```bash
 scripts/maintain.sh release-host-prepare --version=1.0.0-alpha.2
@@ -90,13 +118,13 @@ the fixed Linuxbrew prefix. Both conventional and rootless Docker daemons are
 supported because the gate invokes only the Docker CLI and does not select or
 mount a socket itself.
 
-Go is required only inside the development container. Host preparation requires
-Git and Python, consumes the checksum-verified release archives, and never
-compiles release artifacts.
+Go is required only inside the devcontainer. Host preparation requires Git and
+Python, consumes the checksum-verified release archives, and never compiles
+release artifacts.
 
 ## Release checksum signing
 
-Release packaging runs inside the development container and writes the four
+Release packaging runs inside the devcontainer and writes the four
 publishable archives, their SPDX JSON SBOMs, and `checksums.sha256` below
 `dist/release/<version>/`:
 

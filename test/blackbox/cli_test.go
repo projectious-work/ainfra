@@ -112,6 +112,53 @@ func TestVersionJSON(t *testing.T) {
 	}
 }
 
+func TestOperationalLoggingFlagsAndCredentialRedaction(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	logPath := filepath.Join(root, "ainfra.log")
+	environment := []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	run := func(arguments ...string) (int, string) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		invocation := exec.CommandContext(ctx, binary, arguments...)
+		invocation.Dir, invocation.Env = root, environment
+		var stdout, stderr bytes.Buffer
+		invocation.Stdout, invocation.Stderr = &stdout, &stderr
+		err := invocation.Run()
+		if err == nil {
+			return 0, stderr.String()
+		}
+		exitError, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatal(err)
+		}
+		return exitError.ExitCode(), stderr.String()
+	}
+	loggingFlags := []string{"--log-file", logPath, "--log-format", "json", "--format=json"}
+	if code, stderr := run(append([]string{"version", "-v"}, loggingFlags...)...); code != 0 || stderr != "" {
+		t.Fatalf("version exit=%d stderr=%q", code, stderr)
+	}
+	credential := "Bearer abcdefghijklmnop"
+	if code, stderr := run(append([]string{credential}, loggingFlags...)...); code != 2 || stderr != "" {
+		t.Fatalf("invalid invocation exit=%d stderr=%q", code, stderr)
+	}
+	contents, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(contents, []byte(`"message":"command started"`)) ||
+		!bytes.Contains(contents, []byte(`"message":"command failed"`)) ||
+		!bytes.Contains(contents, []byte("<redacted>")) ||
+		bytes.Contains(contents, []byte("abcdefghijklmnop")) {
+		t.Fatalf("unexpected operational log: %s", contents)
+	}
+	if info, err := os.Stat(logPath); err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("operational log permissions=%v err=%v", info, err)
+	}
+}
+
 func TestTemplateLockLocalJSON(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

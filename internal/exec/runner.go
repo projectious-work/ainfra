@@ -14,8 +14,10 @@ import (
 
 // IOPolicy supplies sanitized child stream destinations.
 type IOPolicy struct {
-	Stdout io.Writer
-	Stderr io.Writer
+	Stdout    io.Writer
+	Stderr    io.Writer
+	RawStdout io.Writer
+	RawStderr io.Writer
 }
 
 // Request is a complete immutable child-process request.
@@ -70,8 +72,8 @@ func (runner Runner) Run(ctx context.Context, request Request) (Result, error) {
 	command.Dir = directory
 	command.Env = request.Environment.Values()
 	command.Stdin = request.Stdin
-	command.Stdout = redactedOut
-	command.Stderr = redactedErr
+	command.Stdout = retainedWriter{raw: request.IO.RawStdout, sanitized: redactedOut}
+	command.Stderr = retainedWriter{raw: request.IO.RawStderr, sanitized: redactedErr}
 	configureProcess(command)
 	if err := command.Start(); err != nil {
 		return Result{}, fmt.Errorf("start child process: %w", err)
@@ -95,6 +97,27 @@ func (runner Runner) Run(ctx context.Context, request Request) (Result, error) {
 		return result, nil
 	}
 	return result, fmt.Errorf("wait for child process: %w", waitErr)
+}
+
+// retainedWriter preserves exact child bytes before sending the same bytes
+// through the sanitized output boundary. A raw retention failure stops the
+// child stream instead of silently producing incomplete evidence.
+type retainedWriter struct {
+	raw       io.Writer
+	sanitized io.Writer
+}
+
+func (writer retainedWriter) Write(contents []byte) (int, error) {
+	if writer.raw != nil {
+		written, err := writer.raw.Write(contents)
+		if err != nil {
+			return written, err
+		}
+		if written != len(contents) {
+			return written, io.ErrShortWrite
+		}
+	}
+	return writer.sanitized.Write(contents)
 }
 
 func (runner Runner) wait(ctx context.Context, command *exec.Cmd, waited <-chan error, result *Result) error {

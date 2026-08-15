@@ -50,3 +50,23 @@ for trusted acquisition controls. An absolute `paths.cache` selects private
 template storage, and `executables.git` selects the Git executable. Project
 configuration cannot control either value; such attempts fail closed. Git is
 resolved lazily, so local-only locking does not require it.
+
+## Operational logging
+
+Operational logs are separate from command output and retained run evidence.
+The default level is `warn` and the default destination is human-readable
+stderr. Increase verbosity with `-v`, `-vv`, or `-vvv`, or select an explicit
+`--log-level error|warn|info|debug|trace`; the two forms are mutually
+exclusive.
+
+`--log-format text|json` selects the sink format independently of
+`--format`. `--log-file ABSOLUTE_PATH` adds a private rotating file sink, and
+`--syslog` adds the local system logger. File rotation defaults to 10 MiB,
+five retained files, seven days, and compression. Configuration files expose
+the detailed rotation and syslog settings.
+
+All sinks receive the same structured event after exact-value and common
+credential-shape redaction. A requested sink that cannot be initialized or
+written is a command failure; ainfra does not silently discard an audit
+destination. `ainfra logs` never reads these operational sinks—it reads only
+the selected run's retained lifecycle evidence.

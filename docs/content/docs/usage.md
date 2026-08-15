@@ -51,7 +51,24 @@ refuses missing, destroy-intent, replayed, or stale plans and never creates an
 implicit replacement plan. See [Reviewed plans](reviewed-plans/) for binding,
 evidence, JSON-output, and interruption details.
 
+Destruction requires its own reviewed plan and exact run ID:
+
+```sh
+ainfra plan example-deployment --destroy
+ainfra destroy example-deployment --plan RUN_ID
+```
+
+Inspect retained evidence and ambiguous recovery state without reading
+OpenTofu state:
+
+```sh
+ainfra status example-deployment
+ainfra logs example-deployment --run RUN_ID
+ainfra doctor run example-deployment
+```
+
 The published `v1.0.0-alpha.5` includes output, inventory, Ansible, and composed
 deploy commands; see
-[Output, inventory, and Ansible](output-inventory-ansible/). Destroy execution
-and MCP serving remain later roadmap phases.
+[Output, inventory, and Ansible](output-inventory-ansible/). Reviewed destroy,
+recovery, retained logs, and operational logging are being completed for
+Phase 6. Guarded MCP serving remains a later roadmap phase.

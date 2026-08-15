@@ -21,6 +21,7 @@ type Adapter struct {
 	Executable  security.Executable
 	Environment security.Environment
 	Run         Run
+	EvidenceIO  childexec.IOPolicy
 }
 
 // Invocation is a display-safe record of an OpenTofu boundary call.
@@ -207,7 +208,7 @@ func (writer *boundedWriter) Write(contents []byte) (int, error) {
 }
 
 func (adapter Adapter) execute(ctx context.Context, root, directory string, arguments []string) (Outcome, error) {
-	return adapter.executeWithIO(ctx, root, directory, arguments, childexec.IOPolicy{})
+	return adapter.executeWithIO(ctx, root, directory, arguments, adapter.EvidenceIO)
 }
 
 func (adapter Adapter) executeWithIO(ctx context.Context, root, directory string, arguments []string, policy childexec.IOPolicy) (Outcome, error) {

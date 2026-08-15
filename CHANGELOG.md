@@ -5,6 +5,37 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.6] - 2026-08-15
+
+### Added
+
+- Added separately reviewed destroy plans and exact-plan destruction through
+  `ainfra destroy --plan RUN_ID`, with durable destructive lifecycle evidence.
+- Added `ainfra status` and `ainfra logs` for private retained-run inspection,
+  typed recovery guidance, combined timelines, source filtering, and guarded
+  raw child-stream access.
+- Added configurable structured operational logging with verbosity controls,
+  private rotating files, local syslog, and correlated records.
+
+### Changed
+
+- Interrupted apply, destroy, and configuration stages now require inspection
+  and cannot be repeated automatically.
+- Certified-template guidance now requires independent provider-side teardown
+  verification rather than treating a successful destroy exit as proof.
+- OpenTofu structured error filtering explicitly reports `unavailable` when
+  only retained raw streams and child-process facts exist.
+
+### Security
+
+- Added common credential-shape and chunk-safe exact-value redaction across
+  operational and child-process boundaries.
+- Added owner-only cache-tree verification, reviewed-plan binding
+  reverification, directory-scoped log compression, and symlink-resistant
+  retained-artifact reads.
+- Added hostile cache, permission, evidence, concurrency, compiled-CLI, fuzz,
+  race, vulnerability, and static-security coverage.
+
 ## [1.0.0-alpha.5] - 2026-08-14
 
 ### Added
@@ -157,3 +188,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 [1.0.0-alpha.3]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.2...v1.0.0-alpha.3
 [1.0.0-alpha.4]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.3...v1.0.0-alpha.4
 [1.0.0-alpha.5]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.4...v1.0.0-alpha.5
+[1.0.0-alpha.6]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.5...v1.0.0-alpha.6
