@@ -20,8 +20,9 @@ The release command boundary is strict:
 4. On the host, run `release-sign`, followed by `release-publish`.
 
 Syft therefore belongs in both environments, but it inventories different
-subjects. The devcontainer's `Dockerfile.local` currently supplies Syft when
-the aibox addon catalog skips the configured `supply-chain` addon. Rebuild the
-devcontainer after applying aibox configuration changes. Agents must never
-receive the host Docker socket or equivalent container-runtime authority. See
-the repository guide for the complete commands, prerequisites, and checks.
+subjects. The workspace pins an aibox release whose catalog supplies the
+complete `supply-chain` toolset: Gitleaks, OSV-Scanner, Syft, Grype, and Cosign.
+Run `aibox apply` and rebuild the devcontainer after changing that pin or its
+tool selections. Agents must never receive the host Docker socket or
+equivalent container-runtime authority. See the repository guide for the
+complete commands, prerequisites, and checks.

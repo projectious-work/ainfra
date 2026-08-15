@@ -59,10 +59,12 @@ their SBOMs and checksum manifest:
 scripts/maintain.sh release-package --version=1.0.0-alpha.2
 ```
 
-If the current aibox catalog reports the `supply-chain` addon as unknown, the
-repository's `.devcontainer/Dockerfile.local` compatibility layer installs
-Syft. Rebuild the devcontainer after `aibox apply`, then verify `go version`
-and `syft version` before packaging.
+The repository pins an aibox release that provides its complete
+`supply-chain` addon. After changing that pin or its tool selections, run
+`aibox apply` on the host and rebuild the devcontainer. Before packaging,
+verify `go version`, `gitleaks version`, `osv-scanner --version`,
+`syft version`, `grype version`, and `cosign version` inside the rebuilt
+devcontainer.
 
 ### 2. Prepare and run the gate on the host
 
