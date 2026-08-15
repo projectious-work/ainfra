@@ -62,7 +62,7 @@ func Build(settings config.Logging, stderr io.Writer) (Logger, func() error, err
 	for _, destination := range settings.Destinations {
 		switch destination.Type {
 		case "stderr":
-			sinks = append(sinks, WriterSink{Writer: stderr, Format: destination.Format})
+			sinks = append(sinks, &WriterSink{Writer: stderr, Format: destination.Format})
 		case "file":
 			file, err := NewFileSink(FileOptions{Path: destination.Path,
 				Format: destination.Format, MaxBytes: int64(destination.Rotation.MaxSizeMiB) << 20,
@@ -173,11 +173,14 @@ func contains(values []int, value int) bool {
 
 // WriterSink writes text or JSON events to a process-owned writer.
 type WriterSink struct {
+	mu     sync.Mutex
 	Writer io.Writer
 	Format string
 }
 
-func (sink WriterSink) WriteEvent(event Event) error {
+func (sink *WriterSink) WriteEvent(event Event) error {
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
 	if sink.Writer == nil {
 		return errors.New("log writer is unavailable")
 	}

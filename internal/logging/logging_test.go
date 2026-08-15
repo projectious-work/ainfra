@@ -3,11 +3,14 @@ package logging_test
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,8 +24,8 @@ func TestLoggerSharesOnePreRedactedEventAcrossSinks(t *testing.T) {
 		"credential secret-value refused", "apply", "run-secret-value",
 		[]string{"secret-value"})
 	logger := operational.Logger{Sinks: []operational.Sink{
-		operational.WriterSink{Writer: &text, Format: "text"},
-		operational.WriterSink{Writer: &json, Format: "json"},
+		&operational.WriterSink{Writer: &text, Format: "text"},
+		&operational.WriterSink{Writer: &json, Format: "json"},
 	}}
 	if err := logger.Write(event); err != nil {
 		t.Fatal(err)
@@ -38,8 +41,8 @@ func TestLoggerSurfacesSinkFailureOnHealthySink(t *testing.T) {
 	t.Parallel()
 	var healthy bytes.Buffer
 	logger := operational.Logger{Sinks: []operational.Sink{
-		operational.WriterSink{Writer: failingWriter{}, Format: "json"},
-		operational.WriterSink{Writer: &healthy, Format: "json"},
+		&operational.WriterSink{Writer: failingWriter{}, Format: "json"},
+		&operational.WriterSink{Writer: &healthy, Format: "json"},
 	}}
 	if err := logger.Write(operational.NewEvent(time.Now(), "warn", "test",
 		"message", "status", "", nil)); err == nil {
@@ -47,6 +50,43 @@ func TestLoggerSurfacesSinkFailureOnHealthySink(t *testing.T) {
 	}
 	if !strings.Contains(healthy.String(), "operational log sink(s) failed") {
 		t.Fatalf("healthy sink did not receive failure notice: %q", healthy.String())
+	}
+}
+
+func TestWriterSinkPreservesConcurrentCorrelatedRecords(t *testing.T) {
+	t.Parallel()
+	var destination bytes.Buffer
+	logger := operational.Logger{Sinks: []operational.Sink{
+		&operational.WriterSink{Writer: &destination, Format: "json"},
+	}}
+	const count = 100
+	var writers sync.WaitGroup
+	writers.Add(count)
+	for index := range count {
+		go func() {
+			defer writers.Done()
+			runID := fmt.Sprintf("run-%03d", index)
+			if err := logger.Write(operational.NewEvent(time.Unix(0, 0), "info",
+				"child", "stream event", "apply", runID, nil)); err != nil {
+				t.Errorf("write correlated event: %v", err)
+			}
+		}()
+	}
+	writers.Wait()
+	lines := bytes.Split(bytes.TrimSpace(destination.Bytes()), []byte{'\n'})
+	if len(lines) != count {
+		t.Fatalf("record count=%d want=%d", len(lines), count)
+	}
+	seen := make(map[string]bool, count)
+	for _, line := range lines {
+		var event operational.Event
+		if err := json.Unmarshal(line, &event); err != nil {
+			t.Fatalf("interleaved event record %q: %v", line, err)
+		}
+		if event.RunID == "" || seen[event.RunID] {
+			t.Fatalf("invalid correlated event: %#v", event)
+		}
+		seen[event.RunID] = true
 	}
 }
 

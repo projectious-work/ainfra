@@ -260,13 +260,23 @@ func readPrivateArtifact(root, name string, limit int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	pathInfo, lstatErr := privateRoot.Lstat(name)
+	if lstatErr != nil {
+		_ = privateRoot.Close()
+		return nil, lstatErr
+	}
+	if !pathInfo.Mode().IsRegular() || pathInfo.Mode().Perm()&0o077 != 0 {
+		_ = privateRoot.Close()
+		return nil, errors.New("artifact is not a private regular file")
+	}
 	handle, openErr := privateRoot.Open(name)
 	if openErr != nil {
 		_ = privateRoot.Close()
 		return nil, openErr
 	}
 	information, statErr := handle.Stat()
-	if statErr != nil || !information.Mode().IsRegular() || information.Mode().Perm()&0o077 != 0 {
+	if statErr != nil || !information.Mode().IsRegular() ||
+		information.Mode().Perm()&0o077 != 0 || !os.SameFile(pathInfo, information) {
 		_ = handle.Close()
 		_ = privateRoot.Close()
 		return nil, errors.New("artifact is not a private regular file")

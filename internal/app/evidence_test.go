@@ -17,7 +17,7 @@ func TestLogsFiltersTypedAinfraErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.StructuredFiltering != "available" || result.View != "errors" ||
+	if result.StructuredFiltering != "partial" || result.View != "errors" ||
 		result.DisplayedRecords != 1 {
 		t.Fatalf("logs=%+v", result)
 	}
@@ -27,15 +27,33 @@ func TestLogsRefusesUnavailableChildEvidenceAndPublicFiles(t *testing.T) {
 	t.Parallel()
 	deployment, runs, id := evidenceFixture(t)
 	options := evidenceOptions(t, runs)
-	if _, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id,
-		Source: "opentofu"}, options); err == nil {
-		t.Fatal("missing child evidence unexpectedly accepted")
+	result, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id,
+		Source: "opentofu", Errors: true}, options)
+	if err != nil || result.StructuredFiltering != "unavailable" ||
+		result.DisplayedRecords != 0 {
+		t.Fatalf("unavailable OpenTofu filtering=%+v err=%v", result, err)
 	}
 	if err := os.Chmod(filepath.Join(runs, id, "events.jsonl"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id}, options); err == nil {
 		t.Fatal("public retained evidence unexpectedly accepted")
+	}
+}
+
+func TestLogsRejectSymlinkedRetainedEvidence(t *testing.T) {
+	t.Parallel()
+	deployment, runs, id := evidenceFixture(t)
+	root := filepath.Join(runs, id)
+	if err := os.Rename(filepath.Join(root, "events.jsonl"), filepath.Join(root, "real-events.jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("real-events.jsonl", filepath.Join(root, "events.jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id,
+		Source: "ainfra"}, evidenceOptions(t, runs)); err == nil {
+		t.Fatal("symlinked retained evidence unexpectedly accepted")
 	}
 }
 
@@ -86,6 +104,12 @@ func TestAnsibleLogsUseVersionedStructuredFailureFields(t *testing.T) {
 	if err != nil || result.StructuredFiltering != "available" ||
 		result.DisplayedRecords != 1 || !strings.Contains(result.Records[0], "runner_on_failed") {
 		t.Fatalf("Ansible logs=%+v err=%v", result, err)
+	}
+	combined, err := app.Logs(app.EvidenceRequest{Target: deployment, RunID: id},
+		evidenceOptions(t, runs))
+	if err != nil || combined.Source != "" || combined.StructuredFiltering != "partial" ||
+		combined.DisplayedRecords != 4 || len(combined.Evidence) != 2 {
+		t.Fatalf("combined logs=%+v err=%v", combined, err)
 	}
 }
 

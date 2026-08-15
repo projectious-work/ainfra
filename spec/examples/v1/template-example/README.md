@@ -131,8 +131,9 @@ The schemas, documentation structure, native inputs, and deterministic fixtures
 were reviewed on 2026-08-06. The provider-free native lifecycle passed with
 OpenTofu 1.12.5 and Ansible Core 2.18.7, including plan, apply, output matching,
 normal configuration, zero-change check mode, destroy plan, and destroy apply.
-Full ainfra black-box validation remains pending implementation of the v1 Go
-CLI. This is a conforming reference template, not evidence of a released CLI or
+The ainfra CLI suites additionally cover saved apply and destroy-plan bindings,
+interruption recovery, retained evidence, and command behavior with isolated
+fake tools. This is a conforming reference template, not evidence of a
 certified provider deployment.
 
 See [`tests/`](tests/) for the executable lifecycle acceptance sequence and

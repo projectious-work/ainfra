@@ -35,7 +35,7 @@ func TestCommandEmitsOperationalStartAndFinishIndependentOfResultFormat(t *testi
 	t.Parallel()
 	var logs, stdout bytes.Buffer
 	logger := operational.Logger{Level: "info", Sinks: []operational.Sink{
-		operational.WriterSink{Writer: &logs, Format: "json"},
+		&operational.WriterSink{Writer: &logs, Format: "json"},
 	}}
 	code := command.Run([]string{"version", "--format", "json"}, command.Options{
 		Build: app.Build{Version: "1.0.0", Commit: "commit", BuiltAt: "2026-08-14T00:00:00Z"},

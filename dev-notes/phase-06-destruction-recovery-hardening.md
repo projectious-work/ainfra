@@ -8,14 +8,26 @@ does not declare shipment: the roadmap moves to `shipped` only after
 
 ## Requirement disposition
 
-| Requirement area | Normative IDs | Planned evidence |
+| Requirement area | Normative IDs | Implementation evidence |
 | --- | --- | --- |
-| Reviewed destruction | AINFRA-DESTROY-001..004, AINFRA-SEC-032..034 | Exact destroy-intent plan loading, complete binding revalidation, shell-free `tofu apply <plan>`, durable lifecycle evidence, and certified-template teardown guidance. |
-| Recovery and resumption | AINFRA-APPLY-004..005, AINFRA-ANS-005 | Typed interruption outcomes, inspection-required events, doctor/status guidance, and refusal to automatically repeat a mutating stage. |
-| Retained run browsing | AINFRA-LOGS-001..007 | Version-checked retained evidence, source/error selection, explicit raw controls, and separation from operational sinks. |
-| Operational logging | AINFRA-LOG-001..005 | Shared pre-sink redaction, deterministic private sinks, surfaced sink failures, and correlated concurrent records. |
-| Security hardening | AINFRA-SEC-001..006, 010..015, 020..027 | Revalidated source/cache/executable/input bindings, hostile cache and path fixtures, chunk-safe redaction, private evidence, and no shell or state inspection. |
-| Verification | AINFRA-TEST requirements and Phase 6 roadmap | Unit, integration, black-box, schema, documentation, and negative security fixtures followed by a full normative sweep. |
+| Reviewed destruction | AINFRA-DESTROY-001..004, AINFRA-SEC-032..034 | `internal/app/destroy.go`, intent-bound review in `internal/run/review.go`, lifecycle tests in `internal/app/plan_test.go`, and provider verification guidance in `docs/content/docs/reviewed-plans.md`. |
+| Recovery and resumption | AINFRA-APPLY-004..005, AINFRA-ANS-005 | Durable terminal and inspection-required events, typed status recovery, doctor guidance, and exclusive mutation starts in `internal/run` and `internal/app`. |
+| Retained run browsing | AINFRA-LOGS-001..007 | Combined chronological evidence, versioned Runner classification, typed unavailable OpenTofu filtering, guarded raw access, and symlink refusal in `internal/app/evidence.go` and its tests. |
+| Operational logging | AINFRA-LOG-001..005 | Shared pre-sink redaction, deterministic private rotation, surfaced sink failures, and serialized correlated records in `internal/logging` plus compiled-CLI coverage. |
+| Security hardening | AINFRA-SEC-001..006, 010..015, 020..027 | Revalidated bindings, owner-only cache trees, directory-scoped file operations, strict retained-artifact identity, hostile fixtures, and fuzzed chunk-safe redaction. |
+| Verification | AINFRA-TEST requirements and Phase 6 roadmap | `scripts/validate-all`, `scripts/test-all`, bounded redaction fuzzing, the documentation build, black-box logging coverage, container-gate tests, `govulncheck`, and `gosec`. |
+
+## Final normative sweep
+
+The implementation sweep completed on 2026-08-15. It closed the remaining
+concurrent structured-log integrity, combined retained-timeline, typed
+OpenTofu filtering-unavailable, and symlinked evidence gaps. The processkit
+release audit reports no errors for either the live or shipped context tree.
+
+Phase 6 remains `in_progress`. Release packaging, host verification, signing,
+publication, and independent verification for `v1.0.0-alpha.6` are separate
+release gates; only their successful completion may move the roadmap phase to
+`shipped`.
 
 ## Delivery slices
 

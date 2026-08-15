@@ -17,6 +17,8 @@ import (
 	"github.com/projectious-work/ainfra/internal/security"
 )
 
+var errStructuredEvidenceUnavailable = errors.New("retained structured evidence is unavailable")
+
 // EvidenceRequest selects retained, ainfra-owned run evidence.
 type EvidenceRequest struct {
 	Target, ProjectPath, ConfigPath, RunID string
@@ -53,10 +55,13 @@ func Logs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error)
 		return rawLogs(request, options)
 	}
 	if request.Source == "" {
-		request.Source = "ainfra"
+		return combinedLogs(request, options)
 	}
 	if request.Source == "ansible-runner" {
 		return ansibleLogs(request, options)
+	}
+	if request.Source == "opentofu" {
+		return unavailableOpenTofuLogs(request, options)
 	}
 	if request.Source != "ainfra" {
 		return output.Logs{}, errors.New("retained structured evidence for selected child source is unavailable")
@@ -97,6 +102,79 @@ func Logs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error)
 		Records: records}, nil
 }
 
+func unavailableOpenTofuLogs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error) {
+	deployment, runsRoot, err := evidenceDeployment(request, options)
+	if err != nil {
+		return output.Logs{}, err
+	}
+	root, err := security.ResolveContained(runsRoot, request.RunID)
+	if err != nil {
+		return output.Logs{}, errors.New("retained run ID is invalid")
+	}
+	evidence := make([]output.Evidence, 0, 2)
+	for _, stream := range []string{"stdout", "stderr"} {
+		name := "opentofu." + stream
+		present, inspectErr := privateArtifactPresent(root, name)
+		if inspectErr != nil {
+			return output.Logs{}, fmt.Errorf("inspect retained OpenTofu stream: %w", inspectErr)
+		}
+		if present {
+			evidence = append(evidence, output.Evidence{Kind: "raw-engine-stream",
+				Engine: "opentofu", Path: name, Sensitive: true})
+		}
+	}
+	view := "timeline"
+	if request.Errors {
+		view = "errors"
+	}
+	return output.Logs{Deployment: output.Deployment{Name: deployment.Metadata.Name,
+		Root: deployment.Target.Root}, RunID: request.RunID, View: view,
+		Source: "opentofu", StructuredFiltering: "unavailable",
+		DisplayedRecords: 0, Evidence: evidence, Records: []string{}}, nil
+}
+
+func privateArtifactPresent(root, name string) (bool, error) {
+	directory, err := os.OpenRoot(root)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = directory.Close() }()
+	info, err := directory.Lstat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+		return false, errors.New("artifact is not a private regular file")
+	}
+	return true, nil
+}
+
+func combinedLogs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error) {
+	ainfraRequest := request
+	ainfraRequest.Source = "ainfra"
+	combined, err := Logs(ainfraRequest, options)
+	if err != nil {
+		return output.Logs{}, err
+	}
+	combined.Source = ""
+	combined.StructuredFiltering = "partial"
+	ansibleRequest := request
+	ansibleRequest.Source = "ansible-runner"
+	ansibleResult, ansibleErr := ansibleLogs(ansibleRequest, options)
+	if ansibleErr == nil {
+		combined.Records = append(combined.Records, ansibleResult.Records...)
+		combined.Evidence = append(combined.Evidence, ansibleResult.Evidence...)
+	} else if !errors.Is(ansibleErr, errStructuredEvidenceUnavailable) {
+		return output.Logs{}, ansibleErr
+	}
+	sort.Strings(combined.Records)
+	combined.DisplayedRecords = len(combined.Records)
+	return combined, nil
+}
+
 func ansibleLogs(request EvidenceRequest, options PlanHostOptions) (output.Logs, error) {
 	deployment, runsRoot, err := evidenceDeployment(request, options)
 	if err != nil {
@@ -133,7 +211,7 @@ func ansibleLogs(request EvidenceRequest, options PlanHostOptions) (output.Logs,
 			Engine: "ansible-runner", Path: filepath.ToSlash(artifactDir), Sensitive: true})
 	}
 	if len(evidence) == 0 {
-		return output.Logs{}, errors.New("retained Ansible Runner structured evidence is unavailable")
+		return output.Logs{}, fmt.Errorf("retained Ansible Runner: %w", errStructuredEvidenceUnavailable)
 	}
 	view := "timeline"
 	if request.Errors {
