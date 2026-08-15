@@ -11,11 +11,11 @@ repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)"
 usage() {
   printf '%s\n' \
     'usage:' \
-    '  scripts/maintain.sh release-package --version=SEMVER [--dry-run]' \
-    '  scripts/maintain.sh release-host-prepare --version=SEMVER' \
-    '  scripts/maintain.sh release-host --version=SEMVER [--dry-run]' \
-    '  scripts/maintain.sh release-sign --version=SEMVER [--dry-run]' \
-    '  scripts/maintain.sh release-publish --version=SEMVER [--dry-run]'
+    '  devcontainer: scripts/maintain.sh release-package --version=SEMVER [--dry-run]' \
+    '  host: scripts/maintain.sh release-host-prepare --version=SEMVER' \
+    '  host: scripts/maintain.sh release-host --version=SEMVER [--dry-run]' \
+    '  host: scripts/maintain.sh release-sign --version=SEMVER [--dry-run]' \
+    '  host: scripts/maintain.sh release-publish --version=SEMVER [--dry-run]'
 }
 
 require_preparation_tools() {
