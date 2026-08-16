@@ -74,6 +74,36 @@ spec:
 		environmentDoctor.EffectiveConfiguration == nil {
 		t.Fatalf("unexpected environment doctor: %+v", environmentDoctor)
 	}
+	reconciliation, err := session.PlanReconciliation()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reconciliation.Deployment != session.Project || len(reconciliation.Actions) != 1 ||
+		reconciliation.Actions[0].Path != ".ainfra" ||
+		reconciliation.Actions[0].Kind != "create_runtime_directory" ||
+		reconciliation.Actions[0].Mode != "0700" {
+		t.Fatalf("unexpected reconciliation plan: %+v", reconciliation)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("reconciliation planning created runtime directory: %v", err)
+	}
+}
+
+func TestPrepareMCPServeValidatesCapabilityAllowlist(t *testing.T) {
+	t.Parallel()
+	for _, capabilities := range [][]string{
+		{"unknown"},
+		{app.MCPPlanningCapability, app.MCPPlanningCapability},
+		{app.MCPDeploymentCapability},
+		{app.MCPDestructionCapability},
+	} {
+		_, err := app.PrepareMCPServe(context.Background(),
+			app.MCPServeRequest{Capabilities: capabilities}, mcpServeOptions(t,
+				app.PlanHostOptions{Environment: map[string]string{}}))
+		if err == nil {
+			t.Fatalf("invalid capabilities succeeded: %v", capabilities)
+		}
+	}
 }
 
 func TestPrepareMCPServeRejectsConflictingEnvironmentProject(t *testing.T) {

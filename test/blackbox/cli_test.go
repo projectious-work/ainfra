@@ -359,6 +359,10 @@ spec:
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")
 	}
+	if _, err := session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.reconciliation.plan"}); err == nil {
+		t.Fatal("undisclosed planning tool call succeeded")
+	}
 	concurrent := make(chan error, 32)
 	for range 32 {
 		go func() {
@@ -455,6 +459,80 @@ spec:
 				t.Fatalf("unexpected sanitized stderr: %q", stderr.String())
 			}
 		})
+	}
+}
+
+func TestMCPStdioPlanningCapabilityIsExplicitAndNonApplying(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: planning-blackbox
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	process := exec.Command(binary, "mcp", "serve", "--stdio", "--capability", "planning")
+	process.Dir = projectRoot
+	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "planning-blackbox", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 10 {
+		t.Fatalf("planning registry: %+v", tools.Tools)
+	}
+	result, err := session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.reconciliation.plan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	plan, planOK := structured["result"].(map[string]any)
+	actions, actionsOK := plan["actions"].([]any)
+	if result.IsError || !ok || !planOK || !actionsOK || len(actions) != 1 {
+		t.Fatalf("planning result: %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("planning capability applied a repair: %v", err)
+	}
+}
+
+func TestMCPStdioRejectsInvalidCapabilityBeforeProtocolOutput(t *testing.T) {
+	t.Parallel()
+	for _, arguments := range [][]string{
+		{"mcp", "serve", "--stdio", "--capability", "unknown"},
+		{"mcp", "serve", "--stdio", "--capability", "deployment"},
+		{"mcp", "serve", "--stdio", "--capability", "destruction"},
+	} {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		process := exec.CommandContext(ctx, binary, arguments...)
+		process.Dir = t.TempDir()
+		process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+			"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+		var stdout, stderr bytes.Buffer
+		process.Stdout, process.Stderr = &stdout, &stderr
+		err := process.Run()
+		cancel()
+		if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "AINFRA-E5001") {
+			t.Fatalf("invalid capability args=%v err=%v stdout=%q stderr=%q",
+				arguments, err, stdout.String(), stderr.String())
+		}
 	}
 }
 

@@ -142,6 +142,19 @@ type InventoryResult struct {
 	Diagnostics []diagnostic.Diagnostic   `json:"diagnostics"`
 }
 
+// ReconciliationPlanInput is closed because the project and planner registry
+// are fixed at server startup.
+type ReconciliationPlanInput struct{}
+
+// ReconciliationPlanResult is the versioned non-applying planning result.
+type ReconciliationPlanResult struct {
+	APIVersion  string                     `json:"apiVersion"`
+	Tool        string                     `json:"tool"`
+	OK          bool                       `json:"ok"`
+	Result      *app.MCPReconciliationPlan `json:"result"`
+	Diagnostics []diagnostic.Diagnostic    `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -329,6 +342,26 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				Tool: "ainfra.inventory.read", OK: true, Result: &result,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
+	if session.CapabilityEnabled(app.MCPPlanningCapability) {
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.reconciliation.plan",
+			Description: "Preview registered local repairs without applying them.",
+			Annotations: &mcp.ToolAnnotations{Title: "plan ainfra reconciliation",
+				ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+			func(_ context.Context, _ *mcp.CallToolRequest, _ ReconciliationPlanInput) (*mcp.CallToolResult,
+				ReconciliationPlanResult, error) {
+				result, err := session.PlanReconciliation()
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, ReconciliationPlanResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.reconciliation.plan", OK: false,
+						Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E2300",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "doctor"}},
+					}, nil
+				}
+				return nil, ReconciliationPlanResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.reconciliation.plan", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
+	}
 	addContractResources(server, limiter)
 	return server
 }

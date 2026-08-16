@@ -200,3 +200,71 @@ func TestProtocolVersionIsCurrentPhaseSelection(t *testing.T) {
 		t.Fatalf("protocol version = %q", got)
 	}
 }
+
+func TestPlanningCapabilityDisclosesOnlyNonApplyingPreview(t *testing.T) {
+	t.Parallel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: planning-test
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	planOptions := app.PlanHostOptions{WorkingDirectory: t.TempDir(), HomeDirectory: t.TempDir(),
+		CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(), Environment: map[string]string{}}
+	policy, err := app.PrepareMCPServe(context.Background(), app.MCPServeRequest{
+		ProjectPath: projectRoot, Capabilities: []string{app.MCPPlanningCapability},
+	}, app.MCPServeOptions{Plan: planOptions, Doctor: app.DoctorEnvironmentOptions{
+		GOOS: "linux", GOARCH: "arm64", WorkingDirectory: planOptions.WorkingDirectory,
+		HomeDirectory: planOptions.HomeDirectory, CacheDirectory: planOptions.CacheDirectory,
+		RunDirectory: planOptions.RunDirectory, Environment: map[string]string{},
+		InspectExecutable: func(_ context.Context, name, _ string) (doctor.ExecutableFact, error) {
+			return doctor.ExecutableFact{Path: "/tools/" + name, Version: name + " 1.0"}, nil
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+	server := mcpserver.New(policy, mcpserver.Options{Build: app.Build{Version: "1"},
+		Stderr: &bytes.Buffer{}})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = server.Run(ctx, serverTransport) }()
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 10 {
+		t.Fatalf("planning registry: %+v", tools.Tools)
+	}
+	result, err := session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.reconciliation.plan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	plan, planOK := structured["result"].(map[string]any)
+	actions, actionsOK := plan["actions"].([]any)
+	if result.IsError || !ok || !planOK || !actionsOK || len(actions) != 1 {
+		t.Fatalf("unexpected reconciliation plan: %#v", result)
+	}
+	action, actionOK := actions[0].(map[string]any)
+	if !actionOK || action["path"] != ".ainfra" || action["mode"] != "0700" {
+		t.Fatalf("unexpected reconciliation action: %#v", actions[0])
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("planning tool applied reconciliation: %v", err)
+	}
+}

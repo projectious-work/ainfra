@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
@@ -31,6 +33,32 @@ type MCPServeSession struct {
 	runsRoot          string
 	cacheRoot         string
 	environmentDoctor output.Doctor
+	capabilities      map[string]struct{}
+}
+
+const (
+	// MCPPlanningCapability exposes non-applying planning operations.
+	MCPPlanningCapability = "planning"
+	// MCPDeploymentCapability gates authorized lifecycle mutations.
+	MCPDeploymentCapability = "deployment"
+	// MCPDestructionCapability additionally gates destroy execution.
+	MCPDestructionCapability = "destruction"
+)
+
+// MCPReconciliationAction is one stable, reviewable project-local repair.
+type MCPReconciliationAction struct {
+	Check              string `json:"check"`
+	Path               string `json:"path"`
+	Kind               string `json:"kind"`
+	Mode               string `json:"mode"`
+	RollbackLimitation string `json:"rollbackLimitation"`
+}
+
+// MCPReconciliationPlan is a non-applying preview for the startup project.
+type MCPReconciliationPlan struct {
+	Deployment output.Deployment         `json:"deployment"`
+	Doctor     output.Doctor             `json:"doctor"`
+	Actions    []MCPReconciliationAction `json:"actions"`
 }
 
 // Status reads sanitized retained lifecycle state for the fixed startup
@@ -73,11 +101,45 @@ func (session MCPServeSession) DoctorEnvironment() output.Doctor {
 	return session.environmentDoctor
 }
 
+// CapabilityEnabled reports whether an optional startup capability was
+// explicitly allowlisted.
+func (session MCPServeSession) CapabilityEnabled(capability string) bool {
+	_, enabled := session.capabilities[capability]
+	return enabled
+}
+
+// PlanReconciliation computes registered local repairs without applying them.
+func (session MCPServeSession) PlanReconciliation() (MCPReconciliationPlan, error) {
+	doctorResult, actions, err := diagnoseDeployment(session.project,
+		session.cacheRoot, reconcile.Planner{}, false, true)
+	if err != nil {
+		return MCPReconciliationPlan{}, err
+	}
+	result := MCPReconciliationPlan{Deployment: session.Project, Doctor: doctorResult,
+		Actions: make([]MCPReconciliationAction, len(actions))}
+	for index, action := range actions {
+		relative, relativeErr := filepath.Rel(session.Project.Root, action.Path)
+		if relativeErr != nil || relative == ".." ||
+			strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+			return MCPReconciliationPlan{}, errors.New("reconciliation action escaped project root")
+		}
+		result.Actions[index] = MCPReconciliationAction{Check: action.CheckID,
+			Path: filepath.ToSlash(relative), Kind: string(action.Kind),
+			Mode:               fmt.Sprintf("%04o", action.Mode.Perm()),
+			RollbackLimitation: action.RollbackLimitation}
+	}
+	return result, nil
+}
+
 // PrepareMCPServe resolves one project and validates its normal configuration
 // before a protocol transport starts accepting requests.
 func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
 	options MCPServeOptions,
 ) (MCPServeSession, error) {
+	capabilities, err := validateMCPCapabilities(request.Capabilities)
+	if err != nil {
+		return MCPServeSession{}, err
+	}
 	planOptions := options.Plan
 	environmentPath := planOptions.Environment["AINFRA_PROJECT"]
 	if request.ProjectPath != "" && environmentPath != "" &&
@@ -109,7 +171,26 @@ func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
 		Name: deployment.Metadata.Name,
 		Root: deployment.Target.Root,
 	}, project: deployment, runsRoot: settings.Paths.Runs,
-		cacheRoot: settings.Paths.Cache, environmentDoctor: environment.Result}, nil
+		cacheRoot: settings.Paths.Cache, environmentDoctor: environment.Result,
+		capabilities: capabilities}, nil
+}
+
+func validateMCPCapabilities(requested []string) (map[string]struct{}, error) {
+	capabilities := make(map[string]struct{}, len(requested))
+	for _, capability := range requested {
+		switch capability {
+		case MCPPlanningCapability:
+		case MCPDeploymentCapability, MCPDestructionCapability:
+			return nil, fmt.Errorf("MCP capability %q is not available", capability)
+		default:
+			return nil, fmt.Errorf("unsupported MCP capability %q", capability)
+		}
+		if _, duplicate := capabilities[capability]; duplicate {
+			return nil, fmt.Errorf("duplicate MCP capability %q", capability)
+		}
+		capabilities[capability] = struct{}{}
+	}
+	return capabilities, nil
 }
 
 func cloneEnvironment(source map[string]string) map[string]string {

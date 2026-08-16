@@ -106,9 +106,20 @@ compiled-binary concurrency fixture verifies unique correlations and confirms
 that standardized output content and the project root do not enter the audit
 sink.
 
+Optional capability selection is a repeatable startup-only
+`--capability GROUP` allowlist. Unknown, duplicate, and not-yet-implemented
+groups fail before protocol output; the default registry remains unchanged.
+The first implemented group, `planning`, discloses exactly one additional
+read-only tool: `ainfra.reconciliation.plan`. It calls the existing registered
+local-repair planner with application disabled and returns stable relative
+paths, modes, rollback limitations, and the accompanying deployment diagnosis.
+Compiled tests prove that planning must be explicitly enabled and that calling
+it does not create `.ainfra` or otherwise apply the proposed repair.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-Capability groups and independent mutation authorization remain subsequent
-Phase 7 slices.
+The deployment and destruction capability groups, along with independent
+mutation authorization, remain subsequent Phase 7 slices and are rejected by
+the current startup validator.

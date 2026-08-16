@@ -68,10 +68,11 @@ func helpFor(topic string) (output.Help, bool) {
 			Subcommands: []output.HelpNamedItem{
 				{Name: "serve", Summary: "Serve the allowlisted registry."},
 			}, Arguments: []output.HelpArgument{}, Options: options()},
-		"mcp.serve": command("mcp.serve", "ainfra mcp serve --stdio [--project PATH]",
+		"mcp.serve": command("mcp.serve", "ainfra mcp serve --stdio [--project PATH] [--capability GROUP]",
 			"Serve read-only MCP tools over standard input and output.", nil,
 			output.HelpOption{Names: []string{"--stdio"}, Summary: "Use newline-delimited stdio transport."},
-			output.HelpOption{Names: []string{"--project"}, ValueName: "PATH", Summary: "Select the allowed project root."}),
+			output.HelpOption{Names: []string{"--project"}, ValueName: "PATH", Summary: "Select the allowed project root."},
+			output.HelpOption{Names: []string{"--capability"}, ValueName: "GROUP", Summary: "Enable an optional capability group."}),
 		"init":               command("init", "ainfra init [DEPLOYMENT] [options]", "Create a minimal deployment definition.", argument("DEPLOYMENT", "Deployment directory.", false)),
 		"doctor.all":         command("doctor.all", "ainfra doctor all [TARGET] [--reconcile]", "Run all applicable diagnostics.", argument("TARGET", "Deployment or project target.", false), reconcileOptions()...),
 		"doctor.deployment":  command("doctor.deployment", "ainfra doctor deployment [TARGET] [--reconcile]", "Diagnose a deployment.", argument("TARGET", "Deployment or project target.", false), reconcileOptions()...),

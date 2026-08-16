@@ -192,6 +192,14 @@ func runMCPServe(arguments, controlArguments []string, options Options) ExitCode
 	flags.SetOutput(io.Discard)
 	stdio := flags.Bool("stdio", false, "serve MCP over standard input and output")
 	projectPath := flags.String("project", "", "allowed project root")
+	capabilities := make([]string, 0, 3)
+	flags.Func("capability", "explicitly allowlisted capability group", func(value string) error {
+		if value == "" {
+			return errors.New("capability name is required")
+		}
+		capabilities = append(capabilities, value)
+		return nil
+	})
 	if err := flags.Parse(controlArguments); err != nil {
 		return failInvocation(arguments, err.Error(), options.IO)
 	}
@@ -202,7 +210,7 @@ func runMCPServe(arguments, controlArguments []string, options Options) ExitCode
 		return failInvocation(arguments, "MCP server mode is unavailable", options.IO)
 	}
 	if err := options.MCPServe(context.Background(), app.MCPServeRequest{
-		ProjectPath: *projectPath, Capabilities: []string{},
+		ProjectPath: *projectPath, Capabilities: capabilities,
 	}); err != nil {
 		_, _ = fmt.Fprintf(options.IO.Stderr, "AINFRA-E5001: MCP server failed: %s\n", err)
 		return ExitOperationFailed
@@ -1020,7 +1028,8 @@ func splitInvocation(arguments []string) (
 			continue
 		}
 		if argument == "--config" || argument == "--project" || argument == "--plan" ||
-			argument == "--run" || argument == "--source" || argument == "--stream" {
+			argument == "--run" || argument == "--source" || argument == "--stream" ||
+			argument == "--capability" {
 			controlArguments = append(controlArguments, argument)
 			if index+1 < len(arguments) {
 				index++
@@ -1046,6 +1055,7 @@ func splitInvocation(arguments []string) (
 func stringsHasControlPrefix(argument string) bool {
 	return strings.HasPrefix(argument, "--config=") ||
 		strings.HasPrefix(argument, "--project=") ||
+		strings.HasPrefix(argument, "--capability=") ||
 		strings.HasPrefix(argument, "--plan=") ||
 		strings.HasPrefix(argument, "--run=")
 }

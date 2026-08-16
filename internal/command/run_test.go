@@ -102,14 +102,15 @@ func TestMCPServeRequiresStdioAndDispatchesProject(t *testing.T) {
 		t.Fatalf("missing stdio exit = %d", code)
 	}
 	var request app.MCPServeRequest
-	code = command.Run([]string{"mcp", "serve", "--stdio", "--project", "/tmp/example"},
+	code = command.Run([]string{"mcp", "serve", "--stdio", "--project", "/tmp/example",
+		"--capability", "planning"},
 		command.Options{IO: command.IO{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
 			MCPServe: func(_ context.Context, value app.MCPServeRequest) error {
 				request = value
 				return nil
 			}})
 	if code != command.ExitSuccess || request.ProjectPath != "/tmp/example" ||
-		request.Capabilities == nil || len(request.Capabilities) != 0 {
+		len(request.Capabilities) != 1 || request.Capabilities[0] != "planning" {
 		t.Fatalf("exit=%d request=%+v", code, request)
 	}
 }
