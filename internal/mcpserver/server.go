@@ -209,6 +209,20 @@ type TemplatePlanResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// TemplateMigrationPlanInput selects an explicit supported target contract.
+type TemplateMigrationPlanInput struct {
+	TargetVersion string `json:"targetVersion" jsonschema:"target template contract version"`
+}
+
+// TemplateMigrationPlanResult is the versioned non-writing migration analysis.
+type TemplateMigrationPlanResult struct {
+	APIVersion  string                        `json:"apiVersion"`
+	Tool        string                        `json:"tool"`
+	OK          bool                          `json:"ok"`
+	Result      *app.MCPTemplateMigrationPlan `json:"result"`
+	Diagnostics []diagnostic.Diagnostic       `json:"diagnostics"`
+}
+
 // TemplateWriteInput binds one lock/update operation to an independently
 // approved preview.
 type TemplateWriteInput struct {
@@ -521,6 +535,26 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				}
 				return nil, TemplatePlanResult{APIVersion: output.APIVersion,
 					Tool: "ainfra.template.plan", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.template.migration.plan",
+			Description: "Analyze an explicit migration of the bound local template working copy.",
+			Annotations: &mcp.ToolAnnotations{Title: "plan ainfra template migration",
+				ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+			func(_ context.Context, _ *mcp.CallToolRequest,
+				input TemplateMigrationPlanInput,
+			) (*mcp.CallToolResult, TemplateMigrationPlanResult, error) {
+				result, err := session.PlanTemplateMigration(input.TargetVersion)
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, TemplateMigrationPlanResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.template.migration.plan", OK: false,
+						Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E3002",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "migration",
+							NextAction: "Select a supported explicit target for a local template working copy."}},
+					}, nil
+				}
+				return nil, TemplateMigrationPlanResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.template.migration.plan", OK: true, Result: &result,
 					Diagnostics: []diagnostic.Diagnostic{}}, nil
 			})
 		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.plan.create",

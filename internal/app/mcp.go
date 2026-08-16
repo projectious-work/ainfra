@@ -15,6 +15,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/config"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
+	"github.com/projectious-work/ainfra/internal/migration"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
 	"github.com/projectious-work/ainfra/internal/reconcile"
@@ -152,6 +153,14 @@ type MCPTemplatePlan struct {
 type MCPTemplateWriteResult struct {
 	Plan          MCPTemplatePlan  `json:"plan"`
 	Authorization MCPAuthorization `json:"authorization"`
+}
+
+// MCPTemplateMigrationPlan is a deterministic, path-free migration preview
+// for the startup deployment's local template working copy.
+type MCPTemplateMigrationPlan struct {
+	PlanID     string         `json:"planId"`
+	PlanDigest string         `json:"planDigest"`
+	Plan       migration.Plan `json:"plan"`
 }
 
 type MCPTemplateEngine struct {
@@ -416,6 +425,41 @@ func (session MCPServeSession) PlanTemplateLock(ctx context.Context,
 ) (MCPTemplatePlan, error) {
 	plan, _, err := session.templateLockPlan(ctx, operation)
 	return plan, err
+}
+
+// PlanTemplateMigration analyzes only the startup deployment's fixed local
+// source. Remote and digest-addressed cached content are never migration roots.
+func (session MCPServeSession) PlanTemplateMigration(targetVersion string) (
+	MCPTemplateMigrationPlan, error,
+) {
+	reference, err := source.Parse(session.project.Template.Source, session.project.Template.Ref)
+	if err != nil {
+		return MCPTemplateMigrationPlan{}, fmt.Errorf("parse template source: %w", err)
+	}
+	if reference.Kind != source.KindLocal {
+		return MCPTemplateMigrationPlan{},
+			errors.New("template migration requires the bound local working copy")
+	}
+	resolved, err := source.ResolveLocal(reference, session.Project.Root)
+	if err != nil {
+		return MCPTemplateMigrationPlan{}, fmt.Errorf("resolve local template source: %w", err)
+	}
+	plan, err := migration.Analyze(resolved.Path, targetVersion)
+	if err != nil {
+		return MCPTemplateMigrationPlan{}, err
+	}
+	binding, err := json.Marshal(struct {
+		Deployment string         `json:"deployment"`
+		Source     string         `json:"source"`
+		Plan       migration.Plan `json:"plan"`
+	}{Deployment: session.Project.Name, Source: reference.Canonical, Plan: plan})
+	if err != nil {
+		return MCPTemplateMigrationPlan{}, err
+	}
+	digest := sha256.Sum256(binding)
+	encoded := hex.EncodeToString(digest[:])
+	return MCPTemplateMigrationPlan{PlanID: "migration-" + encoded[:32],
+		PlanDigest: "sha256:" + encoded, Plan: plan}, nil
 }
 
 func (session MCPServeSession) templateLockPlan(ctx context.Context,

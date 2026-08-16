@@ -264,7 +264,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 14 {
+	if len(tools.Tools) != 15 {
 		t.Fatalf("planning registry: %+v", tools.Tools)
 	}
 	var createPlan *mcp.Tool
@@ -310,6 +310,17 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(projectRoot, "ainfra.lock")); !os.IsNotExist(err) {
 		t.Fatalf("template planning published a lock: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "ainfra.template.migration.plan",
+		Arguments: map[string]any{"targetVersion": "v2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	if !result.IsError || !ok || structured["tool"] != "ainfra.template.migration.plan" ||
+		structured["ok"] != false {
+		t.Fatalf("unexpected migration plan failure: %#v", result)
 	}
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.plan.create",
 		Arguments: map[string]any{"intent": "invalid"}})

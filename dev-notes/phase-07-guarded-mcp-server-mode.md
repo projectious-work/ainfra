@@ -274,8 +274,19 @@ or lock preconditions before publication. Only then may the exact
 source changes during authorization, replay protection, and successful local
 publication without opaque approval retention.
 
-Template migration planning remains a subsequent Phase 7 slice, but requires
-the specified `internal/migration` application package rather than an MCP-only
-implementation. Final AINFRA-MCP-001 through
-AINFRA-MCP-010 conformance closure and end-user documentation also remain.
-Undeclared capability groups are rejected by the current startup validator.
+The specified `internal/migration` domain package now owns explicit
+source-version to target-version analysis. With v1 as the only supported
+template API, its initial registered transition is a deterministic validated
+v1-to-v1 no-op; unsupported or ambiguous versions, symlink roots, and invalid
+templates fail closed rather than guessing a rewrite. It never mutates the
+working copy. The `planning` capability exposes this core through
+`ainfra.template.migration.plan` for only the startup deployment's bound local
+working copy. Git and digest-addressed cached templates are refused as
+migration roots. Results contain a path-free typed plan plus deterministic plan
+ID and SHA-256 digest, and tests prove idempotency, non-mutation, unsafe-source
+refusal, unsupported-target refusal, and absence of host path disclosure.
+
+The planned Phase 7 functional registry is now present. Final
+AINFRA-MCP-001 through AINFRA-MCP-010 conformance closure and end-user
+documentation remain. Undeclared capability groups are rejected by the current
+startup validator.

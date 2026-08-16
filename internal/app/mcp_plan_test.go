@@ -14,6 +14,7 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/config"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
+	"github.com/projectious-work/ainfra/internal/migration"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
 	"github.com/projectious-work/ainfra/internal/reconcile"
@@ -34,9 +35,9 @@ metadata:
   name: mcp-plan
 spec:
   template:
-    source: local:../template
+    source: local:../template-example
 `)
-	templateRoot := filepath.Join(root, "template")
+	templateRoot := filepath.Join(root, "template-example")
 	if err := os.CopyFS(templateRoot, os.DirFS("../../spec/examples/v1/template-example")); err != nil {
 		t.Fatal(err)
 	}
@@ -45,8 +46,8 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	document := lockfile.New(lockfile.Template{Source: "local:../template",
-		Resolved: "local:../template", Version: "1.0.0", Digest: materialized.Digest,
+	document := lockfile.New(lockfile.Template{Source: "local:../template-example",
+		Resolved: "local:../template-example", Version: "1.0.0", Digest: materialized.Digest,
 		ResolvedAt: time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)})
 	if err := lockfile.Write(filepath.Join(projectRoot, lockfile.Filename), document); err != nil {
 		t.Fatal(err)
@@ -110,8 +111,21 @@ printf '%s\n' '{"event":"playbook_on_stats","event_data":{"changed":{},"dark":{}
 	}
 	deploymentContract := session.InspectDeployment()
 	if deploymentContract.Name != "mcp-plan" ||
-		deploymentContract.Template.Source != "local:../template" {
+		deploymentContract.Template.Source != "local:../template-example" {
 		t.Fatalf("unexpected deployment contract: %+v", deploymentContract)
+	}
+	migrationPlan, err := session.PlanTemplateMigration(migration.VersionV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedMigration, err := json.Marshal(migrationPlan)
+	if err != nil || migrationPlan.PlanID == "" || migrationPlan.PlanDigest == "" ||
+		migrationPlan.Plan.SourceVersion != migration.VersionV1 ||
+		bytes.Contains(encodedMigration, []byte(root)) {
+		t.Fatalf("unsafe migration plan: %s, %v", encodedMigration, err)
+	}
+	if _, err := session.PlanTemplateMigration("v2"); err == nil {
+		t.Fatal("unsupported migration target succeeded")
 	}
 	lockPath := filepath.Join(projectRoot, lockfile.Filename)
 	if err := os.Remove(lockPath); err != nil {
