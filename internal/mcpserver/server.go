@@ -3,6 +3,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
 	"github.com/projectious-work/ainfra/internal/output"
+	contracts "github.com/projectious-work/ainfra/spec"
 )
 
 const protocolVersion = "2026-07-28"
@@ -117,7 +119,69 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				Tool: "ainfra.status", OK: true, Result: &status,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
+	addContractResources(server)
 	return server
+}
+
+func addContractResources(server *mcp.Server) {
+	for _, name := range contracts.Schemas() {
+		name := name
+		contents, ok := contracts.Schema(name)
+		if !ok {
+			panic("registered schema is not embedded: " + name)
+		}
+		uri := "ainfra://schemas/v1/" + name
+		server.AddResource(&mcp.Resource{Name: name, Title: "ainfra v1 schema: " + name,
+			Description: "Published, immutable ainfra v1 JSON Schema.",
+			MIMEType:    "application/schema+json", URI: uri, Size: int64(len(contents))},
+			func(_ context.Context, _ *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
+					URI: uri, MIMEType: "application/schema+json", Text: string(contents),
+				}}}, nil
+			})
+	}
+	catalog := contractCatalog()
+	const catalogURI = "ainfra://contracts/v1"
+	server.AddResource(&mcp.Resource{Name: "ainfra-contracts-v1",
+		Title:       "ainfra v1 contracts and documentation",
+		Description: "Supported contract versions, schema resources, and documentation references.",
+		MIMEType:    "application/json", URI: catalogURI, Size: int64(len(catalog))},
+		func(_ context.Context, _ *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+			return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
+				URI: catalogURI, MIMEType: "application/json", Text: catalog,
+			}}}, nil
+		})
+}
+
+func contractCatalog() string {
+	type reference struct {
+		Name string `json:"name"`
+		URI  string `json:"uri"`
+	}
+	schemaNames := contracts.Schemas()
+	schemas := make([]reference, len(schemaNames))
+	for index, name := range schemaNames {
+		schemas[index] = reference{Name: name, URI: "ainfra://schemas/v1/" + name}
+	}
+	value := struct {
+		APIVersion                string                           `json:"apiVersion"`
+		SupportedContractVersions output.SupportedContractVersions `json:"supportedContractVersions"`
+		Schemas                   []reference                      `json:"schemas"`
+		Documentation             []reference                      `json:"documentation"`
+	}{APIVersion: "ainfra.contracts/v1",
+		SupportedContractVersions: app.Version(app.Build{}).SupportedContractVersions,
+		Schemas:                   schemas,
+		Documentation: []reference{
+			{Name: "documentation", URI: "https://projectious-work.github.io/ainfra/docs/"},
+			{Name: "roadmap", URI: "https://projectious-work.github.io/ainfra/docs/roadmap/"},
+			{Name: "v1 specification", URI: "https://github.com/projectious-work/ainfra/tree/v1.x-dev/spec/doc/v1"},
+		},
+	}
+	contents, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return string(contents)
 }
 
 func boolPointer(value bool) *bool { return &value }

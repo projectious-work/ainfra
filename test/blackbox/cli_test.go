@@ -175,6 +175,31 @@ spec:
 			t.Fatalf("default tool is not read-only: %+v", tool)
 		}
 	}
+	resources, err := session.ListResources(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resources.Resources) != 11 {
+		t.Fatalf("unexpected resources: %+v", resources.Resources)
+	}
+	catalog, err := session.ReadResource(ctx,
+		&mcp.ReadResourceParams{URI: "ainfra://contracts/v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Contents) != 1 ||
+		!strings.Contains(catalog.Contents[0].Text, `"apiVersion":"ainfra.contracts/v1"`) {
+		t.Fatalf("unexpected contract catalog: %+v", catalog)
+	}
+	schema, err := session.ReadResource(ctx,
+		&mcp.ReadResourceParams{URI: "ainfra://schemas/v1/machine-output.schema.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schema.Contents) != 1 || schema.Contents[0].MIMEType != "application/schema+json" ||
+		!strings.Contains(schema.Contents[0].Text, `"$schema"`) {
+		t.Fatalf("unexpected schema resource: %+v", schema)
+	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"})
 	if err != nil {
 		t.Fatal(err)

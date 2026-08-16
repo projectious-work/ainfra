@@ -67,6 +67,35 @@ spec:
 			t.Fatalf("default tool is not read-only: %+v", tool)
 		}
 	}
+	resources, err := session.ListResources(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resources.Resources) != 11 {
+		t.Fatalf("unexpected resources: %+v", resources.Resources)
+	}
+	catalog, err := session.ReadResource(ctx,
+		&mcp.ReadResourceParams{URI: "ainfra://contracts/v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Contents) != 1 ||
+		!bytes.Contains([]byte(catalog.Contents[0].Text), []byte(`"apiVersion":"ainfra.contracts/v1"`)) {
+		t.Fatalf("unexpected contract catalog: %+v", catalog)
+	}
+	schema, err := session.ReadResource(ctx,
+		&mcp.ReadResourceParams{URI: "ainfra://schemas/v1/ainfra.schema.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schema.Contents) != 1 || schema.Contents[0].MIMEType != "application/schema+json" ||
+		!bytes.Contains([]byte(schema.Contents[0].Text), []byte(`"$schema"`)) {
+		t.Fatalf("unexpected schema resource: %+v", schema)
+	}
+	if _, err := session.ReadResource(ctx,
+		&mcp.ReadResourceParams{URI: "ainfra://schemas/v1/../go.mod"}); err == nil {
+		t.Fatal("unknown resource URI succeeded")
+	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"})
 	if err != nil {
 		t.Fatal(err)

@@ -42,10 +42,17 @@ arguments. It reads only the fixed startup project and its configured private
 run root, preserves inspection-required recovery guidance, and returns typed
 `AINFRA-E4601` diagnostics on failure.
 
+Published v1 JSON Schemas are embedded into the binary and exposed through a
+closed `ainfra://schemas/v1/...` MCP resource registry. A versioned
+`ainfra://contracts/v1` catalog reports supported document, result, and
+standard-output versions alongside the known schema URIs and canonical
+documentation references. Resource handlers never translate client URIs into
+filesystem paths and require neither the source checkout nor network access.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining doctor, artifact, schema, and documentation adapters, bounded
-concurrency, malformed and oversized frame coverage, capability groups, and
-independent mutation authorization remain subsequent Phase 7 slices.
+The remaining doctor and sanitized artifact adapters, bounded concurrency,
+malformed and oversized frame coverage, capability groups, and independent
+mutation authorization remain subsequent Phase 7 slices.
