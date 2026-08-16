@@ -106,7 +106,7 @@ printf '%s\n' '{"event":"playbook_on_stats","event_data":{"changed":{},"dark":{}
 				}
 				return len(value), nil
 			}},
-		now: func() time.Time { return now },
+		now: func() time.Time { return now }, authorizationUses: &sync.Map{},
 	}
 	deploymentContract := session.InspectDeployment()
 	if deploymentContract.Name != "mcp-plan" ||
@@ -121,18 +121,50 @@ printf '%s\n' '{"event":"playbook_on_stats","event_data":{"changed":{},"dark":{}
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !templatePlan.Changed || templatePlan.ContentDigest != materialized.Digest {
+	if !templatePlan.Candidate.Changed || templatePlan.Candidate.ContentDigest != materialized.Digest ||
+		templatePlan.PlanID == "" || templatePlan.PlanDigest == "" {
 		t.Fatalf("unexpected template lock plan: %+v", templatePlan)
 	}
 	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
 		t.Fatalf("template lock plan published a lock: %v", err)
 	}
-	if err := lockfile.Write(lockPath, document); err != nil {
+	if _, err := session.WriteTemplateAuthorized(context.Background(), "lock",
+		MCPExecutionRequest{PlanID: templatePlan.PlanID, Caller: "agent-1", Approval: "opaque"}); err == nil {
+		t.Fatal("template write without independent provider succeeded")
+	}
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Fatalf("refused template write published a lock: %v", err)
+	}
+	templateGrant := MCPAuthorizationGrant{AuthorizationID: "approval-template-1",
+		Issuer: "operator-1", Caller: "agent-1", ProjectRoot: projectRoot,
+		Operation: "template-lock", PlanID: templatePlan.PlanID,
+		PlanDigest: templatePlan.PlanDigest, Intent: "template-lock",
+		ApprovedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute)}
+	session.authorization = mcpPlanAuthorizationProvider{grant: templateGrant}
+	written, err := session.WriteTemplateAuthorized(context.Background(), "lock",
+		MCPExecutionRequest{PlanID: templatePlan.PlanID, Caller: "agent-1", Approval: "opaque"})
+	if err != nil || written.Plan.PlanID != templatePlan.PlanID ||
+		written.Authorization.AuthorizationID != templateGrant.AuthorizationID {
+		t.Fatalf("authorized template write: %+v, %v", written, err)
+	}
+	if _, err := lockfile.Read(lockPath); err != nil {
 		t.Fatal(err)
 	}
 	templatePlan, err = session.PlanTemplateLock(context.Background(), "update")
-	if err != nil || templatePlan.Changed {
+	if err != nil || templatePlan.Candidate.Changed {
 		t.Fatalf("unchanged template update plan: %+v, %v", templatePlan, err)
+	}
+	templateGrant.AuthorizationID = "approval-template-2"
+	templateGrant.Operation, templateGrant.Intent = "template-update", "template-update"
+	templateGrant.PlanID, templateGrant.PlanDigest = templatePlan.PlanID, templatePlan.PlanDigest
+	session.authorization = mcpPlanAuthorizationProvider{grant: templateGrant}
+	updateRequest := MCPExecutionRequest{PlanID: templatePlan.PlanID,
+		Caller: "agent-1", Approval: "opaque"}
+	if _, err := session.WriteTemplateAuthorized(context.Background(), "update", updateRequest); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.WriteTemplateAuthorized(context.Background(), "update", updateRequest); err == nil || !strings.Contains(err.Error(), "already consumed") {
+		t.Fatalf("template approval replay succeeded: %v", err)
 	}
 	templateContract, err := session.InspectTemplate()
 	if err != nil {
@@ -306,6 +338,58 @@ spec:
 	}
 }
 
+func TestMCPTemplateWriteRechecksSourceUnderOperationLock(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	projectRoot := filepath.Join(root, "deployment")
+	if err := os.Mkdir(projectRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeMCPPlanFile(t, filepath.Join(projectRoot, project.ManifestName), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: mcp-template-race
+spec:
+  template:
+    source: local:../template
+`)
+	templateRoot := filepath.Join(root, "template")
+	if err := os.CopyFS(templateRoot, os.DirFS("../../spec/examples/v1/template-example")); err != nil {
+		t.Fatal(err)
+	}
+	deployment, err := project.Load(project.ResolveOptions{ProjectPath: projectRoot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	session := MCPServeSession{Project: output.Deployment{Name: "mcp-template-race", Root: projectRoot},
+		project: deployment, cacheRoot: filepath.Join(root, "cache"), now: func() time.Time { return now },
+		authorizationUses: &sync.Map{}}
+	plan, err := session.PlanTemplateLock(context.Background(), "lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant := MCPAuthorizationGrant{AuthorizationID: "approval-template-race",
+		Issuer: "operator-1", Caller: "agent-1", ProjectRoot: projectRoot,
+		Operation: "template-lock", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest,
+		Intent: "template-lock", ApprovedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute)}
+	session.authorization = mcpAuthorizationFunc(func(context.Context, string) (MCPAuthorizationGrant, error) {
+		file, err := os.OpenFile(filepath.Join(templateRoot, "README.md"), os.O_APPEND|os.O_WRONLY, 0)
+		if err == nil {
+			_, err = file.WriteString("\nchanged after approval preview\n")
+			_ = file.Close()
+		}
+		return grant, err
+	})
+	if _, err := session.WriteTemplateAuthorized(context.Background(), "lock",
+		MCPExecutionRequest{PlanID: plan.PlanID, Caller: "agent-1", Approval: "opaque"}); err == nil || !strings.Contains(err.Error(), "changed under operation lock") {
+		t.Fatalf("changed template source succeeded: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, lockfile.Filename)); !os.IsNotExist(err) {
+		t.Fatalf("changed template source published lock: %v", err)
+	}
+}
+
 func TestMCPReconciliationRequiresExactIndependentApproval(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
@@ -384,6 +468,14 @@ spec:
 }
 
 type mcpPlanAuthorizationProvider struct{ grant MCPAuthorizationGrant }
+
+type mcpAuthorizationFunc func(context.Context, string) (MCPAuthorizationGrant, error)
+
+func (verify mcpAuthorizationFunc) Verify(ctx context.Context,
+	approval string,
+) (MCPAuthorizationGrant, error) {
+	return verify(ctx, approval)
+}
 
 func (provider mcpPlanAuthorizationProvider) Verify(context.Context,
 	string,

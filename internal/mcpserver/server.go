@@ -205,8 +205,26 @@ type TemplatePlanResult struct {
 	APIVersion  string                  `json:"apiVersion"`
 	Tool        string                  `json:"tool"`
 	OK          bool                    `json:"ok"`
-	Result      *output.Template        `json:"result"`
+	Result      *app.MCPTemplatePlan    `json:"result"`
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
+// TemplateWriteInput binds one lock/update operation to an independently
+// approved preview.
+type TemplateWriteInput struct {
+	Operation string `json:"operation" jsonschema:"template operation: lock or update"`
+	PlanID    string `json:"planId" jsonschema:"reviewed template plan ID"`
+	Caller    string `json:"caller" jsonschema:"authorized caller identity"`
+	Approval  string `json:"approval" jsonschema:"opaque independent approval material"`
+}
+
+// TemplateWriteResult is the versioned authorized lock publication result.
+type TemplateWriteResult struct {
+	APIVersion  string                      `json:"apiVersion"`
+	Tool        string                      `json:"tool"`
+	OK          bool                        `json:"ok"`
+	Result      *app.MCPTemplateWriteResult `json:"result"`
+	Diagnostics []diagnostic.Diagnostic     `json:"diagnostics"`
 }
 
 // ApplyInput binds an independently approved caller to one exact saved plan.
@@ -527,6 +545,28 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			})
 	}
 	if session.CapabilityEnabled(app.MCPDeploymentCapability) {
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.template.write",
+			Description: "Publish one exact independently authorized template lock or update.",
+			Annotations: &mcp.ToolAnnotations{Title: "execute authorized ainfra template write",
+				ReadOnlyHint: false, DestructiveHint: boolPointer(true),
+				IdempotentHint: false, OpenWorldHint: boolPointer(true)}},
+			func(ctx context.Context, _ *mcp.CallToolRequest, input TemplateWriteInput) (*mcp.CallToolResult,
+				TemplateWriteResult, error) {
+				result, err := session.WriteTemplateAuthorized(ctx, input.Operation,
+					app.MCPExecutionRequest{PlanID: input.PlanID, Caller: input.Caller,
+						Approval: input.Approval})
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, TemplateWriteResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.template.write", OK: false,
+						Result: &result, Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E3001",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "template",
+							NextAction: "Review a current template plan and obtain fresh independent approval."}},
+					}, nil
+				}
+				return nil, TemplateWriteResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.template.write", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
 		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.reconciliation.execute",
 			Description: "Apply one exact independently authorized reconciliation plan.",
 			Annotations: &mcp.ToolAnnotations{Title: "execute authorized ainfra reconciliation",

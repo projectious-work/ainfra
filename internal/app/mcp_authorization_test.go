@@ -37,6 +37,20 @@ func TestVerifyMCPAuthorizationAcceptsConfigureApplyBinding(t *testing.T) {
 	}
 }
 
+func TestVerifyMCPAuthorizationAcceptsTemplateWriteBinding(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	for _, operation := range []string{"template-lock", "template-update"} {
+		request, grant := authorizationFixture(now)
+		request.Operation, request.Intent = operation, operation
+		grant.Operation, grant.Intent = operation, operation
+		if _, err := app.VerifyMCPAuthorization(context.Background(),
+			authorizationProvider{grant: grant}, request, now); err != nil {
+			t.Fatalf("%s: %v", operation, err)
+		}
+	}
+}
+
 func TestVerifyMCPAuthorizationFailsClosed(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)

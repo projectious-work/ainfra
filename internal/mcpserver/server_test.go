@@ -374,7 +374,8 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	foundApply, foundConfigure, foundDeploy, foundReconcile := false, false, false, false
+	foundApply, foundConfigure, foundDeploy, foundReconcile, foundTemplate :=
+		false, false, false, false, false
 	for _, tool := range tools.Tools {
 		if tool.Name == "ainfra.apply.execute" {
 			foundApply = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
@@ -392,8 +393,13 @@ spec:
 			foundDeploy = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
 				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
 		}
+		if tool.Name == "ainfra.template.write" {
+			foundTemplate = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
+				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
+		}
 	}
-	if len(tools.Tools) != 15 || !foundApply || !foundConfigure || !foundDeploy || !foundReconcile {
+	if len(tools.Tools) != 16 || !foundApply || !foundConfigure || !foundDeploy ||
+		!foundReconcile || !foundTemplate {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
@@ -419,6 +425,13 @@ spec:
 			"approval": "conversational-claim"}})
 	if err != nil || !result.IsError {
 		t.Fatalf("deploy without independent approval: result=%#v err=%v", result, err)
+	}
+	result, err = clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "ainfra.template.write", Arguments: map[string]any{
+			"operation": "lock", "planId": "template-unreviewed", "caller": "agent-1",
+			"approval": "conversational-claim"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("template write without reviewed approval: result=%#v err=%v", result, err)
 	}
 	result, err = clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
 		Name: "ainfra.reconciliation.execute", Arguments: map[string]any{

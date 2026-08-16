@@ -139,6 +139,21 @@ type MCPTemplateContract struct {
 	Inventory    string                    `json:"inventory"`
 }
 
+// MCPTemplatePlan is an approval-bindable non-publishing lock/update preview.
+type MCPTemplatePlan struct {
+	PlanID     string          `json:"planId"`
+	PlanDigest string          `json:"planDigest"`
+	Operation  string          `json:"operation"`
+	Candidate  output.Template `json:"candidate"`
+}
+
+// MCPTemplateWriteResult combines the exact published candidate with
+// sanitized independent authorization evidence.
+type MCPTemplateWriteResult struct {
+	Plan          MCPTemplatePlan  `json:"plan"`
+	Authorization MCPAuthorization `json:"authorization"`
+}
+
 type MCPTemplateEngine struct {
 	Directory string `json:"directory"`
 	Version   string `json:"version"`
@@ -398,18 +413,96 @@ func (session MCPServeSession) CreatePlan(ctx context.Context, intent string) (o
 // publishing ainfra.lock. Cache materialization is the only permitted write.
 func (session MCPServeSession) PlanTemplateLock(ctx context.Context,
 	operation string,
-) (output.Template, error) {
+) (MCPTemplatePlan, error) {
+	plan, _, err := session.templateLockPlan(ctx, operation)
+	return plan, err
+}
+
+func (session MCPServeSession) templateLockPlan(ctx context.Context,
+	operation string,
+) (MCPTemplatePlan, lockfile.Document, error) {
 	allowUpdate := false
 	switch operation {
 	case "lock":
 	case "update":
 		allowUpdate = true
 	default:
-		return output.Template{}, errors.New("template operation must be lock or update")
+		return MCPTemplatePlan{}, lockfile.Document{},
+			errors.New("template operation must be lock or update")
 	}
 	options := session.templateOptions
 	options.CacheDirectory = session.cacheRoot
-	return resolveTemplateLockMutation(ctx, session.project, options, allowUpdate, false)
+	candidate, document, err := planTemplateLockMutation(ctx, session.project, options, allowUpdate)
+	if err != nil {
+		return MCPTemplatePlan{}, lockfile.Document{}, err
+	}
+	binding, err := json.Marshal(struct {
+		Operation string          `json:"operation"`
+		Candidate output.Template `json:"candidate"`
+	}{Operation: operation, Candidate: candidate})
+	if err != nil {
+		return MCPTemplatePlan{}, lockfile.Document{}, err
+	}
+	digest := sha256.Sum256(binding)
+	encoded := hex.EncodeToString(digest[:])
+	return MCPTemplatePlan{PlanID: "template-" + encoded[:32],
+		PlanDigest: "sha256:" + encoded, Operation: operation, Candidate: candidate}, document, nil
+}
+
+// WriteTemplateAuthorized publishes one exact lock/update candidate only after
+// independent approval and an under-lock source/precondition recheck.
+func (session MCPServeSession) WriteTemplateAuthorized(ctx context.Context, operation string,
+	request MCPExecutionRequest,
+) (MCPTemplateWriteResult, error) {
+	plan, _, err := session.templateLockPlan(ctx, operation)
+	if err != nil {
+		return MCPTemplateWriteResult{}, err
+	}
+	if request.PlanID != plan.PlanID {
+		return MCPTemplateWriteResult{}, errors.New("template plan changed; review a new plan")
+	}
+	authorization, err := session.AuthorizeMutation(ctx, MCPMutationAuthorizationRequest{
+		Approval: request.Approval, Operation: "template-" + operation, PlanID: plan.PlanID,
+		PlanDigest: plan.PlanDigest, Intent: "template-" + operation, Caller: request.Caller,
+	})
+	if err != nil {
+		return MCPTemplateWriteResult{}, err
+	}
+	if session.authorizationUses == nil {
+		return MCPTemplateWriteResult{}, errors.New("MCP authorization replay guard is unavailable")
+	}
+	if _, replay := session.authorizationUses.LoadOrStore(authorization.AuthorizationID, struct{}{}); replay {
+		return MCPTemplateWriteResult{}, errors.New("MCP authorization was already consumed")
+	}
+	unlock, err := (reconcile.FileLocker{}).Lock(session.Project.Root, project.ManifestName)
+	if err != nil {
+		return MCPTemplateWriteResult{}, fmt.Errorf("acquire deployment operation lock: %w", err)
+	}
+	defer func() { _ = unlock() }()
+	current, document, err := session.templateLockPlan(ctx, operation)
+	if err != nil {
+		return MCPTemplateWriteResult{}, err
+	}
+	if current.PlanID != plan.PlanID || current.PlanDigest != plan.PlanDigest {
+		return MCPTemplateWriteResult{}, errors.New("template plan changed under operation lock")
+	}
+	now := session.now
+	if now == nil {
+		now = time.Now
+	}
+	expiresAt, err := time.Parse(time.RFC3339, authorization.ExpiresAt)
+	if err != nil || !expiresAt.After(now().UTC()) {
+		return MCPTemplateWriteResult{}, errors.New("MCP authorization expired before execution")
+	}
+	if err := ctx.Err(); err != nil {
+		return MCPTemplateWriteResult{}, err
+	}
+	if current.Candidate.Changed {
+		if err := lockfile.Write(filepath.Join(session.Project.Root, lockfile.Filename), document); err != nil {
+			return MCPTemplateWriteResult{}, err
+		}
+	}
+	return MCPTemplateWriteResult{Plan: current, Authorization: authorization}, nil
 }
 
 // ApplyAuthorized independently authorizes and then executes one exact saved

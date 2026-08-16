@@ -80,17 +80,33 @@ func mutateTemplateLock(
 func resolveTemplateLockMutation(ctx context.Context, deployment project.Deployment,
 	options TemplateLockOptions, allowUpdate, publish bool,
 ) (output.Template, error) {
-	reference, err := source.Parse(deployment.Template.Source, deployment.Template.Ref)
-	if err != nil {
-		return output.Template{}, fmt.Errorf("parse template source: %w", err)
-	}
-	materialized, immutable, err := resolveTemplate(ctx, reference, deployment.Target.Root, options)
+	result, document, err := planTemplateLockMutation(ctx, deployment, options, allowUpdate)
 	if err != nil {
 		return output.Template{}, err
 	}
+	if !publish || !result.Changed {
+		return result, nil
+	}
+	if err := lockfile.Write(filepath.Join(deployment.Target.Root, lockfile.Filename), document); err != nil {
+		return output.Template{}, err
+	}
+	return result, nil
+}
+
+func planTemplateLockMutation(ctx context.Context, deployment project.Deployment,
+	options TemplateLockOptions, allowUpdate bool,
+) (output.Template, lockfile.Document, error) {
+	reference, err := source.Parse(deployment.Template.Source, deployment.Template.Ref)
+	if err != nil {
+		return output.Template{}, lockfile.Document{}, fmt.Errorf("parse template source: %w", err)
+	}
+	materialized, immutable, err := resolveTemplate(ctx, reference, deployment.Target.Root, options)
+	if err != nil {
+		return output.Template{}, lockfile.Document{}, err
+	}
 	contract, err := template.LoadMaterialized(materialized.Path)
 	if err != nil {
-		return output.Template{}, fmt.Errorf("validate materialized template: %w", err)
+		return output.Template{}, lockfile.Document{}, fmt.Errorf("validate materialized template: %w", err)
 	}
 	now := time.Now
 	if options.Now != nil {
@@ -105,25 +121,19 @@ func resolveTemplateLockMutation(ctx context.Context, deployment project.Deploym
 	lockPath := filepath.Join(deployment.Target.Root, lockfile.Filename)
 	if existing, readErr := lockfile.Read(lockPath); readErr == nil {
 		if lockfile.Equivalent(existing, document) {
-			return templateLockResult(document, false), nil
+			return templateLockResult(document, false), document, nil
 		}
 		if !allowUpdate {
-			return output.Template{}, errors.New(
+			return output.Template{}, lockfile.Document{}, errors.New(
 				"template lock already exists with a different binding; use 'ainfra template update'",
 			)
 		}
 	} else if !errors.Is(readErr, os.ErrNotExist) {
-		return output.Template{}, readErr
+		return output.Template{}, lockfile.Document{}, readErr
 	} else if allowUpdate {
-		return output.Template{}, errors.New("template update requires an existing ainfra.lock")
+		return output.Template{}, lockfile.Document{}, errors.New("template update requires an existing ainfra.lock")
 	}
-	if !publish {
-		return templateLockResult(document, true), nil
-	}
-	if err := lockfile.Write(lockPath, document); err != nil {
-		return output.Template{}, err
-	}
-	return templateLockResult(document, true), nil
+	return templateLockResult(document, true), document, nil
 }
 
 func resolveTemplate(

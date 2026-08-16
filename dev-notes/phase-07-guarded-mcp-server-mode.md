@@ -260,8 +260,22 @@ recovery semantics remain identical to the CLI pipeline. End-to-end tests
 exercise a successful authorized provider-free deploy and signed-approval
 refusal paths without exposing opaque approval bytes.
 
-Template migration planning and remaining deployment mutations
-(template writes)
-remain subsequent Phase 7 slices. Final AINFRA-MCP-001 through
+Template lock/update previews are now deterministic approval-bindable objects
+with an operation, candidate, plan ID, and SHA-256 plan digest. The
+`deployment` capability discloses `ainfra.template.write`, whose closed input
+names only `lock` or `update`, the reviewed plan ID, caller, and opaque
+approval. Independent grants bind the canonical template operation and intent,
+plan ID/digest, caller, startup root, and expiry. Authorization IDs are
+single-use within the serving session. After authorization, ainfra acquires the
+normal deployment operation lock, reacquires/materializes the source using
+startup policy, recomputes the complete candidate, and refuses changed content
+or lock preconditions before publication. Only then may the exact
+`ainfra.lock` document be written. Tests cover absent approval, stale plan IDs,
+source changes during authorization, replay protection, and successful local
+publication without opaque approval retention.
+
+Template migration planning remains a subsequent Phase 7 slice, but requires
+the specified `internal/migration` application package rather than an MCP-only
+implementation. Final AINFRA-MCP-001 through
 AINFRA-MCP-010 conformance closure and end-user documentation also remain.
 Undeclared capability groups are rejected by the current startup validator.

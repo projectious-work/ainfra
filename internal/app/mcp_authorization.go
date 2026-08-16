@@ -113,6 +113,8 @@ func validMCPAuthorizationRequest(request MCPMutationAuthorizationRequest) bool 
 		return request.Intent == "destroy"
 	case "reconcile":
 		return request.Intent == "reconcile"
+	case "template-lock", "template-update":
+		return request.Intent == request.Operation
 	default:
 		return false
 	}
