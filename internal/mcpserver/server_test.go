@@ -25,7 +25,11 @@ func TestDefaultRegistryIsTypedAndReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer session.Close()
+	t.Cleanup(func() {
+		if err := session.Close(); err != nil {
+			t.Errorf("close session: %v", err)
+		}
+	})
 	tools, err := session.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
