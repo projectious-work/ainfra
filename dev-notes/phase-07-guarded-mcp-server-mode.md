@@ -286,7 +286,31 @@ migration roots. Results contain a path-free typed plan plus deterministic plan
 ID and SHA-256 digest, and tests prove idempotency, non-mutation, unsafe-source
 refusal, unsupported-target refusal, and absence of host path disclosure.
 
-The planned Phase 7 functional registry is now present. Final
-AINFRA-MCP-001 through AINFRA-MCP-010 conformance closure and end-user
-documentation remain. Undeclared capability groups are rejected by the current
+The planned Phase 7 functional registry is now present. The final
+AINFRA-MCP-001 through AINFRA-MCP-010 conformance and documentation closure is
+recorded below. Undeclared capability groups are rejected by the current
 startup validator.
+
+## Final conformance sweep
+
+The closure sweep maps every normative MCP requirement to executable evidence:
+
+| Requirement | Evidence |
+|---|---|
+| AINFRA-MCP-001 | `TestMCPStdioDefaultRegistry`, malformed-frame and startup-failure black-box tests prove stdout contains protocol frames only. |
+| AINFRA-MCP-002 | Default-registry annotation/count tests and explicit planning, deployment, and destruction registry tests prove default read-only and startup allowlisting. |
+| AINFRA-MCP-003 | Every handler returns an `ainfra.result/v1` typed structure; default, planning, authorization-failure, and signed-approval black-box tests decode those results. |
+| AINFRA-MCP-004 | Fixed-project startup tests plus retained-artifact traversal, symlink project/trust, template source-race, and normal lifecycle binding tests exercise shared containment policy. |
+| AINFRA-MCP-005 | Request-limiter, planning, Git acquisition, authorization, OpenTofu, and Ansible cancellation tests prove propagation to waits, providers, and child adapters. |
+| AINFRA-MCP-006 | Compiled-binary tests cover initialization, unknown tools, malformed and oversized frames, 32 concurrent requests, correlated logs, and explicit clean shutdown. |
+| AINFRA-MCP-007 | `TestMCPProtocolDependencyIsConfinedToAdapter` prevents protocol imports outside `internal/mcpserver`; application tests call protocol-neutral session use cases directly. |
+| AINFRA-MCP-008 | Command contract and compiled startup tests use only `ainfra mcp serve --stdio`; invalid transports and missing stdio fail before protocol output. |
+| AINFRA-MCP-009 | Capability, absent-provider, signed-binding, intent/root/digest/caller/expiry, self-approval, replay, stale-source, and destroy-separation tests refuse before child mutation. |
+| AINFRA-MCP-010 | MCP apply/destroy/configure/deploy call the same locked application functions as the CLI; successful MCP composed-deploy and CLI lifecycle black-box suites assert the same stages, evidence, outcomes, and stale-plan behavior. |
+
+End-user documentation now describes server startup, the default registry,
+capability groups, strict Ed25519 trust and approval contracts, reviewed
+mutation workflows, interruption handling, and the no-network-transport
+boundary. Phase 7 remains `in_progress` in the roadmap and process work item
+until its release is published and independently verified, matching the
+release-gated status policy used by Phase 6.

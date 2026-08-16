@@ -484,6 +484,42 @@ spec:
 	}
 }
 
+func TestMCPStdioShutsDownCleanlyWhenClientCloses(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: clean-shutdown-test
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+		[]byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	process := exec.Command(binary, "mcp", "serve", "--stdio")
+	process.Dir = projectRoot
+	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "shutdown-test", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("clean shutdown: %v, stderr: %s", err, stderr.String())
+	}
+}
+
 func TestMCPStdioPlanningCapabilityIsExplicitAndNonApplying(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

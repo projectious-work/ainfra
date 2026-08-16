@@ -73,4 +73,6 @@ deploy commands, reviewed destruction, recovery status, retained logs, and
 operational logging. See
 [Output, inventory, and Ansible](output-inventory-ansible/) and
 [Reviewed plans](reviewed-plans/). Guarded MCP serving is the current
-in-progress roadmap phase and is not part of the published alpha yet.
+in-progress roadmap phase and is not part of the published alpha yet. See the
+[Guarded MCP server](mcp/) guide for the implemented stdio command, default
+read-only registry, optional capability groups, and signed-approval format.
