@@ -67,4 +67,11 @@ func TestAuthorizationBindingAndEvidenceAreClosedAndExclusive(t *testing.T) {
 		"../authorization.json", configureEvidence); err == nil {
 		t.Fatal("arbitrary authorization evidence name succeeded")
 	}
+	deployEvidence := runstate.NewAuthorizationRecord("approval-3", "deploy", runID,
+		digest, "agent-1", "operator-1", "2026-08-16T12:05:00Z",
+		time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC))
+	if err := runstate.RecordOperationAuthorization(runsRoot,
+		"authorization-deploy.json", deployEvidence); err != nil {
+		t.Fatal(err)
+	}
 }

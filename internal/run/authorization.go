@@ -64,8 +64,16 @@ func RecordAuthorization(runsRoot string, record AuthorizationRecord) error {
 // RecordOperationAuthorization exclusively retains sanitized approval
 // evidence under an operation-specific fixed filename.
 func RecordOperationAuthorization(runsRoot, name string, record AuthorizationRecord) error {
-	if name != "authorization.json" && name != "authorization-configure.json" ||
-		name == "authorization-configure.json" && record.Operation != "configure" {
+	valid := false
+	switch name {
+	case "authorization.json":
+		valid = record.Operation == "apply" || record.Operation == "destroy"
+	case "authorization-configure.json":
+		valid = record.Operation == "configure"
+	case "authorization-deploy.json":
+		valid = record.Operation == "deploy"
+	}
+	if !valid {
 		return errors.New("invalid authorization evidence name")
 	}
 	root, err := security.ResolveContained(runsRoot, record.PlanID)

@@ -374,7 +374,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	foundApply, foundConfigure, foundReconcile := false, false, false
+	foundApply, foundConfigure, foundDeploy, foundReconcile := false, false, false, false
 	for _, tool := range tools.Tools {
 		if tool.Name == "ainfra.apply.execute" {
 			foundApply = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
@@ -388,8 +388,12 @@ spec:
 			foundConfigure = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
 				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
 		}
+		if tool.Name == "ainfra.deploy.execute" {
+			foundDeploy = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
+				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
+		}
 	}
-	if len(tools.Tools) != 14 || !foundApply || !foundConfigure || !foundReconcile {
+	if len(tools.Tools) != 15 || !foundApply || !foundConfigure || !foundDeploy || !foundReconcile {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
@@ -408,6 +412,13 @@ spec:
 			"approval": "conversational-claim"}})
 	if err != nil || !result.IsError {
 		t.Fatalf("configure without independent approval: result=%#v err=%v", result, err)
+	}
+	result, err = clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "ainfra.deploy.execute", Arguments: map[string]any{
+			"planId": "20260816T120000Z-0123456789abcdef", "caller": "agent-1",
+			"approval": "conversational-claim"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("deploy without independent approval: result=%#v err=%v", result, err)
 	}
 	result, err = clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
 		Name: "ainfra.reconciliation.execute", Arguments: map[string]any{

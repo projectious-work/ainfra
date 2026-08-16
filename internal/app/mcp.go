@@ -475,6 +475,62 @@ func (session MCPServeSession) ConfigureAuthorized(ctx context.Context,
 	return MCPExecutionResult{Execution: execution, Authorization: authorization}, err
 }
 
+// DeployAuthorized independently authorizes and executes the complete
+// apply/output/inventory/configure/check pipeline for one reviewed apply plan.
+func (session MCPServeSession) DeployAuthorized(ctx context.Context,
+	request MCPExecutionRequest,
+) (MCPExecutionResult, error) {
+	binding, err := runstate.LoadAuthorizationBinding(session.runsRoot,
+		request.PlanID, session.Project.Name, "apply")
+	if err != nil {
+		return MCPExecutionResult{}, err
+	}
+	authorization, err := session.AuthorizeMutation(ctx, MCPMutationAuthorizationRequest{
+		Approval: request.Approval, Operation: "deploy", PlanID: binding.PlanID,
+		PlanDigest: binding.PlanDigest, Intent: binding.Intent, Caller: request.Caller,
+	})
+	if err != nil {
+		return MCPExecutionResult{}, err
+	}
+	now := session.now
+	if now == nil {
+		now = time.Now
+	}
+	expiresAt, err := time.Parse(time.RFC3339, authorization.ExpiresAt)
+	if err != nil {
+		return MCPExecutionResult{}, errors.New("MCP authorization expiry is invalid")
+	}
+	recorded := false
+	beforeExecute := func() error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		current := now().UTC()
+		if !expiresAt.After(current) {
+			return errors.New("MCP authorization expired before execution")
+		}
+		if recorded {
+			return nil
+		}
+		record := runstate.NewAuthorizationRecord(authorization.AuthorizationID, "deploy",
+			binding.PlanID, binding.PlanDigest, authorization.Caller, authorization.Issuer,
+			authorization.ExpiresAt, current)
+		if err := runstate.RecordOperationAuthorization(session.runsRoot,
+			"authorization-deploy.json", record); err != nil {
+			return err
+		}
+		recorded = true
+		return nil
+	}
+	execution, err := deployForDeploymentWithHook(ctx, session.project, session.settings,
+		binding.PlanID, session.planOptions, beforeExecute)
+	if recorded {
+		execution.Evidence = append(execution.Evidence, output.Evidence{
+			Kind: "authorization", Path: "authorization-deploy.json", Sensitive: false})
+	}
+	return MCPExecutionResult{Execution: execution, Authorization: authorization}, err
+}
+
 // DestroyAuthorized independently authorizes and executes one exact saved
 // destroy plan. It is exposed only by the separate destruction capability.
 func (session MCPServeSession) DestroyAuthorized(ctx context.Context,

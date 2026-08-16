@@ -229,6 +229,9 @@ type ApplyResult struct {
 // ConfigureResult shares the authorized execution result contract.
 type ConfigureResult = ApplyResult
 
+// DeployResult shares the authorized execution result contract.
+type DeployResult = ApplyResult
+
 // ReconciliationExecuteResult is the versioned authorized local-repair result.
 type ReconciliationExecuteResult struct {
 	APIVersion  string                       `json:"apiVersion"`
@@ -564,6 +567,27 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				}
 				return nil, ConfigureResult{APIVersion: output.APIVersion,
 					Tool: "ainfra.configure.execute", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.deploy.execute",
+			Description: "Execute one exact independently authorized composed deployment.",
+			Annotations: &mcp.ToolAnnotations{Title: "execute authorized ainfra deployment",
+				ReadOnlyHint: false, DestructiveHint: boolPointer(true),
+				IdempotentHint: false, OpenWorldHint: boolPointer(true)}},
+			func(ctx context.Context, _ *mcp.CallToolRequest, input ApplyInput) (*mcp.CallToolResult,
+				DeployResult, error) {
+				result, err := session.DeployAuthorized(ctx, app.MCPExecutionRequest{
+					PlanID: input.PlanID, Caller: input.Caller, Approval: input.Approval})
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, DeployResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.deploy.execute", OK: false,
+						Result: &result, Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E4501",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "deploy",
+							NextAction: "Inspect retained stage evidence and obtain fresh deployment approval."}},
+					}, nil
+				}
+				return nil, DeployResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.deploy.execute", OK: true, Result: &result,
 					Diagnostics: []diagnostic.Diagnostic{}}, nil
 			})
 		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.apply.execute",

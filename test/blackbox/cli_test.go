@@ -612,7 +612,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 14 {
+	if len(tools.Tools) != 15 {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
@@ -632,6 +632,15 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(runRoot, "authorization-configure.json")); !os.IsNotExist(err) {
 		t.Fatalf("unverified configure retained evidence: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.deploy.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unapproved deploy result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(runRoot, "authorization-deploy.json")); !os.IsNotExist(err) {
+		t.Fatalf("unverified deploy retained evidence: %v", err)
 	}
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.reconciliation.execute",
 		Arguments: map[string]any{"planId": "reconcile-unreviewed", "caller": "agent-1",
@@ -703,7 +712,7 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 			}
 		}
 	}
-	if err != nil || len(tools.Tools) != 15 || !foundDestroy {
+	if err != nil || len(tools.Tools) != 16 || !foundDestroy {
 		t.Fatalf("destruction registry=%+v err=%v", tools, err)
 	}
 	refused, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.destroy.execute",
@@ -750,6 +759,31 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 	if err != nil || bytes.Contains(contents, approvalBytes) ||
 		!bytes.Contains(contents, []byte(`"operation": "configure"`)) {
 		t.Fatalf("configure authorization evidence=%q err=%v", contents, err)
+	}
+	grant.AuthorizationID = "approval-deploy-1"
+	grant.Operation = "deploy"
+	payload, err = json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature = ed25519.Sign(privateKey,
+		append([]byte("ainfra-mcp-authorization-v1\n"), payload...))
+	approvalBytes, err = json.Marshal(map[string]any{"schemaVersion": 1,
+		"grant": json.RawMessage(payload), "signature": base64.StdEncoding.EncodeToString(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.deploy.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": string(approvalBytes)}})
+	if err != nil || !result.IsError {
+		t.Fatalf("trusted deploy result=%#v err=%v", result, err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	diagnostics, diagnosticsOK = structured["diagnostics"].([]any)
+	if !ok || !diagnosticsOK || len(diagnostics) != 1 ||
+		strings.Contains(diagnostics[0].(map[string]any)["message"].(string), "authorization") {
+		t.Fatalf("trusted approval did not reach deploy preparation: %#v", result)
 	}
 	if err := session.Close(); err != nil {
 		t.Fatal(err)

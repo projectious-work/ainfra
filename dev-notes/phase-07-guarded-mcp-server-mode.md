@@ -246,8 +246,22 @@ Ansible Runner adapter, cancellation, outcome evidence, and recovery semantics
 remain shared with the CLI. Approval validity and cancellation are checked
 again immediately before the first configuration write or child invocation.
 
+The `deployment` capability now also discloses `ainfra.deploy.execute` for the
+complete apply, output, inventory, configure, and convergence-check pipeline.
+It requires a deploy-specific independent grant bound to an existing reviewed
+apply plan and retains exclusive sanitized evidence as
+`authorization-deploy.json`. The application deploy core now composes shared
+stage functions, while MCP supplies fixed-deployment/fixed-settings output and
+inventory adapters alongside the existing fixed apply and configure adapters.
+No stage re-reads project configuration. Cancellation and approval expiry are
+rechecked before apply and again immediately before every later stage's first
+write or child invocation. Stage outcomes, evidence, failure attribution, and
+recovery semantics remain identical to the CLI pipeline. End-to-end tests
+exercise a successful authorized provider-free deploy and signed-approval
+refusal paths without exposing opaque approval bytes.
+
 Template migration planning and remaining deployment mutations
-(template writes and composed deploy)
+(template writes)
 remain subsequent Phase 7 slices. Final AINFRA-MCP-001 through
 AINFRA-MCP-010 conformance closure and end-user documentation also remain.
 Undeclared capability groups are rejected by the current startup validator.

@@ -37,6 +37,22 @@ type artifactContext struct {
 	settings   config.Settings
 }
 
+func loadTemplateContractForDeployment(deployment project.Deployment,
+	settings config.Settings,
+) (template.Contract, error) {
+	lock, err := lockfile.Read(filepath.Join(deployment.Target.Root, lockfile.Filename))
+	if err != nil {
+		return template.Contract{}, fmt.Errorf("read template lock: %w", err)
+	}
+	cachePath := filepath.Join(settings.Paths.Cache, "templates", "sha256",
+		strings.TrimPrefix(lock.Template.Digest, "sha256:"))
+	contract, err := template.LoadMaterialized(cachePath)
+	if err != nil {
+		return template.Contract{}, fmt.Errorf("load locked template: %w", err)
+	}
+	return contract, nil
+}
+
 // CollectOutput validates and atomically persists the declared standardized
 // output. It never persists any other provider output.
 func CollectOutput(ctx context.Context, request ArtifactRequest, options PlanHostOptions) (output.Artifact, error) {
@@ -52,9 +68,36 @@ func CollectOutput(ctx context.Context, request ArtifactRequest, options PlanHos
 		return output.Artifact{}, err
 	}
 	defer func() { _ = unlock() }()
+	return collectOutputResolved(ctx, resolved, request.RunID, options, nil)
+}
+
+func collectOutputForDeployment(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, runID string, options PlanHostOptions, beforeExecute func() error,
+) (output.Artifact, error) {
+	resolved, unlock, err := resolveLockedArtifactContextForDeployment(ctx, deployment,
+		settings, runID, options)
+	if err != nil {
+		return output.Artifact{}, err
+	}
+	defer func() { _ = unlock() }()
+	if resolved.contract.Inventory == "none" {
+		return notApplicableArtifact(deployment, runID,
+			"template declares inventory mode none"), nil
+	}
+	return collectOutputResolved(ctx, resolved, runID, options, beforeExecute)
+}
+
+func collectOutputResolved(ctx context.Context, resolved artifactContext, runID string,
+	options PlanHostOptions, beforeExecute func() error,
+) (output.Artifact, error) {
 	now := time.Now
 	if options.Now != nil {
 		now = options.Now
+	}
+	if beforeExecute != nil {
+		if err := beforeExecute(); err != nil {
+			return output.Artifact{}, err
+		}
 	}
 	if err := runstate.BeginOperation(resolved.reviewed, "output", now()); err != nil {
 		return output.Artifact{}, err
@@ -80,7 +123,7 @@ func CollectOutput(ctx context.Context, request ArtifactRequest, options PlanHos
 	if err := runstate.AppendOperationEvent(resolved.reviewed, "output", "succeeded", now(), nil); err != nil {
 		return output.Artifact{}, err
 	}
-	return artifactResult(resolved, request.RunID, "standard-output", "output.json", digest), nil
+	return artifactResult(resolved, runID, "standard-output", "output.json", digest), nil
 }
 
 // GenerateInventory transforms only retained validated output into stable YAML.
@@ -97,9 +140,36 @@ func GenerateInventory(ctx context.Context, request ArtifactRequest, options Pla
 		return output.Artifact{}, err
 	}
 	defer func() { _ = unlock() }()
+	return generateInventoryResolved(resolved, request.RunID, options, nil)
+}
+
+func generateInventoryForDeployment(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, runID string, options PlanHostOptions, beforeExecute func() error,
+) (output.Artifact, error) {
+	resolved, unlock, err := resolveLockedArtifactContextForDeployment(ctx, deployment,
+		settings, runID, options)
+	if err != nil {
+		return output.Artifact{}, err
+	}
+	defer func() { _ = unlock() }()
+	if resolved.contract.Inventory == "none" {
+		return notApplicableArtifact(deployment, runID,
+			"template declares inventory mode none"), nil
+	}
+	return generateInventoryResolved(resolved, runID, options, beforeExecute)
+}
+
+func generateInventoryResolved(resolved artifactContext, runID string,
+	options PlanHostOptions, beforeExecute func() error,
+) (output.Artifact, error) {
 	now := time.Now
 	if options.Now != nil {
 		now = options.Now
+	}
+	if beforeExecute != nil {
+		if err := beforeExecute(); err != nil {
+			return output.Artifact{}, err
+		}
 	}
 	if err := runstate.BeginOperation(resolved.reviewed, "inventory", now()); err != nil {
 		return output.Artifact{}, err
@@ -123,7 +193,7 @@ func GenerateInventory(ctx context.Context, request ArtifactRequest, options Pla
 	if err := runstate.AppendOperationEvent(resolved.reviewed, "inventory", "succeeded", now(), nil); err != nil {
 		return output.Artifact{}, err
 	}
-	return artifactResult(resolved, request.RunID, "inventory", "inventory.yaml", digest), nil
+	return artifactResult(resolved, runID, "inventory", "inventory.yaml", digest), nil
 }
 
 func failArtifact(reviewed runstate.Reviewed, operation string, at time.Time, cause error) (output.Artifact, error) {
@@ -141,6 +211,22 @@ func resolveLockedArtifactContext(ctx context.Context, request ArtifactRequest, 
 		return artifactContext{}, nil, fmt.Errorf("acquire deployment operation lock: %w", err)
 	}
 	resolved, err := resolveArtifactContext(ctx, request, options)
+	if err != nil {
+		_ = unlock()
+		return artifactContext{}, nil, fmt.Errorf("reverify run under operation lock: %w", err)
+	}
+	return resolved, unlock, nil
+}
+
+func resolveLockedArtifactContextForDeployment(ctx context.Context,
+	deployment project.Deployment, settings config.Settings, runID string,
+	options PlanHostOptions,
+) (artifactContext, func() error, error) {
+	unlock, err := (reconcile.FileLocker{}).Lock(deployment.Target.Root, project.ManifestName)
+	if err != nil {
+		return artifactContext{}, nil, fmt.Errorf("acquire deployment operation lock: %w", err)
+	}
+	resolved, err := resolveArtifactContextForDeployment(ctx, deployment, settings, runID, options)
 	if err != nil {
 		_ = unlock()
 		return artifactContext{}, nil, fmt.Errorf("reverify run under operation lock: %w", err)

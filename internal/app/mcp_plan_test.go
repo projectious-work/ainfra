@@ -64,11 +64,27 @@ case "$1" in
     ;;
   show) printf '%s\n' '{"resource_changes":[{"change":{"actions":["create"]}}]}' ;;
 	apply) exit 0 ;;
+  output) printf '%s\n' '{"ainfra_inventory":{"sensitive":false,"value":{"schema_version":"1","hosts":{"localhost":{"groups":["local"],"connection":{"type":"local"}}}}}}' ;;
   *) exit 91 ;;
 esac
 `
 	writeMCPPlanFile(t, tofuPath, fakeTofu)
 	if err := os.Chmod(tofuPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runnerPath := filepath.Join(root, "ansible-runner")
+	fakeRunner := `#!/bin/sh
+if [ "$1" = "--version" ]; then printf '%s\n' 'ansible-runner 2.4.1'; exit 0; fi
+artifact=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--artifact-dir" ]; then artifact="$2"; shift 2; continue; fi
+  shift
+done
+mkdir -p "$artifact/job_events"
+printf '%s\n' '{"event":"playbook_on_stats","event_data":{"changed":{},"dark":{},"failures":{},"ok":{"localhost":2},"processed":{"localhost":1},"skipped":{}}}' > "$artifact/job_events/stats.json"
+`
+	writeMCPPlanFile(t, runnerPath, fakeRunner)
+	if err := os.Chmod(runnerPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	deployment, err := project.Load(project.ResolveOptions{ProjectPath: projectRoot})
@@ -81,7 +97,7 @@ esac
 	session := MCPServeSession{Project: output.Deployment{Name: "mcp-plan", Root: projectRoot},
 		project: deployment, runsRoot: runsRoot, cacheRoot: cacheRoot,
 		settings: config.Settings{Paths: config.Paths{Cache: cacheRoot, Runs: runsRoot},
-			Executables: config.Executables{Tofu: tofuPath}},
+			Executables: config.Executables{Tofu: tofuPath, AnsibleRunner: runnerPath}},
 		planOptions: PlanHostOptions{ParentEnvironment: []string{"HOME=" + t.TempDir(),
 			"PATH=" + os.Getenv("PATH")}, Now: func() time.Time { return now },
 			Random: func(value []byte) (int, error) {
@@ -198,6 +214,31 @@ esac
 	}
 	randomByte = 'c'
 	session.now = func() time.Time { return now }
+	deployPlan, err := session.CreatePlan(context.Background(), "apply")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant.AuthorizationID = "approval-deploy-1"
+	grant.PlanID, grant.PlanDigest = deployPlan.RunID, deployPlan.PlanDigest
+	grant.Operation, grant.Intent = "deploy", "apply"
+	session.authorization = mcpPlanAuthorizationProvider{grant: grant}
+	deployed, err := session.DeployAuthorized(context.Background(), MCPExecutionRequest{
+		PlanID: deployPlan.RunID, Caller: "agent-1", Approval: "deploy-approval"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deployed.Execution.Operation != "deploy" ||
+		deployed.Execution.ExecutionOutcome != "succeeded" ||
+		len(deployed.Execution.Stages) != 4 ||
+		deployed.Authorization.AuthorizationID != grant.AuthorizationID {
+		t.Fatalf("unexpected authorized deploy: %+v", deployed)
+	}
+	contents, err = os.ReadFile(filepath.Join(runsRoot, deployPlan.RunID,
+		"authorization-deploy.json"))
+	if err != nil || strings.Contains(string(contents), "deploy-approval") {
+		t.Fatalf("invalid deploy authorization evidence: %s, %v", contents, err)
+	}
+	randomByte = 'd'
 	destroyPlan, err := session.CreatePlan(context.Background(), "destroy")
 	if err != nil {
 		t.Fatal(err)
