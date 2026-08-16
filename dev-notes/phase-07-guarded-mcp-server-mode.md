@@ -156,15 +156,38 @@ the same application apply core as the CLI with the startup configuration
 snapshot; full plan reverification, operation locking, a final approval-expiry
 check immediately before execution, cancellation, child invocation, outcome
 evidence, and ambiguous-state recovery remain shared.
-Opaque approval bytes are never logged, returned, or retained. The compiled
-binary currently has no authorization provider composition, so the tool is
-discoverable when explicitly enabled but fails closed before child execution.
+Opaque approval bytes are never logged, returned, or retained.
+
+The compiled binary composes an Ed25519 verifier only when the operator adds
+`--authorization-trust PATH` at server startup. The absolute, non-symlink,
+non-group-writable trust file is strict JSON with this closed shape:
+
+```json
+{
+  "schemaVersion": 1,
+  "issuers": [
+    {"id": "operator-1", "publicKey": "BASE64_ED25519_PUBLIC_KEY"}
+  ]
+}
+```
+
+Approval material is a strict JSON envelope containing `schemaVersion: 1`, a
+`grant`, and a base64 signature. The closed grant fields are
+`authorizationId`, `issuer`, `caller`, `projectRoot`, `operation`, `planId`,
+`planDigest`, `intent`, `approvedAt`, and `expiresAt`. The Ed25519 signature is
+calculated over the UTF-8 domain prefix
+`ainfra-mcp-authorization-v1\n` followed by the exact raw JSON bytes embedded
+as the envelope's `grant` value. The verifier signs and strictly decodes those
+same bytes, avoiding language-specific canonicalization. Unknown fields,
+trailing values, unknown or duplicate issuers, invalid
+keys, invalid signatures, malformed times, and cancelled verification fail
+closed. The trusted keys are copied into the immutable serving session;
+protocol requests cannot select or reload the trust store.
 
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-Template planning operations, authorization-provider composition, remaining
-deployment mutations, and the destruction capability remain subsequent Phase
-7 slices. The destruction and undeclared capability groups are rejected by the
-current startup validator.
+Template planning operations, remaining deployment mutations, and the
+destruction capability remain subsequent Phase 7 slices. The destruction and
+undeclared capability groups are rejected by the current startup validator.

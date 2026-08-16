@@ -192,6 +192,8 @@ func runMCPServe(arguments, controlArguments []string, options Options) ExitCode
 	flags.SetOutput(io.Discard)
 	stdio := flags.Bool("stdio", false, "serve MCP over standard input and output")
 	projectPath := flags.String("project", "", "allowed project root")
+	authorizationTrust := flags.String("authorization-trust", "",
+		"trusted MCP authorization issuer store")
 	capabilities := make([]string, 0, 3)
 	flags.Func("capability", "explicitly allowlisted capability group", func(value string) error {
 		if value == "" {
@@ -211,6 +213,7 @@ func runMCPServe(arguments, controlArguments []string, options Options) ExitCode
 	}
 	if err := options.MCPServe(context.Background(), app.MCPServeRequest{
 		ProjectPath: *projectPath, Capabilities: capabilities,
+		AuthorizationTrust: *authorizationTrust,
 	}); err != nil {
 		_, _ = fmt.Fprintf(options.IO.Stderr, "AINFRA-E5001: MCP server failed: %s\n", err)
 		return ExitOperationFailed
@@ -1027,7 +1030,8 @@ func splitInvocation(arguments []string) (
 			renderArguments = append(renderArguments, argument)
 			continue
 		}
-		if argument == "--config" || argument == "--project" || argument == "--plan" ||
+		if argument == "--config" || argument == "--project" ||
+			argument == "--authorization-trust" || argument == "--plan" ||
 			argument == "--run" || argument == "--source" || argument == "--stream" ||
 			argument == "--capability" {
 			controlArguments = append(controlArguments, argument)
@@ -1055,6 +1059,7 @@ func splitInvocation(arguments []string) (
 func stringsHasControlPrefix(argument string) bool {
 	return strings.HasPrefix(argument, "--config=") ||
 		strings.HasPrefix(argument, "--project=") ||
+		strings.HasPrefix(argument, "--authorization-trust=") ||
 		strings.HasPrefix(argument, "--capability=") ||
 		strings.HasPrefix(argument, "--plan=") ||
 		strings.HasPrefix(argument, "--run=")

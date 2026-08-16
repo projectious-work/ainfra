@@ -103,14 +103,15 @@ func TestMCPServeRequiresStdioAndDispatchesProject(t *testing.T) {
 	}
 	var request app.MCPServeRequest
 	code = command.Run([]string{"mcp", "serve", "--stdio", "--project", "/tmp/example",
-		"--capability", "planning"},
+		"--capability", "planning", "--authorization-trust", "/tmp/trust.json"},
 		command.Options{IO: command.IO{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
 			MCPServe: func(_ context.Context, value app.MCPServeRequest) error {
 				request = value
 				return nil
 			}})
 	if code != command.ExitSuccess || request.ProjectPath != "/tmp/example" ||
-		len(request.Capabilities) != 1 || request.Capabilities[0] != "planning" {
+		len(request.Capabilities) != 1 || request.Capabilities[0] != "planning" ||
+		request.AuthorizationTrust != "/tmp/trust.json" {
 		t.Fatalf("exit=%d request=%+v", code, request)
 	}
 }

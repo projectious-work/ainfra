@@ -122,6 +122,17 @@ func main() {
 			return mcpserver.Serve(ctx, request, mcpserver.Options{Build: build,
 				Operational: &logger,
 				Prepare: func(ctx context.Context, request app.MCPServeRequest) (app.MCPServeSession, error) {
+					var authorization app.MCPAuthorizationProvider
+					if request.AuthorizationTrust != "" {
+						trustPath, err := filepath.Abs(request.AuthorizationTrust)
+						if err != nil {
+							return app.MCPServeSession{}, fmt.Errorf("resolve MCP authorization trust path: %w", err)
+						}
+						authorization, err = app.LoadMCPAuthorizationTrust(trustPath)
+						if err != nil {
+							return app.MCPServeSession{}, err
+						}
+					}
 					planOptions, err := app.HostPlanOptions()
 					if err != nil {
 						return app.MCPServeSession{}, err
@@ -131,7 +142,8 @@ func main() {
 						return app.MCPServeSession{}, err
 					}
 					return app.PrepareMCPServe(ctx, request,
-						app.MCPServeOptions{Plan: planOptions, Doctor: doctorOptions})
+						app.MCPServeOptions{Plan: planOptions, Doctor: doctorOptions,
+							Authorization: authorization})
 				},
 				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})
 		},
