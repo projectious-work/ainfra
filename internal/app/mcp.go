@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
@@ -21,8 +22,10 @@ type MCPServeRequest struct {
 
 // MCPServeOptions supplies the closed host facts captured before serving.
 type MCPServeOptions struct {
-	Plan   PlanHostOptions
-	Doctor DoctorEnvironmentOptions
+	Plan          PlanHostOptions
+	Doctor        DoctorEnvironmentOptions
+	Authorization MCPAuthorizationProvider
+	Now           func() time.Time
 }
 
 // MCPServeSession contains the immutable, validated project identity exposed
@@ -34,6 +37,8 @@ type MCPServeSession struct {
 	cacheRoot         string
 	environmentDoctor output.Doctor
 	capabilities      map[string]struct{}
+	authorization     MCPAuthorizationProvider
+	now               func() time.Time
 }
 
 const (
@@ -131,6 +136,20 @@ func (session MCPServeSession) PlanReconciliation() (MCPReconciliationPlan, erro
 	return result, nil
 }
 
+// AuthorizeMutation verifies an exact mutation binding against the provider
+// fixed at server startup. The project root is always replaced by the
+// canonical startup root and cannot come from a protocol request.
+func (session MCPServeSession) AuthorizeMutation(ctx context.Context,
+	request MCPMutationAuthorizationRequest,
+) (MCPAuthorization, error) {
+	request.ProjectRoot = session.Project.Root
+	now := session.now
+	if now == nil {
+		now = time.Now
+	}
+	return VerifyMCPAuthorization(ctx, session.authorization, request, now())
+}
+
 // PrepareMCPServe resolves one project and validates its normal configuration
 // before a protocol transport starts accepting requests.
 func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
@@ -167,12 +186,16 @@ func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
 	if err != nil {
 		return MCPServeSession{}, fmt.Errorf("diagnose MCP environment: %w", err)
 	}
+	now := options.Now
+	if now == nil {
+		now = time.Now
+	}
 	return MCPServeSession{Project: output.Deployment{
 		Name: deployment.Metadata.Name,
 		Root: deployment.Target.Root,
 	}, project: deployment, runsRoot: settings.Paths.Runs,
 		cacheRoot: settings.Paths.Cache, environmentDoctor: environment.Result,
-		capabilities: capabilities}, nil
+		capabilities: capabilities, authorization: options.Authorization, now: now}, nil
 }
 
 func validateMCPCapabilities(requested []string) (map[string]struct{}, error) {

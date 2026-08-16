@@ -116,10 +116,25 @@ paths, modes, rollback limitations, and the accompanying deployment diagnosis.
 Compiled tests prove that planning must be explicitly enabled and that calling
 it does not create `.ainfra` or otherwise apply the proposed repair.
 
+The application layer now defines a provider-neutral independent mutation
+authorization boundary without enabling a mutation registry. Opaque approval
+material is capped at 64 KiB and passed only to a trusted provider fixed at
+server startup. The provider returns a typed grant; ainfra independently
+requires exact project root, canonical operation, plan ID and SHA-256 digest,
+intent, caller, issuer, approval time, and expiry bindings. The issuer must
+differ from the caller, apply/deploy grants require apply intent, destroy
+requires destroy intent, and future or expired grants fail closed. Provider
+errors are sanitized, cancellation is preserved, and only authorization ID,
+caller, issuer, and expiry survive as safe evidence. Session verification
+always replaces any supplied root with the canonical startup project root.
+Adversarial tests cover absent providers and approval material, oversized
+material, self-approval, stale grants, every binding mismatch, invalid
+operation/intent pairs, cancellation, and provider error leakage.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
 The deployment and destruction capability groups, along with independent
-mutation authorization, remain subsequent Phase 7 slices and are rejected by
-the current startup validator.
+authorization-provider composition and mutation adapters, remain subsequent
+Phase 7 slices and are rejected by the current startup validator.

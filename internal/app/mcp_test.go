@@ -4,7 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/doctor"
@@ -28,8 +30,14 @@ spec:
 	planOptions := app.PlanHostOptions{WorkingDirectory: root, HomeDirectory: t.TempDir(),
 		CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(),
 		Environment: map[string]string{}}
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	authorizationRequest, grant := authorizationFixture(now)
+	grant.ProjectRoot = projectRoot
+	serveOptions := mcpServeOptions(t, planOptions)
+	serveOptions.Authorization = authorizationProvider{grant: grant}
+	serveOptions.Now = func() time.Time { return now }
 	session, err := app.PrepareMCPServe(context.Background(),
-		app.MCPServeRequest{ProjectPath: "deployment"}, mcpServeOptions(t, planOptions))
+		app.MCPServeRequest{ProjectPath: "deployment"}, serveOptions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +94,16 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
 		t.Fatalf("reconciliation planning created runtime directory: %v", err)
+	}
+	authorizationRequest.ProjectRoot = "/client-controlled-root"
+	authorization, err := session.AuthorizeMutation(context.Background(), authorizationRequest)
+	if err != nil || authorization.AuthorizationID != grant.AuthorizationID {
+		t.Fatalf("fixed-project authorization: %+v, %v", authorization, err)
+	}
+	missing := authorizationRequest
+	missing.Approval = strings.Repeat("x", (64<<10)+1)
+	if _, err := session.AuthorizeMutation(context.Background(), missing); err == nil {
+		t.Fatal("oversized approval material succeeded")
 	}
 }
 
