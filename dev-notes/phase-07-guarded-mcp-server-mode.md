@@ -27,6 +27,19 @@ The first vertical slice establishes:
 - unit coverage for dispatch, protocol selection, registry disclosure, and
   structured results.
 
-Project-root resolution, the remaining read-only application adapters,
-bounded concurrency, compiled-binary protocol tests, capability groups, and
-independent mutation authorization remain subsequent Phase 7 slices.
+## Project-isolation slice
+
+The server now resolves a single canonical deployment root and validates its
+normal configuration before opening the protocol transport. Conflicting
+`--project` and `AINFRA_PROJECT` selections, missing deployments, and symlink
+roots fail before any protocol output. Requests cannot replace the selected
+root. The default registry exposes that immutable identity through the typed,
+read-only `ainfra.project.inspect` tool.
+
+The compiled-binary suite verifies default registry disclosure, typed results,
+rejection of undisclosed mutation tools, and separation of startup diagnostics
+from protocol stdout.
+
+The remaining read-only application adapters, bounded concurrency, malformed
+and oversized frame coverage, capability groups, and independent mutation
+authorization remain subsequent Phase 7 slices.

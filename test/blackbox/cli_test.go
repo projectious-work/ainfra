@@ -118,8 +118,20 @@ func TestMCPStdioDefaultRegistry(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: mcp-test
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	process := exec.Command(binary, "mcp", "serve", "--stdio")
-	process.Dir = t.TempDir()
+	process.Dir = projectRoot
 	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
 		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
 	var stderr bytes.Buffer
@@ -138,9 +150,13 @@ func TestMCPStdioDefaultRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 1 || tools.Tools[0].Name != "ainfra.version" ||
-		tools.Tools[0].Annotations == nil || !tools.Tools[0].Annotations.ReadOnlyHint {
+	if len(tools.Tools) != 2 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
+	}
+	for _, tool := range tools.Tools {
+		if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+			t.Fatalf("default tool is not read-only: %+v", tool)
+		}
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"})
 	if err != nil {
@@ -151,8 +167,38 @@ func TestMCPStdioDefaultRegistry(t *testing.T) {
 		structured["tool"] != "ainfra.version" {
 		t.Fatalf("unexpected structured result: %#v", result.StructuredContent)
 	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.project.inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	project, projectOK := structured["result"].(map[string]any)
+	if !ok || !projectOK || project["name"] != "mcp-test" || project["root"] != projectRoot {
+		t.Fatalf("unexpected project result: %#v", result.StructuredContent)
+	}
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")
+	}
+}
+
+func TestMCPStdioRejectsMissingProjectBeforeProtocolOutput(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	process := exec.CommandContext(ctx, binary, "mcp", "serve", "--stdio")
+	process.Dir = t.TempDir()
+	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stdout, stderr bytes.Buffer
+	process.Stdout, process.Stderr = &stdout, &stderr
+	if err := process.Run(); err == nil {
+		t.Fatal("MCP server without a project succeeded")
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("startup diagnostics contaminated protocol stdout: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "AINFRA-E5001") {
+		t.Fatalf("missing startup diagnostic: %q", stderr.String())
 	}
 }
 

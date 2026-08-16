@@ -120,6 +120,13 @@ func main() {
 		},
 		MCPServe: func(ctx context.Context, request app.MCPServeRequest) error {
 			return mcpserver.Serve(ctx, request, mcpserver.Options{Build: build,
+				Prepare: func(request app.MCPServeRequest) (app.MCPServeSession, error) {
+					options, err := app.HostPlanOptions()
+					if err != nil {
+						return app.MCPServeSession{}, err
+					}
+					return app.PrepareMCPServe(request, options)
+				},
 				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})
 		},
 		DoctorEnvironment: func(
