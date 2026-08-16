@@ -39,6 +39,12 @@ func (session MCPServeSession) DoctorDeployment() (output.Doctor, error) {
 	return result, err
 }
 
+// DoctorRun validates the latest retained evidence layout beneath the fixed
+// startup project without reading infrastructure state.
+func (session MCPServeSession) DoctorRun() output.Doctor {
+	return diagnoseLatestRun(session.project.Target.Root)
+}
+
 // PrepareMCPServe resolves one project and validates its normal configuration
 // before a protocol transport starts accepting requests.
 func PrepareMCPServe(request MCPServeRequest, options PlanHostOptions) (MCPServeSession, error) {

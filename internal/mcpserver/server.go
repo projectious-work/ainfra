@@ -76,6 +76,18 @@ type DoctorDeploymentResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// DoctorRunInput is closed because the project is fixed at server startup.
+type DoctorRunInput struct{}
+
+// DoctorRunResult is the versioned retained-run diagnostic result.
+type DoctorRunResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *output.Doctor          `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -159,6 +171,24 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			}
 			return &mcp.CallToolResult{IsError: len(failed) > 0}, DoctorDeploymentResult{
 				APIVersion: output.APIVersion, Tool: "ainfra.doctor.deployment",
+				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
+			}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.run",
+		Description: "Validate latest retained run evidence for the startup project.",
+		Annotations: &mcp.ToolAnnotations{Title: "diagnose latest ainfra run", ReadOnlyHint: true,
+			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ DoctorRunInput) (*mcp.CallToolResult,
+			DoctorRunResult, error) {
+			result := session.DoctorRun()
+			failed := make([]diagnostic.Diagnostic, 0, result.Summary.Fail)
+			for _, finding := range result.Findings {
+				if finding.Status == "fail" {
+					failed = append(failed, finding)
+				}
+			}
+			return &mcp.CallToolResult{IsError: len(failed) > 0}, DoctorRunResult{
+				APIVersion: output.APIVersion, Tool: "ainfra.doctor.run",
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
 		})

@@ -152,6 +152,15 @@ spec:
 			t.Fatal(err)
 		}
 	}
+	localRunRoot := filepath.Join(projectRoot, ".ainfra", "runs", runID)
+	if err := os.MkdirAll(localRunRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"run.json", "events.jsonl"} {
+		if err := os.WriteFile(filepath.Join(localRunRoot, name), []byte(retained[name]), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	process.Env = []string{"TERM=dumb", "HOME=" + home,
 		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
 	var stderr bytes.Buffer
@@ -170,7 +179,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 4 {
+	if len(tools.Tools) != 5 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -260,6 +269,22 @@ spec:
 	})
 	if unexpectedErr == nil && !unexpected.IsError {
 		t.Fatalf("doctor reconciliation input succeeded: %#v", unexpected)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.doctor.run"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	runDoctor, runDoctorOK := structured["result"].(map[string]any)
+	if result.IsError || !ok || !runDoctorOK || structured["ok"] != true ||
+		runDoctor["scope"] != "run" {
+		t.Fatalf("unexpected run doctor result: %#v", result)
+	}
+	unexpected, unexpectedErr = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.doctor.run", Arguments: map[string]any{"runId": runID},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("run doctor override input succeeded: %#v", unexpected)
 	}
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")

@@ -55,11 +55,15 @@ snapshot. Its closed input has no target, configuration, reconciliation, or
 confirmation fields. Failed findings remain typed diagnostics, and tests prove
 that a missing runtime directory is reported without creating it.
 
+The closed `ainfra.doctor.run` tool applies the CLI's latest-run evidence
+checks to the fixed startup project. It accepts no run ID or path override,
+does not inspect OpenTofu state, and reports missing evidence as a typed skip
+rather than creating directories or claiming a pass.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining environment, template, run, and sanitized artifact adapters,
-bounded concurrency, malformed and oversized frame coverage, capability
-groups, and independent mutation authorization remain subsequent Phase 7
-slices.
+The remaining environment, template, and sanitized artifact adapters, bounded
+concurrency, malformed and oversized frame coverage, capability groups, and
+independent mutation authorization remain subsequent Phase 7 slices.

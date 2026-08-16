@@ -50,6 +50,14 @@ spec:
 	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
 		t.Fatalf("read-only doctor created runtime directory: %v", err)
 	}
+	runDoctor := session.DoctorRun()
+	if runDoctor.Scope != "run" || runDoctor.Summary.Skip != 1 ||
+		len(runDoctor.Findings) != 1 || runDoctor.Findings[0].Status != "skip" {
+		t.Fatalf("unexpected run doctor: %+v", runDoctor)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("run doctor created runtime directory: %v", err)
+	}
 }
 
 func TestPrepareMCPServeRejectsConflictingEnvironmentProject(t *testing.T) {
