@@ -148,7 +148,8 @@ func Serve(ctx context.Context, request app.MCPServeRequest, options Options) er
 		return err
 	}
 	server := New(session, options)
-	return server.Run(ctx, &mcp.IOTransport{Reader: options.Stdin, Writer: options.Stdout})
+	reader := newFrameLimitReadCloser(options.Stdin, maxStdioFrameBytes)
+	return server.Run(ctx, &mcp.IOTransport{Reader: reader, Writer: options.Stdout})
 }
 
 // New constructs the default-deny server registry.
@@ -156,7 +157,8 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 	logger := slog.New(slog.NewTextHandler(options.Stderr, &slog.HandlerOptions{}))
 	server := mcp.NewServer(&mcp.Implementation{Name: "ainfra", Version: options.Build.Version},
 		&mcp.ServerOptions{Instructions: "Read-only ainfra tools are exposed by default.", Logger: logger})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.version",
+	limiter := newRequestLimiter(maxConcurrentRequests)
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.version",
 		Description: "Return the ainfra build and supported contract versions.",
 		Annotations: &mcp.ToolAnnotations{Title: "ainfra version", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -165,7 +167,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			return nil, VersionResult{APIVersion: output.APIVersion, Tool: "ainfra.version",
 				OK: true, Result: app.Version(options.Build), Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.project.inspect",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.project.inspect",
 		Description: "Return the immutable project identity selected at server startup.",
 		Annotations: &mcp.ToolAnnotations{Title: "inspect ainfra project", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -175,7 +177,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				Tool: "ainfra.project.inspect", OK: true, Result: session.Project,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.status",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.status",
 		Description: "Return sanitized retained lifecycle status for the startup project.",
 		Annotations: &mcp.ToolAnnotations{Title: "ainfra retained status", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -194,7 +196,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				Tool: "ainfra.status", OK: true, Result: &status,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.deployment",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.doctor.deployment",
 		Description: "Diagnose the startup project without reconciliation or mutation.",
 		Annotations: &mcp.ToolAnnotations{Title: "diagnose ainfra project", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -224,7 +226,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.run",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.doctor.run",
 		Description: "Validate latest retained run evidence for the startup project.",
 		Annotations: &mcp.ToolAnnotations{Title: "diagnose latest ainfra run", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -242,7 +244,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.template",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.doctor.template",
 		Description: "Diagnose the verified template bound to the startup project.",
 		Annotations: &mcp.ToolAnnotations{Title: "diagnose bound ainfra template", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -267,7 +269,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.environment",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.doctor.environment",
 		Description: "Return the environment diagnostic snapshot captured at startup.",
 		Annotations: &mcp.ToolAnnotations{Title: "diagnose ainfra environment", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -285,7 +287,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.output.read",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.output.read",
 		Description: "Read sanitized standardized output retained by a bound run.",
 		Annotations: &mcp.ToolAnnotations{Title: "read retained ainfra output", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -303,7 +305,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			return nil, OutputResult{APIVersion: output.APIVersion, Tool: "ainfra.output.read",
 				OK: true, Result: &result, Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
-	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.inventory.read",
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.inventory.read",
 		Description: "Read verified deterministic inventory retained by a bound run.",
 		Annotations: &mcp.ToolAnnotations{Title: "read retained ainfra inventory", ReadOnlyHint: true,
 			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
@@ -322,11 +324,11 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				Tool: "ainfra.inventory.read", OK: true, Result: &result,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
-	addContractResources(server)
+	addContractResources(server, limiter)
 	return server
 }
 
-func addContractResources(server *mcp.Server) {
+func addContractResources(server *mcp.Server, limiter *requestLimiter) {
 	for _, name := range contracts.Schemas() {
 		name := name
 		contents, ok := contracts.Schema(name)
@@ -334,7 +336,7 @@ func addContractResources(server *mcp.Server) {
 			panic("registered schema is not embedded: " + name)
 		}
 		uri := "ainfra://schemas/v1/" + name
-		server.AddResource(&mcp.Resource{Name: name, Title: "ainfra v1 schema: " + name,
+		addBoundedResource(server, limiter, &mcp.Resource{Name: name, Title: "ainfra v1 schema: " + name,
 			Description: "Published, immutable ainfra v1 JSON Schema.",
 			MIMEType:    "application/schema+json", URI: uri, Size: int64(len(contents))},
 			func(_ context.Context, _ *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
@@ -345,7 +347,7 @@ func addContractResources(server *mcp.Server) {
 	}
 	catalog := contractCatalog()
 	const catalogURI = "ainfra://contracts/v1"
-	server.AddResource(&mcp.Resource{Name: "ainfra-contracts-v1",
+	addBoundedResource(server, limiter, &mcp.Resource{Name: "ainfra-contracts-v1",
 		Title:       "ainfra v1 contracts and documentation",
 		Description: "Supported contract versions, schema resources, and documentation references.",
 		MIMEType:    "application/json", URI: catalogURI, Size: int64(len(catalog))},

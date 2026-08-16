@@ -83,10 +83,22 @@ fresh deterministic rendering of that validated output. Traversal,
 cross-project bindings, public files, secret-shaped output, and altered
 inventory fail closed with typed diagnostics.
 
+All tool and resource handlers now share an eight-request concurrency bound.
+Waiting requests remain cancellable, and the bound covers inexpensive
+metadata calls as well as retained-artifact and diagnostic reads so a client
+cannot bypass it by switching default capabilities. The official SDK remains
+responsible for protocol parsing and dispatch.
+
+The stdio adapter places a 4 MiB ceiling on each newline-delimited input frame
+before bytes reach the SDK decoder. An oversized frame closes the session with
+a sanitized `AINFRA-E5001` failure on stderr and no protocol pollution on
+stdout. Compiled-binary tests cover malformed and oversized frames, concurrent
+tool calls, log separation, and clean rejection; unit tests prove the exact
+concurrency width, cancellation while queued, and frame-boundary behavior.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining bounded concurrency, malformed and oversized frame coverage,
-capability groups, and independent mutation authorization remain subsequent
+Capability groups and independent mutation authorization remain subsequent
 Phase 7 slices.

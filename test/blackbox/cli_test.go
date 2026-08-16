@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -353,6 +354,70 @@ spec:
 	}
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")
+	}
+	concurrent := make(chan error, 32)
+	for range 32 {
+		go func() {
+			response, callErr := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"})
+			if callErr == nil && response.IsError {
+				callErr = errors.New("version returned an error result")
+			}
+			concurrent <- callErr
+		}()
+	}
+	for range 32 {
+		if err := <-concurrent; err != nil {
+			t.Fatalf("concurrent MCP request: %v", err)
+		}
+	}
+}
+
+func TestMCPStdioRejectsMalformedAndOversizedFrames(t *testing.T) {
+	t.Parallel()
+	for _, fixture := range []struct {
+		name    string
+		payload string
+	}{
+		{name: "malformed", payload: "{not-json}\n"},
+		{name: "oversized", payload: `{"jsonrpc":"2.0","id":1,"method":"` +
+			strings.Repeat("frame-canary-", (4<<20)/len("frame-canary-")+1) + `"}` + "\n"},
+	} {
+		fixture := fixture
+		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			projectRoot := t.TempDir()
+			manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: malformed-frame-test
+spec:
+  template:
+    source: local:../template
+`
+			if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+				[]byte(manifest), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			process := exec.CommandContext(ctx, binary, "mcp", "serve", "--stdio")
+			process.Dir = projectRoot
+			process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+				"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+			process.Stdin = strings.NewReader(fixture.payload)
+			var stdout, stderr bytes.Buffer
+			process.Stdout, process.Stderr = &stdout, &stderr
+			if err := process.Run(); err == nil {
+				t.Fatal("invalid MCP frame succeeded")
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("invalid MCP frame polluted stdout: %q", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), "AINFRA-E5001") ||
+				strings.Contains(stderr.String(), "frame-canary-") {
+				t.Fatalf("unexpected sanitized stderr: %q", stderr.String())
+			}
+		})
 	}
 }
 
