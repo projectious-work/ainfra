@@ -651,6 +651,17 @@ spec:
 	if len(tools.Tools) != 16 {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
+	for _, tool := range tools.Tools {
+		if tool.Name == "ainfra.destroy.execute" {
+			t.Fatal("destroy tool disclosed without destruction capability")
+		}
+	}
+	if result, callErr := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.destroy.execute", Arguments: map[string]any{"planId": runID,
+			"caller": "agent-1", "approval": "approval-canary-secret"},
+	}); callErr == nil && !result.IsError {
+		t.Fatalf("destroy without capability result=%#v err=%v", result, callErr)
+	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
 		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
 			"approval": "approval-canary-secret"}})
@@ -835,6 +846,91 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 	}
 }
 
+func TestMCPStdioRejectsMismatchedSignedApprovalsBeforeChildInvocation(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		mutate func(*mcpBlackboxGrant)
+	}{
+		{name: "self approved", mutate: func(grant *mcpBlackboxGrant) {
+			grant.Issuer = grant.Caller
+		}},
+		{name: "caller", mutate: func(grant *mcpBlackboxGrant) {
+			grant.Caller = "another-agent"
+		}},
+		{name: "root", mutate: func(grant *mcpBlackboxGrant) {
+			grant.ProjectRoot = filepath.Dir(grant.ProjectRoot)
+		}},
+		{name: "plan id", mutate: func(grant *mcpBlackboxGrant) {
+			grant.PlanID += "-stale"
+		}},
+		{name: "digest", mutate: func(grant *mcpBlackboxGrant) {
+			grant.PlanDigest = "sha256:" + strings.Repeat("b", 64)
+		}},
+		{name: "intent", mutate: func(grant *mcpBlackboxGrant) {
+			grant.Intent = "destroy"
+		}},
+		{name: "expired", mutate: func(grant *mcpBlackboxGrant) {
+			grant.ExpiresAt = time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			projectRoot, home, runID, planDigest := mcpAuthorizationBlackboxFixture(t)
+			publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			trustPath := filepath.Join(t.TempDir(), "trust.json")
+			writeBlackboxJSON(t, trustPath, map[string]any{"schemaVersion": 1,
+				"issuers": []any{map[string]any{"id": "operator-1",
+					"publicKey": base64.StdEncoding.EncodeToString(publicKey)}}})
+			grant := mcpBlackboxGrant{AuthorizationID: "approval-refused",
+				Issuer: "operator-1", Caller: "agent-1", ProjectRoot: projectRoot,
+				Operation: "apply", PlanID: runID, PlanDigest: planDigest, Intent: "apply",
+				ApprovedAt: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339),
+				ExpiresAt:  time.Now().UTC().Add(time.Minute).Format(time.RFC3339)}
+			test.mutate(&grant)
+			approval := signedMCPApproval(t, privateKey, grant)
+			process := exec.Command(binary, "mcp", "serve", "--stdio",
+				"--capability", "deployment", "--authorization-trust", trustPath)
+			process.Dir = projectRoot
+			process.Env = []string{"TERM=dumb", "HOME=" + home,
+				"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+			var stderr bytes.Buffer
+			process.Stderr = &stderr
+			client := mcp.NewClient(&mcp.Implementation{Name: "refusal-test", Version: "1"}, nil)
+			session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+			if err != nil {
+				t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+			}
+			result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
+				Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+					"approval": approval}})
+			if err != nil || !result.IsError {
+				t.Fatalf("mismatched approval result=%#v err=%v", result, err)
+			}
+			structured, ok := result.StructuredContent.(map[string]any)
+			diagnostics, diagnosticsOK := structured["diagnostics"].([]any)
+			if !ok || !diagnosticsOK || len(diagnostics) != 1 ||
+				!strings.Contains(diagnostics[0].(map[string]any)["message"].(string),
+					"authorization") {
+				t.Fatalf("refusal reached child preparation: %#v", result)
+			}
+			if _, err := os.Stat(filepath.Join(home, ".local", "state", "ainfra", "runs",
+				runID, "authorization.json")); !os.IsNotExist(err) {
+				t.Fatalf("refused approval retained evidence: %v", err)
+			}
+			if err := session.Close(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 type mcpBlackboxGrant struct {
 	AuthorizationID string `json:"authorizationId"`
 	Issuer          string `json:"issuer"`
@@ -846,6 +942,24 @@ type mcpBlackboxGrant struct {
 	Intent          string `json:"intent"`
 	ApprovedAt      string `json:"approvedAt"`
 	ExpiresAt       string `json:"expiresAt"`
+}
+
+func signedMCPApproval(t *testing.T, privateKey ed25519.PrivateKey,
+	grant mcpBlackboxGrant,
+) string {
+	t.Helper()
+	payload, err := json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature := ed25519.Sign(privateKey,
+		append([]byte("ainfra-mcp-authorization-v1\n"), payload...))
+	approval, err := json.Marshal(map[string]any{"schemaVersion": 1,
+		"grant": json.RawMessage(payload), "signature": base64.StdEncoding.EncodeToString(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(approval)
 }
 
 func mcpAuthorizationBlackboxFixture(t *testing.T) (string, string, string, string) {

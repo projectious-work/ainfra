@@ -25,6 +25,9 @@ import (
 func TestMCPCreatePlanUsesFixedResolvedSessionAndPropagatesCancellation(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	projectRoot := filepath.Join(root, "deployment")
 	if err := os.Mkdir(projectRoot, 0o700); err != nil {
 		t.Fatal(err)
@@ -355,6 +358,9 @@ spec:
 func TestMCPTemplateWriteRechecksSourceUnderOperationLock(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	projectRoot := filepath.Join(root, "deployment")
 	if err := os.Mkdir(projectRoot, 0o700); err != nil {
 		t.Fatal(err)

@@ -305,8 +305,8 @@ The closure sweep maps every normative MCP requirement to executable evidence:
 | AINFRA-MCP-006 | Compiled-binary tests cover initialization, unknown tools, malformed and oversized frames, 32 concurrent requests, correlated logs, and explicit clean shutdown. |
 | AINFRA-MCP-007 | `TestMCPProtocolDependencyIsConfinedToAdapter` prevents protocol imports outside `internal/mcpserver`; application tests call protocol-neutral session use cases directly. |
 | AINFRA-MCP-008 | Command contract and compiled startup tests use only `ainfra mcp serve --stdio`; invalid transports and missing stdio fail before protocol output. |
-| AINFRA-MCP-009 | Capability, absent-provider, signed-binding, intent/root/digest/caller/expiry, self-approval, replay, stale-source, and destroy-separation tests refuse before child mutation. |
-| AINFRA-MCP-010 | MCP apply/destroy/configure/deploy call the same locked application functions as the CLI; successful MCP composed-deploy and CLI lifecycle black-box suites assert the same stages, evidence, outcomes, and stale-plan behavior. |
+| AINFRA-MCP-009 | Compiled-server tests now refuse undisclosed groups, destroy without its separate capability, absent providers, self-approval, and signed approvals with stale or mismatched plan ID, intent, root, digest, caller, or expiry before child preparation. Application tests additionally cover operation mismatch, replay, and source changes under the operation lock. |
+| AINFRA-MCP-010 | `TestMCPAndCLIApplyShareLifecycleContract` compares independently prepared CLI and MCP execution through the shared locked application path, including child arguments, engine reports, lifecycle events, evidence, outcomes, and recovery. Existing cancellation and failure tests exercise the same shared functions, while MCP adds only sanitized authorization evidence. |
 
 End-user documentation now describes server startup, the default registry,
 capability groups, strict Ed25519 trust and approval contracts, reviewed
