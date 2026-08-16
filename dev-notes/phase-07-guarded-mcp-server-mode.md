@@ -60,10 +60,15 @@ checks to the fixed startup project. It accepts no run ID or path override,
 does not inspect OpenTofu state, and reports missing evidence as a typed skip
 rather than creating directories or claiming a pass.
 
+The closed `ainfra.doctor.template` tool diagnoses only the verified template
+bound to the startup project. It reuses deployment lock/cache facts and the
+existing template diagnostic registry, accepts no path or source input, and
+reports an absent verified binding as a typed skip without acquisition.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining environment, template, and sanitized artifact adapters, bounded
+The remaining environment and sanitized artifact adapters, bounded
 concurrency, malformed and oversized frame coverage, capability groups, and
 independent mutation authorization remain subsequent Phase 7 slices.

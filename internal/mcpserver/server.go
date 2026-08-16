@@ -88,6 +88,19 @@ type DoctorRunResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// DoctorTemplateInput is closed because only the template bound to the
+// startup project may be diagnosed.
+type DoctorTemplateInput struct{}
+
+// DoctorTemplateResult is the versioned resolved-template diagnostic result.
+type DoctorTemplateResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *output.Doctor          `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -189,6 +202,31 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			}
 			return &mcp.CallToolResult{IsError: len(failed) > 0}, DoctorRunResult{
 				APIVersion: output.APIVersion, Tool: "ainfra.doctor.run",
+				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
+			}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.template",
+		Description: "Diagnose the verified template bound to the startup project.",
+		Annotations: &mcp.ToolAnnotations{Title: "diagnose bound ainfra template", ReadOnlyHint: true,
+			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ DoctorTemplateInput) (*mcp.CallToolResult,
+			DoctorTemplateResult, error) {
+			result, err := session.DoctorTemplate()
+			if err != nil {
+				return &mcp.CallToolResult{IsError: true}, DoctorTemplateResult{
+					APIVersion: output.APIVersion, Tool: "ainfra.doctor.template", OK: false,
+					Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E2400",
+						Severity: diagnostic.SeverityError, Message: err.Error(), Component: "doctor"}},
+				}, nil
+			}
+			failed := make([]diagnostic.Diagnostic, 0, result.Summary.Fail)
+			for _, finding := range result.Findings {
+				if finding.Status == "fail" {
+					failed = append(failed, finding)
+				}
+			}
+			return &mcp.CallToolResult{IsError: len(failed) > 0}, DoctorTemplateResult{
+				APIVersion: output.APIVersion, Tool: "ainfra.doctor.template",
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
 		})

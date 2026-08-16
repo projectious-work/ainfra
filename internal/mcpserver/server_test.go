@@ -59,7 +59,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 5 {
+	if len(tools.Tools) != 6 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -142,6 +142,15 @@ spec:
 	runDoctor, runDoctorOK := value["result"].(map[string]any)
 	if result.IsError || !ok || !runDoctorOK || runDoctor["scope"] != "run" {
 		t.Fatalf("unexpected run doctor result: %#v", result)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.doctor.template"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, ok = result.StructuredContent.(map[string]any)
+	templateDoctor, templateDoctorOK := value["result"].(map[string]any)
+	if result.IsError || !ok || !templateDoctorOK || templateDoctor["scope"] != "template" {
+		t.Fatalf("unexpected template doctor result: %#v", result)
 	}
 }
 

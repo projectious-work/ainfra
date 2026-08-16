@@ -58,6 +58,14 @@ spec:
 	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
 		t.Fatalf("run doctor created runtime directory: %v", err)
 	}
+	templateDoctor, err := session.DoctorTemplate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if templateDoctor.Scope != "template" || templateDoctor.Summary.Skip != 1 ||
+		len(templateDoctor.Findings) != 1 || templateDoctor.Findings[0].Status != "skip" {
+		t.Fatalf("unexpected template doctor: %+v", templateDoctor)
+	}
 }
 
 func TestPrepareMCPServeRejectsConflictingEnvironmentProject(t *testing.T) {

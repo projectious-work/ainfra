@@ -45,6 +45,20 @@ func (session MCPServeSession) DoctorRun() output.Doctor {
 	return diagnoseLatestRun(session.project.Target.Root)
 }
 
+// DoctorTemplate diagnoses only the verified template bound to the startup
+// project. Missing lock/cache evidence produces the same typed skip/failure
+// findings as doctor all and never triggers source acquisition.
+func (session MCPServeSession) DoctorTemplate() (output.Doctor, error) {
+	deployment, _, err := diagnoseDeployment(session.project, session.cacheRoot,
+		reconcile.Planner{}, false, false)
+	if err != nil {
+		return output.Doctor{}, err
+	}
+	findings := resolvedTemplateFindings(deployment.Findings)
+	return output.Doctor{Scope: "template", Summary: summarizeDoctorFindings(findings),
+		Findings: findings}, nil
+}
+
 // PrepareMCPServe resolves one project and validates its normal configuration
 // before a protocol transport starts accepting requests.
 func PrepareMCPServe(request MCPServeRequest, options PlanHostOptions) (MCPServeSession, error) {
