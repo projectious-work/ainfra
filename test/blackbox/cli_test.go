@@ -612,7 +612,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 12 {
+	if len(tools.Tools) != 13 {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
@@ -623,6 +623,15 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(runRoot, "authorization.json")); !os.IsNotExist(err) {
 		t.Fatalf("unverified authorization retained evidence: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.reconciliation.execute",
+		Arguments: map[string]any{"planId": "reconcile-unreviewed", "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unreviewed reconciliation result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("refused reconciliation mutated project: %v", err)
 	}
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
@@ -685,7 +694,7 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 			}
 		}
 	}
-	if err != nil || len(tools.Tools) != 13 || !foundDestroy {
+	if err != nil || len(tools.Tools) != 14 || !foundDestroy {
 		t.Fatalf("destruction registry=%+v err=%v", tools, err)
 	}
 	refused, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.destroy.execute",

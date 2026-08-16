@@ -2,13 +2,18 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/projectious-work/ainfra/internal/config"
+	"github.com/projectious-work/ainfra/internal/diagnostic"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
@@ -45,9 +50,11 @@ type MCPServeSession struct {
 	settings          config.Settings
 	planOptions       PlanHostOptions
 	templateOptions   TemplateLockOptions
+	reconcilePlanner  reconcile.Planner
 	environmentDoctor output.Doctor
 	capabilities      map[string]struct{}
 	authorization     MCPAuthorizationProvider
+	authorizationUses *sync.Map
 	now               func() time.Time
 }
 
@@ -71,9 +78,26 @@ type MCPReconciliationAction struct {
 
 // MCPReconciliationPlan is a non-applying preview for the startup project.
 type MCPReconciliationPlan struct {
+	PlanID     string                    `json:"planId"`
+	PlanDigest string                    `json:"planDigest"`
 	Deployment output.Deployment         `json:"deployment"`
 	Doctor     output.Doctor             `json:"doctor"`
 	Actions    []MCPReconciliationAction `json:"actions"`
+}
+
+// MCPReconciliationResult records exact planned repairs and independent
+// authorization without exposing host paths or opaque approval material.
+type MCPReconciliationResult struct {
+	PlanID        string                          `json:"planId"`
+	PlanDigest    string                          `json:"planDigest"`
+	Results       []MCPReconciliationActionResult `json:"results"`
+	Authorization MCPAuthorization                `json:"authorization"`
+}
+
+type MCPReconciliationActionResult struct {
+	Action MCPReconciliationAction `json:"action"`
+	Status string                  `json:"status"`
+	Error  string                  `json:"error,omitempty"`
 }
 
 // MCPDeploymentContract is the sanitized semantic deployment contract fixed at
@@ -243,25 +267,117 @@ func (session MCPServeSession) CapabilityEnabled(capability string) bool {
 
 // PlanReconciliation computes registered local repairs without applying them.
 func (session MCPServeSession) PlanReconciliation() (MCPReconciliationPlan, error) {
+	result, _, err := session.reconciliationPlan()
+	return result, err
+}
+
+func (session MCPServeSession) reconciliationPlan() (MCPReconciliationPlan, reconcile.Plan, error) {
 	doctorResult, actions, err := diagnoseDeployment(session.project,
-		session.cacheRoot, reconcile.Planner{}, false, true)
+		session.cacheRoot, session.reconcilePlanner, false, true)
 	if err != nil {
-		return MCPReconciliationPlan{}, err
+		return MCPReconciliationPlan{}, reconcile.Plan{}, err
 	}
+	doctorResult = sanitizeMCPDoctor(doctorResult, session.Project.Root)
 	result := MCPReconciliationPlan{Deployment: session.Project, Doctor: doctorResult,
 		Actions: make([]MCPReconciliationAction, len(actions))}
 	for index, action := range actions {
 		relative, relativeErr := filepath.Rel(session.Project.Root, action.Path)
 		if relativeErr != nil || relative == ".." ||
 			strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
-			return MCPReconciliationPlan{}, errors.New("reconciliation action escaped project root")
+			return MCPReconciliationPlan{}, reconcile.Plan{},
+				errors.New("reconciliation action escaped project root")
 		}
 		result.Actions[index] = MCPReconciliationAction{Check: action.CheckID,
 			Path: filepath.ToSlash(relative), Kind: string(action.Kind),
 			Mode:               fmt.Sprintf("%04o", action.Mode.Perm()),
 			RollbackLimitation: action.RollbackLimitation}
 	}
-	return result, nil
+	binding, err := json.Marshal(struct {
+		Deployment string                    `json:"deployment"`
+		Actions    []MCPReconciliationAction `json:"actions"`
+	}{Deployment: session.Project.Name, Actions: result.Actions})
+	if err != nil {
+		return MCPReconciliationPlan{}, reconcile.Plan{}, err
+	}
+	digest := sha256.Sum256(binding)
+	encoded := hex.EncodeToString(digest[:])
+	result.PlanID = "reconcile-" + encoded[:32]
+	result.PlanDigest = "sha256:" + encoded
+	return result, reconcile.Plan{DeploymentRoot: session.Project.Root, Actions: actions}, nil
+}
+
+func sanitizeMCPDoctor(result output.Doctor, projectRoot string) output.Doctor {
+	result.Findings = append([]diagnostic.Diagnostic(nil), result.Findings...)
+	for index := range result.Findings {
+		path := result.Findings[index].Path
+		if path == "" {
+			continue
+		}
+		relative, err := filepath.Rel(projectRoot, path)
+		if err != nil || relative == ".." ||
+			strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+			result.Findings[index].Path = ""
+			continue
+		}
+		result.Findings[index].Path = filepath.ToSlash(relative)
+	}
+	return result
+}
+
+// ReconcileAuthorized independently authorizes and applies one exact current
+// reconciliation plan. Planner.Apply rechecks all actions under the normal
+// deployment operation lock before the first write.
+func (session MCPServeSession) ReconcileAuthorized(ctx context.Context,
+	request MCPExecutionRequest,
+) (MCPReconciliationResult, error) {
+	plan, native, err := session.reconciliationPlan()
+	if err != nil {
+		return MCPReconciliationResult{}, err
+	}
+	if request.PlanID != plan.PlanID {
+		return MCPReconciliationResult{}, errors.New("reconciliation plan changed; review a new plan")
+	}
+	authorization, err := session.AuthorizeMutation(ctx, MCPMutationAuthorizationRequest{
+		Approval: request.Approval, Operation: "reconcile", PlanID: plan.PlanID,
+		PlanDigest: plan.PlanDigest, Intent: "reconcile", Caller: request.Caller,
+	})
+	if err != nil {
+		return MCPReconciliationResult{}, err
+	}
+	if session.authorizationUses == nil {
+		return MCPReconciliationResult{}, errors.New("MCP authorization replay guard is unavailable")
+	}
+	if _, replay := session.authorizationUses.LoadOrStore(authorization.AuthorizationID, struct{}{}); replay {
+		return MCPReconciliationResult{}, errors.New("MCP authorization was already consumed")
+	}
+	now := session.now
+	if now == nil {
+		now = time.Now
+	}
+	expiresAt, err := time.Parse(time.RFC3339, authorization.ExpiresAt)
+	if err != nil || !expiresAt.After(now().UTC()) {
+		return MCPReconciliationResult{}, errors.New("MCP authorization expired before execution")
+	}
+	if err := ctx.Err(); err != nil {
+		return MCPReconciliationResult{}, err
+	}
+	applied, err := session.reconcilePlanner.Apply(native, reconcile.FileLocker{})
+	result := MCPReconciliationResult{PlanID: plan.PlanID, PlanDigest: plan.PlanDigest,
+		Authorization: authorization, Results: make([]MCPReconciliationActionResult, len(applied))}
+	failed := false
+	for index, actionResult := range applied {
+		actionError := ""
+		if actionResult.Status != "applied" {
+			failed = true
+			actionError = "reconciliation action failed"
+		}
+		result.Results[index] = MCPReconciliationActionResult{Action: plan.Actions[index],
+			Status: actionResult.Status, Error: actionError}
+	}
+	if err == nil && failed {
+		err = errors.New("one or more reconciliation actions failed")
+	}
+	return result, err
 }
 
 // CreatePlan creates a reviewed saved plan through the normal planning core
@@ -424,8 +540,9 @@ func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
 	}, project: deployment, runsRoot: settings.Paths.Runs, settings: settings,
 		cacheRoot: settings.Paths.Cache, environmentDoctor: environment.Result,
 		capabilities: capabilities, authorization: options.Authorization, now: now,
-		planOptions:     clonePlanHostOptions(planOptions),
-		templateOptions: cloneTemplateLockOptions(options.Template)}, nil
+		authorizationUses: &sync.Map{},
+		planOptions:       clonePlanHostOptions(planOptions),
+		templateOptions:   cloneTemplateLockOptions(options.Template)}, nil
 }
 
 func cloneTemplateLockOptions(options TemplateLockOptions) TemplateLockOptions {

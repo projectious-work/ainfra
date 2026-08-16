@@ -111,6 +111,8 @@ func validMCPAuthorizationRequest(request MCPMutationAuthorizationRequest) bool 
 		return request.Intent == "apply"
 	case "destroy":
 		return request.Intent == "destroy"
+	case "reconcile":
+		return request.Intent == "reconcile"
 	default:
 		return false
 	}

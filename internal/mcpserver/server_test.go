@@ -374,14 +374,18 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	foundApply := false
+	foundApply, foundReconcile := false, false
 	for _, tool := range tools.Tools {
 		if tool.Name == "ainfra.apply.execute" {
 			foundApply = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
 				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
 		}
+		if tool.Name == "ainfra.reconciliation.execute" {
+			foundReconcile = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
+				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
+		}
 	}
-	if len(tools.Tools) != 12 || !foundApply {
+	if len(tools.Tools) != 13 || !foundApply || !foundReconcile {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
@@ -393,5 +397,15 @@ spec:
 	}
 	if !result.IsError {
 		t.Fatalf("apply without independently verified plan succeeded: %#v", result)
+	}
+	result, err = clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "ainfra.reconciliation.execute", Arguments: map[string]any{
+			"planId": "reconcile-unreviewed", "caller": "agent-1",
+			"approval": "conversational-claim"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unreviewed reconciliation succeeded: result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("refused reconciliation mutated project: %v", err)
 	}
 }

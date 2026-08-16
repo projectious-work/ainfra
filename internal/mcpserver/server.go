@@ -226,6 +226,15 @@ type ApplyResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// ReconciliationExecuteResult is the versioned authorized local-repair result.
+type ReconciliationExecuteResult struct {
+	APIVersion  string                       `json:"apiVersion"`
+	Tool        string                       `json:"tool"`
+	OK          bool                         `json:"ok"`
+	Result      *app.MCPReconciliationResult `json:"result"`
+	Diagnostics []diagnostic.Diagnostic      `json:"diagnostics"`
+}
+
 // DestroyResult is the versioned independently authorized destruction result.
 type DestroyResult struct {
 	APIVersion  string                  `json:"apiVersion"`
@@ -512,6 +521,27 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			})
 	}
 	if session.CapabilityEnabled(app.MCPDeploymentCapability) {
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.reconciliation.execute",
+			Description: "Apply one exact independently authorized reconciliation plan.",
+			Annotations: &mcp.ToolAnnotations{Title: "execute authorized ainfra reconciliation",
+				ReadOnlyHint: false, DestructiveHint: boolPointer(true),
+				IdempotentHint: false, OpenWorldHint: boolPointer(false)}},
+			func(ctx context.Context, _ *mcp.CallToolRequest, input ApplyInput) (*mcp.CallToolResult,
+				ReconciliationExecuteResult, error) {
+				result, err := session.ReconcileAuthorized(ctx, app.MCPExecutionRequest{
+					PlanID: input.PlanID, Caller: input.Caller, Approval: input.Approval})
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, ReconciliationExecuteResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.reconciliation.execute", OK: false,
+						Result: &result, Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E2300",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "doctor",
+							NextAction: "Review a current reconciliation plan and obtain fresh independent approval."}},
+					}, nil
+				}
+				return nil, ReconciliationExecuteResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.reconciliation.execute", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
 		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.apply.execute",
 			Description: "Execute one exact independently authorized reviewed apply plan.",
 			Annotations: &mcp.ToolAnnotations{Title: "execute authorized ainfra apply",

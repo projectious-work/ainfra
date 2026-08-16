@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 	runstate "github.com/projectious-work/ainfra/internal/run"
 	"github.com/projectious-work/ainfra/internal/source"
 )
@@ -260,6 +262,83 @@ spec:
 	cancel()
 	if _, err := session.PlanTemplateLock(ctx, "lock"); !acquired || !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled template plan: acquired=%v err=%v", acquired, err)
+	}
+}
+
+func TestMCPReconciliationRequiresExactIndependentApproval(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeMCPPlanFile(t, filepath.Join(root, project.ManifestName), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: mcp-reconcile
+spec:
+  template:
+    source: local:../template
+`)
+	deployment, err := project.Load(project.ResolveOptions{ProjectPath: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	session := MCPServeSession{Project: output.Deployment{Name: "mcp-reconcile", Root: root},
+		project: deployment, cacheRoot: t.TempDir(), now: func() time.Time { return now },
+		authorizationUses: &sync.Map{}}
+	plan, err := session.PlanReconciliation()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedPlan, err := json.Marshal(plan)
+	if err != nil || bytes.Contains(encodedPlan, []byte(session.cacheRoot)) {
+		t.Fatalf("reconciliation plan leaked host cache path: %s, %v", encodedPlan, err)
+	}
+	repeated, err := session.PlanReconciliation()
+	if err != nil || plan.PlanID != repeated.PlanID || plan.PlanDigest != repeated.PlanDigest ||
+		len(plan.Actions) != 1 {
+		t.Fatalf("unstable reconciliation binding: %+v %+v %v", plan, repeated, err)
+	}
+	if _, err := session.ReconcileAuthorized(context.Background(), MCPExecutionRequest{
+		PlanID: plan.PlanID, Caller: "agent-1", Approval: "opaque"}); err == nil {
+		t.Fatal("reconciliation without independent provider succeeded")
+	}
+	if _, err := os.Stat(filepath.Join(root, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("refused reconciliation mutated project: %v", err)
+	}
+	grant := MCPAuthorizationGrant{AuthorizationID: "approval-reconcile-1", Issuer: "operator-1",
+		Caller: "agent-1", ProjectRoot: root, Operation: "reconcile", PlanID: plan.PlanID,
+		PlanDigest: plan.PlanDigest, Intent: "reconcile", ApprovedAt: now.Add(-time.Minute),
+		ExpiresAt: now.Add(time.Minute)}
+	session.authorization = mcpPlanAuthorizationProvider{grant: grant}
+	session.reconcilePlanner = reconcile.Planner{ApplyAction: func(reconcile.Action) error {
+		return errors.New("sensitive /host/path")
+	}}
+	failed, err := session.ReconcileAuthorized(context.Background(), MCPExecutionRequest{
+		PlanID: plan.PlanID, Caller: "agent-1", Approval: "opaque"})
+	if err == nil || strings.Contains(err.Error(), "/host/path") || len(failed.Results) != 1 ||
+		failed.Results[0].Error != "reconciliation action failed" {
+		t.Fatalf("unsanitized reconciliation failure: %+v, %v", failed, err)
+	}
+	session.reconcilePlanner = reconcile.Planner{}
+	if _, err := session.ReconcileAuthorized(context.Background(), MCPExecutionRequest{
+		PlanID: plan.PlanID, Caller: "agent-1", Approval: "opaque"}); err == nil ||
+		!strings.Contains(err.Error(), "already consumed") {
+		t.Fatalf("replayed reconciliation approval succeeded: %v", err)
+	}
+	grant.AuthorizationID = "approval-reconcile-2"
+	session.authorization = mcpPlanAuthorizationProvider{grant: grant}
+	result, err := session.ReconcileAuthorized(context.Background(), MCPExecutionRequest{
+		PlanID: plan.PlanID, Caller: "agent-1", Approval: "opaque"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.PlanDigest != plan.PlanDigest ||
+		result.Authorization.AuthorizationID != grant.AuthorizationID || len(result.Results) != 1 ||
+		result.Results[0].Status != "applied" || result.Results[0].Action.Path != ".ainfra" {
+		t.Fatalf("unexpected reconciliation result: %+v", result)
+	}
+	information, err := os.Stat(filepath.Join(root, ".ainfra"))
+	if err != nil || !information.IsDir() || information.Mode().Perm() != 0o700 {
+		t.Fatalf("reconciliation result mode=%v err=%v", information, err)
 	}
 }
 

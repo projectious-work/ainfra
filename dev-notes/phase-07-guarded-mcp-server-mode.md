@@ -220,8 +220,20 @@ lock/update preconditions are preserved, unchanged candidates report
 `changed: false`, Git acquisition receives MCP cancellation, and invalid
 operations return a typed failure.
 
+The `deployment` capability now also discloses
+`ainfra.reconciliation.execute`. Reconciliation previews carry a deterministic
+plan ID and SHA-256 digest over the startup deployment identity and ordered,
+sanitized actions. Execution recomputes that binding, rejects stale plan IDs,
+and requires an independently verified grant bound exactly to the
+`reconcile` operation and intent, plan ID, digest, caller, startup root, and
+expiry. Authorization IDs are single-use within the serving session. The
+existing reconciliation planner rechecks the complete action set under the
+normal deployment operation lock before writing. Refused, stale, absent,
+expired, or replayed approvals cannot create the runtime directory, and action
+failures return sanitized evidence without host paths.
+
 Template migration planning and remaining deployment mutations
-(approved reconciliation, template writes, configure, and composed deploy)
+(template writes, configure, and composed deploy)
 remain subsequent Phase 7 slices. Final AINFRA-MCP-001 through
 AINFRA-MCP-010 conformance closure and end-user documentation also remain.
 Undeclared capability groups are rejected by the current startup validator.
