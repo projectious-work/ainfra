@@ -3,9 +3,10 @@ title: Usage
 weight: 50
 ---
 
-The current alpha CLI validates local contracts, diagnoses deployments, resolves
-immutable local or Git template sources, and creates and applies reviewed
-OpenTofu plans. Static help and version inspection do not perform project
+The current alpha CLI validates local contracts, diagnoses deployments,
+resolves immutable local or Git template sources, creates and executes reviewed
+OpenTofu plans, configures hosts through Ansible, and retains sanitized
+lifecycle evidence. Static help and version inspection do not perform project
 discovery, network access, or child-tool execution:
 
 ```sh
@@ -71,5 +72,5 @@ The published `v1.0.0-alpha.6` includes output, inventory, Ansible, composed
 deploy commands, reviewed destruction, recovery status, retained logs, and
 operational logging. See
 [Output, inventory, and Ansible](output-inventory-ansible/) and
-[Reviewed plans](reviewed-plans/). Guarded MCP serving remains a later roadmap
-phase.
+[Reviewed plans](reviewed-plans/). Guarded MCP serving is the current
+in-progress roadmap phase and is not part of the published alpha yet.

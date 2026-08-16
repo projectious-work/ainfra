@@ -56,11 +56,15 @@ intentional source or content change should replace that binding.
 
 ## Core Workflow
 
-The shipped alpha supports contract validation, initialization, doctor scopes,
-guarded local reconciliation, immutable template lock/update operations, saved
-apply and destroy planning, and exact reviewed apply execution. Destroy
-execution, standardized output and inventory, and Ansible configuration remain
-later roadmap phases.
+The shipped `v1.0.0-alpha.6` supports contract validation, initialization,
+doctor scopes, guarded local reconciliation, immutable template lock/update
+operations, standardized output, deterministic inventory, native Ansible
+configuration, composed deployment, and exact reviewed apply and destroy
+execution. Retained status and logs provide inspection guidance after failed,
+cancelled, or ambiguous mutations without interpreting OpenTofu state.
+
+Guarded MCP server mode is the current in-progress roadmap phase and is not
+part of the published alpha yet.
 
 ## Documentation
 
