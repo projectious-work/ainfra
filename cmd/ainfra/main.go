@@ -120,12 +120,17 @@ func main() {
 		},
 		MCPServe: func(ctx context.Context, request app.MCPServeRequest) error {
 			return mcpserver.Serve(ctx, request, mcpserver.Options{Build: build,
-				Prepare: func(request app.MCPServeRequest) (app.MCPServeSession, error) {
-					options, err := app.HostPlanOptions()
+				Prepare: func(ctx context.Context, request app.MCPServeRequest) (app.MCPServeSession, error) {
+					planOptions, err := app.HostPlanOptions()
 					if err != nil {
 						return app.MCPServeSession{}, err
 					}
-					return app.PrepareMCPServe(request, options)
+					doctorOptions, err := app.HostDoctorEnvironmentOptions()
+					if err != nil {
+						return app.MCPServeSession{}, err
+					}
+					return app.PrepareMCPServe(ctx, request,
+						app.MCPServeOptions{Plan: planOptions, Doctor: doctorOptions})
 				},
 				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})
 		},

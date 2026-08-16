@@ -5,10 +5,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/projectious-work/ainfra/internal/app"
+	"github.com/projectious-work/ainfra/internal/doctor"
 	"github.com/projectious-work/ainfra/internal/mcpserver"
 )
 
@@ -31,12 +33,27 @@ spec:
 	if err := os.WriteFile(invalidRunsRoot, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	sessionPolicy, err := app.PrepareMCPServe(app.MCPServeRequest{ProjectPath: projectRoot},
-		app.PlanHostOptions{WorkingDirectory: t.TempDir(), HomeDirectory: t.TempDir(),
-			CacheDirectory: t.TempDir(), RunDirectory: invalidRunsRoot,
-			Environment: map[string]string{}})
+	planOptions := app.PlanHostOptions{WorkingDirectory: t.TempDir(), HomeDirectory: t.TempDir(),
+		CacheDirectory: t.TempDir(), RunDirectory: invalidRunsRoot,
+		Environment: map[string]string{}}
+	var inspections atomic.Int32
+	sessionPolicy, err := app.PrepareMCPServe(context.Background(),
+		app.MCPServeRequest{ProjectPath: projectRoot}, app.MCPServeOptions{
+			Plan: planOptions, Doctor: app.DoctorEnvironmentOptions{
+				GOOS: "linux", GOARCH: "arm64", WorkingDirectory: planOptions.WorkingDirectory,
+				HomeDirectory: planOptions.HomeDirectory, CacheDirectory: planOptions.CacheDirectory,
+				RunDirectory: planOptions.RunDirectory, Environment: map[string]string{},
+				InspectExecutable: func(_ context.Context, name, _ string) (doctor.ExecutableFact, error) {
+					inspections.Add(1)
+					return doctor.ExecutableFact{Path: "/tools/" + name, Version: name + " 1.0"}, nil
+				},
+			},
+		})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if inspections.Load() != 4 {
+		t.Fatalf("startup executable inspections = %d", inspections.Load())
 	}
 	server := mcpserver.New(sessionPolicy, mcpserver.Options{Build: app.Build{Version: "1.2.3",
 		Commit: "0123456789abcdef", BuiltAt: "2026-08-15T00:00:00Z"}, Stderr: &bytes.Buffer{}})
@@ -59,7 +76,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 6 {
+	if len(tools.Tools) != 7 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -151,6 +168,18 @@ spec:
 	templateDoctor, templateDoctorOK := value["result"].(map[string]any)
 	if result.IsError || !ok || !templateDoctorOK || templateDoctor["scope"] != "template" {
 		t.Fatalf("unexpected template doctor result: %#v", result)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.doctor.environment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, ok = result.StructuredContent.(map[string]any)
+	environmentDoctor, environmentDoctorOK := value["result"].(map[string]any)
+	if result.IsError || !ok || !environmentDoctorOK || environmentDoctor["scope"] != "environment" {
+		t.Fatalf("unexpected environment doctor result: %#v", result)
+	}
+	if inspections.Load() != 4 {
+		t.Fatalf("environment snapshot was recomputed: %d inspections", inspections.Load())
 	}
 }
 

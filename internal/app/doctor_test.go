@@ -4,11 +4,48 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/doctor"
 )
+
+func TestDoctorEnvironmentContextPropagatesCancellation(t *testing.T) {
+	t.Parallel()
+	deployment := t.TempDir()
+	write(t, filepath.Join(deployment, "ainfra.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: cancelled
+spec:
+  template:
+    source: local:../template
+`)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var observed atomic.Bool
+	response, err := app.DoctorEnvironmentContext(ctx,
+		app.DoctorEnvironmentRequest{ProjectPath: deployment},
+		app.DoctorEnvironmentOptions{GOOS: "linux", GOARCH: "arm64",
+			WorkingDirectory: t.TempDir(), HomeDirectory: t.TempDir(),
+			CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(),
+			Environment: map[string]string{}, InspectExecutable: func(
+				ctx context.Context, _, _ string,
+			) (doctor.ExecutableFact, error) {
+				if ctx.Err() != nil {
+					observed.Store(true)
+				}
+				return doctor.ExecutableFact{}, ctx.Err()
+			}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !observed.Load() || response.Result.Summary.Fail == 0 {
+		t.Fatalf("cancellation was not preserved: %+v", response.Result)
+	}
+}
 
 func TestDoctorEnvironmentUsesProjectConfigSafely(t *testing.T) {
 	t.Parallel()

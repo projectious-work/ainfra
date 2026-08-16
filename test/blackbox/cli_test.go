@@ -179,7 +179,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 6 {
+	if len(tools.Tools) != 7 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -302,6 +302,21 @@ spec:
 	})
 	if unexpectedErr == nil && !unexpected.IsError {
 		t.Fatalf("template doctor path override succeeded: %#v", unexpected)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.doctor.environment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	environmentDoctor, environmentDoctorOK := structured["result"].(map[string]any)
+	if !ok || !environmentDoctorOK || environmentDoctor["scope"] != "environment" {
+		t.Fatalf("unexpected environment doctor result: %#v", result)
+	}
+	unexpected, unexpectedErr = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.doctor.environment", Arguments: map[string]any{"config": "/tmp/other"},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("environment doctor config override succeeded: %#v", unexpected)
 	}
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")

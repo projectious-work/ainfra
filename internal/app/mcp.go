@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -16,13 +17,20 @@ type MCPServeRequest struct {
 	Capabilities []string
 }
 
+// MCPServeOptions supplies the closed host facts captured before serving.
+type MCPServeOptions struct {
+	Plan   PlanHostOptions
+	Doctor DoctorEnvironmentOptions
+}
+
 // MCPServeSession contains the immutable, validated project identity exposed
 // to protocol adapters. Request handlers cannot replace this root.
 type MCPServeSession struct {
-	Project   output.Deployment
-	project   project.Deployment
-	runsRoot  string
-	cacheRoot string
+	Project           output.Deployment
+	project           project.Deployment
+	runsRoot          string
+	cacheRoot         string
+	environmentDoctor output.Doctor
 }
 
 // Status reads sanitized retained lifecycle state for the fixed startup
@@ -59,29 +67,55 @@ func (session MCPServeSession) DoctorTemplate() (output.Doctor, error) {
 		Findings: findings}, nil
 }
 
+// DoctorEnvironment returns the diagnostic snapshot captured before the MCP
+// transport opened.
+func (session MCPServeSession) DoctorEnvironment() output.Doctor {
+	return session.environmentDoctor
+}
+
 // PrepareMCPServe resolves one project and validates its normal configuration
 // before a protocol transport starts accepting requests.
-func PrepareMCPServe(request MCPServeRequest, options PlanHostOptions) (MCPServeSession, error) {
-	environmentPath := options.Environment["AINFRA_PROJECT"]
+func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
+	options MCPServeOptions,
+) (MCPServeSession, error) {
+	planOptions := options.Plan
+	environmentPath := planOptions.Environment["AINFRA_PROJECT"]
 	if request.ProjectPath != "" && environmentPath != "" &&
 		request.ProjectPath != environmentPath {
 		return MCPServeSession{}, errors.New("--project conflicts with AINFRA_PROJECT")
 	}
 	deployment, err := project.Load(project.ResolveOptions{
-		WorkingDirectory: options.WorkingDirectory,
+		WorkingDirectory: planOptions.WorkingDirectory,
 		ProjectPath:      request.ProjectPath,
 		EnvironmentPath:  environmentPath,
 	})
 	if err != nil {
 		return MCPServeSession{}, fmt.Errorf("load MCP project: %w", err)
 	}
-	settings, err := resolvePlanConfiguration(PlanRequest{}, deployment.Target.Root, options)
+	settings, err := resolvePlanConfiguration(PlanRequest{}, deployment.Target.Root, planOptions)
 	if err != nil {
 		return MCPServeSession{}, fmt.Errorf("resolve MCP configuration: %w", err)
+	}
+	doctorOptions := options.Doctor
+	doctorOptions.Environment = cloneEnvironment(doctorOptions.Environment)
+	delete(doctorOptions.Environment, "AINFRA_PROJECT")
+	environment, err := DoctorEnvironmentContext(ctx, DoctorEnvironmentRequest{
+		ProjectPath: deployment.Target.Root, NonInteractive: true,
+	}, doctorOptions)
+	if err != nil {
+		return MCPServeSession{}, fmt.Errorf("diagnose MCP environment: %w", err)
 	}
 	return MCPServeSession{Project: output.Deployment{
 		Name: deployment.Metadata.Name,
 		Root: deployment.Target.Root,
 	}, project: deployment, runsRoot: settings.Paths.Runs,
-		cacheRoot: settings.Paths.Cache}, nil
+		cacheRoot: settings.Paths.Cache, environmentDoctor: environment.Result}, nil
+}
+
+func cloneEnvironment(source map[string]string) map[string]string {
+	cloned := make(map[string]string, len(source))
+	for name, value := range source {
+		cloned[name] = value
+	}
+	return cloned
 }

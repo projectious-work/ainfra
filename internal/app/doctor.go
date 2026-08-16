@@ -67,6 +67,14 @@ func DoctorEnvironment(
 	request DoctorEnvironmentRequest,
 	options DoctorEnvironmentOptions,
 ) (DoctorEnvironmentResponse, error) {
+	return DoctorEnvironmentContext(context.Background(), request, options)
+}
+
+// DoctorEnvironmentContext runs environment diagnostics with caller
+// cancellation propagated to executable inspection.
+func DoctorEnvironmentContext(ctx context.Context, request DoctorEnvironmentRequest,
+	options DoctorEnvironmentOptions,
+) (DoctorEnvironmentResponse, error) {
 	if options.GOOS == "" {
 		options.GOOS = runtime.GOOS
 	}
@@ -82,7 +90,7 @@ func DoctorEnvironment(
 		return DoctorEnvironmentResponse{}, err
 	}
 	report := doctor.EnvironmentRegistry().Run(
-		context.Background(), doctor.ScopeEnvironment,
+		ctx, doctor.ScopeEnvironment,
 		doctor.Input{
 			GOOS: options.GOOS, GOARCH: options.GOARCH,
 			Executables: map[string]string{

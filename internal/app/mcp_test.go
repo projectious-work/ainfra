@@ -1,11 +1,13 @@
 package app_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/projectious-work/ainfra/internal/app"
+	"github.com/projectious-work/ainfra/internal/doctor"
 )
 
 func TestPrepareMCPServeFixesCanonicalProjectAtStartup(t *testing.T) {
@@ -23,10 +25,11 @@ spec:
   template:
     source: local:../template
 `)
-	session, err := app.PrepareMCPServe(app.MCPServeRequest{ProjectPath: "deployment"},
-		app.PlanHostOptions{WorkingDirectory: root, HomeDirectory: t.TempDir(),
-			CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(),
-			Environment: map[string]string{}})
+	planOptions := app.PlanHostOptions{WorkingDirectory: root, HomeDirectory: t.TempDir(),
+		CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(),
+		Environment: map[string]string{}}
+	session, err := app.PrepareMCPServe(context.Background(),
+		app.MCPServeRequest{ProjectPath: "deployment"}, mcpServeOptions(t, planOptions))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,12 +69,18 @@ spec:
 		len(templateDoctor.Findings) != 1 || templateDoctor.Findings[0].Status != "skip" {
 		t.Fatalf("unexpected template doctor: %+v", templateDoctor)
 	}
+	environmentDoctor := session.DoctorEnvironment()
+	if environmentDoctor.Scope != "environment" || len(environmentDoctor.Findings) == 0 ||
+		environmentDoctor.EffectiveConfiguration == nil {
+		t.Fatalf("unexpected environment doctor: %+v", environmentDoctor)
+	}
 }
 
 func TestPrepareMCPServeRejectsConflictingEnvironmentProject(t *testing.T) {
 	t.Parallel()
-	_, err := app.PrepareMCPServe(app.MCPServeRequest{ProjectPath: "/one"},
-		app.PlanHostOptions{Environment: map[string]string{"AINFRA_PROJECT": "/two"}})
+	planOptions := app.PlanHostOptions{Environment: map[string]string{"AINFRA_PROJECT": "/two"}}
+	_, err := app.PrepareMCPServe(context.Background(),
+		app.MCPServeRequest{ProjectPath: "/one"}, mcpServeOptions(t, planOptions))
 	if err == nil {
 		t.Fatal("conflicting project selections succeeded")
 	}
@@ -96,11 +105,24 @@ spec:
 	if err := os.Symlink(projectRoot, link); err != nil {
 		t.Fatal(err)
 	}
-	_, err := app.PrepareMCPServe(app.MCPServeRequest{ProjectPath: link},
-		app.PlanHostOptions{WorkingDirectory: root, HomeDirectory: t.TempDir(),
-			CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(),
-			Environment: map[string]string{}})
+	planOptions := app.PlanHostOptions{WorkingDirectory: root, HomeDirectory: t.TempDir(),
+		CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(),
+		Environment: map[string]string{}}
+	_, err := app.PrepareMCPServe(context.Background(),
+		app.MCPServeRequest{ProjectPath: link}, mcpServeOptions(t, planOptions))
 	if err == nil {
 		t.Fatal("symlink project selection succeeded")
 	}
+}
+
+func mcpServeOptions(t *testing.T, plan app.PlanHostOptions) app.MCPServeOptions {
+	t.Helper()
+	return app.MCPServeOptions{Plan: plan, Doctor: app.DoctorEnvironmentOptions{
+		GOOS: "linux", GOARCH: "arm64", WorkingDirectory: plan.WorkingDirectory,
+		HomeDirectory: plan.HomeDirectory, CacheDirectory: plan.CacheDirectory,
+		RunDirectory: plan.RunDirectory, Environment: plan.Environment,
+		InspectExecutable: func(_ context.Context, name, _ string) (doctor.ExecutableFact, error) {
+			return doctor.ExecutableFact{Path: "/tools/" + name, Version: name + " 1.0"}, nil
+		},
+	}}
 }

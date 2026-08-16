@@ -20,7 +20,7 @@ const protocolVersion = "2026-07-28"
 // Options contains composition-root dependencies for one stdio server.
 type Options struct {
 	Build   app.Build
-	Prepare func(app.MCPServeRequest) (app.MCPServeSession, error)
+	Prepare func(context.Context, app.MCPServeRequest) (app.MCPServeSession, error)
 	Stdin   io.ReadCloser
 	Stdout  io.WriteCloser
 	Stderr  io.Writer
@@ -101,12 +101,25 @@ type DoctorTemplateResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// DoctorEnvironmentInput is closed because configuration and executable
+// selection are captured before the server opens its transport.
+type DoctorEnvironmentInput struct{}
+
+// DoctorEnvironmentResult is the versioned environment diagnostic snapshot.
+type DoctorEnvironmentResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *output.Doctor          `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
 		return errors.New("MCP project preparation is unavailable")
 	}
-	session, err := options.Prepare(request)
+	session, err := options.Prepare(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -227,6 +240,24 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			}
 			return &mcp.CallToolResult{IsError: len(failed) > 0}, DoctorTemplateResult{
 				APIVersion: output.APIVersion, Tool: "ainfra.doctor.template",
+				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
+			}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.environment",
+		Description: "Return the environment diagnostic snapshot captured at startup.",
+		Annotations: &mcp.ToolAnnotations{Title: "diagnose ainfra environment", ReadOnlyHint: true,
+			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ DoctorEnvironmentInput) (*mcp.CallToolResult,
+			DoctorEnvironmentResult, error) {
+			result := session.DoctorEnvironment()
+			failed := make([]diagnostic.Diagnostic, 0, result.Summary.Fail)
+			for _, finding := range result.Findings {
+				if finding.Status == "fail" {
+					failed = append(failed, finding)
+				}
+			}
+			return &mcp.CallToolResult{IsError: len(failed) > 0}, DoctorEnvironmentResult{
+				APIVersion: output.APIVersion, Tool: "ainfra.doctor.environment",
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
 		})

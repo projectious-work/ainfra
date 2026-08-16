@@ -65,10 +65,16 @@ bound to the startup project. It reuses deployment lock/cache facts and the
 existing template diagnostic registry, accepts no path or source input, and
 reports an absent verified binding as a typed skip without acquisition.
 
+Environment diagnostics now accept caller cancellation through the existing
+executable-inspection boundary. MCP captures the read-only environment report
+before opening stdio and exposes that immutable result as
+`ainfra.doctor.environment`; requests cannot replace configuration, executable
+paths, environment values, or log destinations.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining environment and sanitized artifact adapters, bounded
-concurrency, malformed and oversized frame coverage, capability groups, and
-independent mutation authorization remain subsequent Phase 7 slices.
+The remaining sanitized artifact adapters, bounded concurrency, malformed and
+oversized frame coverage, capability groups, and independent mutation
+authorization remain subsequent Phase 7 slices.
