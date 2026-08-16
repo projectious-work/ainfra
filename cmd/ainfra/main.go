@@ -18,6 +18,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/config"
 	"github.com/projectious-work/ainfra/internal/initialize"
 	operational "github.com/projectious-work/ainfra/internal/logging"
+	"github.com/projectious-work/ainfra/internal/mcpserver"
 	"github.com/projectious-work/ainfra/internal/output"
 )
 
@@ -116,6 +117,10 @@ func main() {
 				return output.Execution{}, err
 			}
 			return app.Deploy(context.Background(), request, options)
+		},
+		MCPServe: func(ctx context.Context, request app.MCPServeRequest) error {
+			return mcpserver.Serve(ctx, request, mcpserver.Options{Build: build,
+				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})
 		},
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 var binary string
@@ -109,6 +111,44 @@ func TestVersionJSON(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Errorf("stderr = %q", stderr.String())
+	}
+}
+
+func TestMCPStdioDefaultRegistry(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	process := exec.Command(binary, "mcp", "serve", "--stdio")
+	process.Dir = t.TempDir()
+	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "ainfra-blackbox", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	defer session.Close()
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 1 || tools.Tools[0].Name != "ainfra.version" ||
+		tools.Tools[0].Annotations == nil || !tools.Tools[0].Annotations.ReadOnlyHint {
+		t.Fatalf("unexpected default tools: %+v", tools.Tools)
+	}
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	if !ok || structured["apiVersion"] != "ainfra.result/v1" ||
+		structured["tool"] != "ainfra.version" {
+		t.Fatalf("unexpected structured result: %#v", result.StructuredContent)
+	}
+	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
+		t.Fatal("undisclosed mutation tool call succeeded")
 	}
 }
 

@@ -2,6 +2,7 @@ package command_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"strings"
@@ -91,6 +92,25 @@ func TestVersionJSON(t *testing.T) {
 	}
 	if stderr != "" {
 		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestMCPServeRequiresStdioAndDispatchesProject(t *testing.T) {
+	t.Parallel()
+	code, _, _ := run("mcp", "serve")
+	if code != command.ExitInvalidInput {
+		t.Fatalf("missing stdio exit = %d", code)
+	}
+	var request app.MCPServeRequest
+	code = command.Run([]string{"mcp", "serve", "--stdio", "--project", "/tmp/example"},
+		command.Options{IO: command.IO{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
+			MCPServe: func(_ context.Context, value app.MCPServeRequest) error {
+				request = value
+				return nil
+			}})
+	if code != command.ExitSuccess || request.ProjectPath != "/tmp/example" ||
+		request.Capabilities == nil || len(request.Capabilities) != 0 {
+		t.Fatalf("exit=%d request=%+v", code, request)
 	}
 }
 
