@@ -14,6 +14,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	operational "github.com/projectious-work/ainfra/internal/logging"
+	"github.com/projectious-work/ainfra/internal/output"
 )
 
 func TestBoundedToolHandlerLimitsConcurrentRequests(t *testing.T) {
@@ -125,6 +126,38 @@ func TestMCPRunIDOmitsUnsafeAuditInput(t *testing.T) {
 	t.Parallel()
 	if value := mcpRunID(RetainedArtifactInput{RunID: "password=do-not-log"}); value != "" {
 		t.Fatalf("unsafe run correlation was retained: %q", value)
+	}
+}
+
+func TestBoundedToolHandlerCorrelatesCreatedPlanOnFinish(t *testing.T) {
+	t.Parallel()
+	var destination bytes.Buffer
+	logger := operational.Logger{Level: "info", Sinks: []operational.Sink{
+		&operational.WriterSink{Writer: &destination, Format: "json"},
+	}}
+	limiter := newRequestLimiter(1)
+	limiter.audit = newRequestAudit(&logger,
+		func() time.Time { return time.Unix(0, 0) }, "example")
+	const runID = "20260816T120000Z-0123456789abcdef"
+	handler := boundedToolHandler(limiter, "ainfra.plan.create",
+		func(context.Context, *mcp.CallToolRequest, CreatePlanInput) (*mcp.CallToolResult,
+			CreatePlanResult, error) {
+			return nil, CreatePlanResult{Result: &output.Plan{RunID: runID}}, nil
+		})
+	if _, _, err := handler(context.Background(), nil, CreatePlanInput{Intent: "apply"}); err != nil {
+		t.Fatal(err)
+	}
+	decoder := json.NewDecoder(&destination)
+	var started, finished operational.Event
+	if err := decoder.Decode(&started); err != nil {
+		t.Fatal(err)
+	}
+	if err := decoder.Decode(&finished); err != nil {
+		t.Fatal(err)
+	}
+	if started.RunID != "" || finished.RunID != runID ||
+		finished.RequestID != started.RequestID {
+		t.Fatalf("unexpected plan audit events: start=%+v finish=%+v", started, finished)
 	}
 }
 

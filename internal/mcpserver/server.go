@@ -155,6 +155,21 @@ type ReconciliationPlanResult struct {
 	Diagnostics []diagnostic.Diagnostic    `json:"diagnostics"`
 }
 
+// CreatePlanInput selects only the reviewed plan intent. Project,
+// configuration, executable, cache, and run roots remain startup-fixed.
+type CreatePlanInput struct {
+	Intent string `json:"intent" jsonschema:"reviewed plan intent: apply or destroy"`
+}
+
+// CreatePlanResult is the versioned saved-plan result.
+type CreatePlanResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *output.Plan            `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -359,6 +374,26 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				}
 				return nil, ReconciliationPlanResult{APIVersion: output.APIVersion,
 					Tool: "ainfra.reconciliation.plan", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.plan.create",
+			Description: "Create a reviewed saved apply or destroy plan for the startup project.",
+			Annotations: &mcp.ToolAnnotations{Title: "create reviewed ainfra plan",
+				ReadOnlyHint: false, DestructiveHint: boolPointer(false),
+				IdempotentHint: false, OpenWorldHint: boolPointer(true)}},
+			func(ctx context.Context, _ *mcp.CallToolRequest, input CreatePlanInput) (*mcp.CallToolResult,
+				CreatePlanResult, error) {
+				result, err := session.CreatePlan(ctx, input.Intent)
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, CreatePlanResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.plan.create", OK: false,
+						Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E4001",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "plan",
+							NextAction: "Correct the deployment, lock, or OpenTofu configuration."}},
+					}, nil
+				}
+				return nil, CreatePlanResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.plan.create", OK: true, Result: &result,
 					Diagnostics: []diagnostic.Diagnostic{}}, nil
 			})
 	}

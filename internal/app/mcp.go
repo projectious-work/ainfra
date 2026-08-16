@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/projectious-work/ainfra/internal/config"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
 	"github.com/projectious-work/ainfra/internal/reconcile"
@@ -35,6 +36,8 @@ type MCPServeSession struct {
 	project           project.Deployment
 	runsRoot          string
 	cacheRoot         string
+	settings          config.Settings
+	planOptions       PlanHostOptions
 	environmentDoctor output.Doctor
 	capabilities      map[string]struct{}
 	authorization     MCPAuthorizationProvider
@@ -136,6 +139,20 @@ func (session MCPServeSession) PlanReconciliation() (MCPReconciliationPlan, erro
 	return result, nil
 }
 
+// CreatePlan creates a reviewed saved plan through the normal planning core
+// while retaining the project and configuration fixed at server startup.
+func (session MCPServeSession) CreatePlan(ctx context.Context, intent string) (output.Plan, error) {
+	destroy := false
+	switch intent {
+	case "apply":
+	case "destroy":
+		destroy = true
+	default:
+		return output.Plan{}, errors.New("plan intent must be apply or destroy")
+	}
+	return planForDeployment(ctx, session.project, session.settings, destroy, session.planOptions)
+}
+
 // AuthorizeMutation verifies an exact mutation binding against the provider
 // fixed at server startup. The project root is always replaced by the
 // canonical startup root and cannot come from a protocol request.
@@ -193,9 +210,16 @@ func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
 	return MCPServeSession{Project: output.Deployment{
 		Name: deployment.Metadata.Name,
 		Root: deployment.Target.Root,
-	}, project: deployment, runsRoot: settings.Paths.Runs,
+	}, project: deployment, runsRoot: settings.Paths.Runs, settings: settings,
 		cacheRoot: settings.Paths.Cache, environmentDoctor: environment.Result,
-		capabilities: capabilities, authorization: options.Authorization, now: now}, nil
+		capabilities: capabilities, authorization: options.Authorization, now: now,
+		planOptions: clonePlanHostOptions(planOptions)}, nil
+}
+
+func clonePlanHostOptions(options PlanHostOptions) PlanHostOptions {
+	options.Environment = cloneEnvironment(options.Environment)
+	options.ParentEnvironment = append([]string(nil), options.ParentEnvironment...)
+	return options
 }
 
 func validateMCPCapabilities(requested []string) (map[string]struct{}, error) {

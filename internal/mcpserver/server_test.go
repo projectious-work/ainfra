@@ -246,8 +246,21 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 10 {
+	if len(tools.Tools) != 11 {
 		t.Fatalf("planning registry: %+v", tools.Tools)
+	}
+	var createPlan *mcp.Tool
+	for _, tool := range tools.Tools {
+		if tool.Name == "ainfra.plan.create" {
+			createPlan = tool
+			break
+		}
+	}
+	if createPlan == nil || createPlan.Annotations == nil ||
+		createPlan.Annotations.ReadOnlyHint ||
+		createPlan.Annotations.DestructiveHint == nil ||
+		*createPlan.Annotations.DestructiveHint || createPlan.Annotations.IdempotentHint {
+		t.Fatalf("unexpected plan annotations: %+v", createPlan)
 	}
 	result, err := session.CallTool(ctx,
 		&mcp.CallToolParams{Name: "ainfra.reconciliation.plan"})
@@ -266,5 +279,15 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
 		t.Fatalf("planning tool applied reconciliation: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.plan.create",
+		Arguments: map[string]any{"intent": "invalid"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	if !result.IsError || !ok || structured["tool"] != "ainfra.plan.create" ||
+		structured["ok"] != false {
+		t.Fatalf("unexpected invalid plan result: %#v", result)
 	}
 }

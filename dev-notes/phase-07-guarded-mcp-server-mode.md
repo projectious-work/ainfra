@@ -109,12 +109,22 @@ sink.
 Optional capability selection is a repeatable startup-only
 `--capability GROUP` allowlist. Unknown, duplicate, and not-yet-implemented
 groups fail before protocol output; the default registry remains unchanged.
-The first implemented group, `planning`, discloses exactly one additional
-read-only tool: `ainfra.reconciliation.plan`. It calls the existing registered
-local-repair planner with application disabled and returns stable relative
-paths, modes, rollback limitations, and the accompanying deployment diagnosis.
-Compiled tests prove that planning must be explicitly enabled and that calling
-it does not create `.ainfra` or otherwise apply the proposed repair.
+The first implemented group, `planning`, discloses exactly two additional
+tools. The read-only `ainfra.reconciliation.plan` tool calls the existing
+registered local-repair planner with application disabled and returns stable
+relative paths, modes, rollback limitations, and the accompanying deployment
+diagnosis. Compiled tests prove that planning must be explicitly enabled and
+that calling it does not create `.ainfra` or otherwise apply the proposed
+repair.
+
+The non-idempotent `ainfra.plan.create` tool creates an apply- or
+destroy-intent saved plan through the same application planning core as the
+CLI. Its closed input contains only the intent. Project identity,
+configuration, executable selection, cache root, run root, and environment
+remain fixed at server startup; request cancellation reaches OpenTofu. The
+result retains the normal private run evidence and supplies its run ID and plan
+digest for review, but the tool neither authorizes nor executes infrastructure
+mutation. Its finish audit event safely correlates the newly created run.
 
 The application layer now defines a provider-neutral independent mutation
 authorization boundary without enabling a mutation registry. Opaque approval
@@ -135,6 +145,7 @@ The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The deployment and destruction capability groups, along with independent
-authorization-provider composition and mutation adapters, remain subsequent
-Phase 7 slices and are rejected by the current startup validator.
+Template planning operations, the deployment and destruction capability
+groups, independent authorization-provider composition, and mutation adapters
+remain subsequent Phase 7 slices. Undeclared capability groups are rejected by
+the current startup validator.

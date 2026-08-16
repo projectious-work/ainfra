@@ -68,7 +68,11 @@ func boundedToolHandler[In, Out any](limiter *requestLimiter,
 		}
 		result, output, handlerErr := handler(ctx, request, input)
 		failed := handlerErr != nil || result != nil && result.IsError
-		auditErr = limiter.audit.finish(tool, mcpRunID(input), requestID, failed)
+		runID := mcpRunID(input)
+		if runID == "" {
+			runID = mcpResultRunID(output)
+		}
+		auditErr = limiter.audit.finish(tool, runID, requestID, failed)
 		return result, output, errors.Join(handlerErr, auditErr)
 	}
 }
@@ -136,6 +140,14 @@ func mcpRunID(input any) string {
 		if safeCorrelationID(retained.RunID) {
 			return retained.RunID
 		}
+	}
+	return ""
+}
+
+func mcpResultRunID(result any) string {
+	if plan, ok := result.(CreatePlanResult); ok && plan.Result != nil &&
+		safeCorrelationID(plan.Result.RunID) {
+		return plan.Result.RunID
 	}
 	return ""
 }

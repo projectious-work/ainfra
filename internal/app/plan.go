@@ -109,6 +109,12 @@ func Plan(ctx context.Context, request PlanRequest, options PlanHostOptions) (ou
 	if err != nil {
 		return output.Plan{}, fmt.Errorf("resolve plan configuration: %w", err)
 	}
+	return planForDeployment(ctx, deployment, settings, request.Destroy, options)
+}
+
+func planForDeployment(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, destroy bool, options PlanHostOptions,
+) (output.Plan, error) {
 	lock, err := lockfile.Read(filepath.Join(deployment.Target.Root, lockfile.Filename))
 	if err != nil {
 		return output.Plan{}, fmt.Errorf("read template lock: %w", err)
@@ -156,16 +162,16 @@ func Plan(ctx context.Context, request PlanRequest, options PlanHostOptions) (ou
 	record, err := CreateApplyPlan(ctx, PlanOptions{Prepare: runstate.Options{ID: id,
 		RunsRoot: settings.Paths.Runs, CacheRoot: settings.Paths.Cache,
 		Deployment: deployment, Lock: lock, Executable: executable}, Template: contract,
-		Adapter: adapter, EngineVersion: version, CreatedAt: now(), Destroy: request.Destroy})
+		Adapter: adapter, EngineVersion: version, CreatedAt: now(), Destroy: destroy})
 	if err != nil {
 		return output.Plan{}, err
 	}
 	intent := "apply"
-	if request.Destroy {
+	if destroy {
 		intent = "destroy"
 	}
 	nextCommand := "ainfra apply "
-	if request.Destroy {
+	if destroy {
 		nextCommand = "ainfra destroy "
 	}
 	successExitCode := 0

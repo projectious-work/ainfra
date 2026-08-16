@@ -494,7 +494,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 10 {
+	if len(tools.Tools) != 11 {
 		t.Fatalf("planning registry: %+v", tools.Tools)
 	}
 	result, err := session.CallTool(ctx,
@@ -510,6 +510,11 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
 		t.Fatalf("planning capability applied a repair: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.plan.create",
+		Arguments: map[string]any{"intent": "invalid"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("invalid plan intent result=%#v err=%v", result, err)
 	}
 }
 
