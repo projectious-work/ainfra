@@ -48,6 +48,19 @@ type ProjectResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// StatusInput is the closed input contract for ainfra.status. The project is
+// deliberately absent because it is fixed at server startup.
+type StatusInput struct{}
+
+// StatusResult is the versioned result contract for retained status.
+type StatusResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *output.Status          `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -83,6 +96,25 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			ProjectResult, error) {
 			return nil, ProjectResult{APIVersion: output.APIVersion,
 				Tool: "ainfra.project.inspect", OK: true, Result: session.Project,
+				Diagnostics: []diagnostic.Diagnostic{}}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.status",
+		Description: "Return sanitized retained lifecycle status for the startup project.",
+		Annotations: &mcp.ToolAnnotations{Title: "ainfra retained status", ReadOnlyHint: true,
+			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ StatusInput) (*mcp.CallToolResult,
+			StatusResult, error) {
+			status, err := session.Status()
+			if err != nil {
+				return &mcp.CallToolResult{IsError: true}, StatusResult{
+					APIVersion: output.APIVersion, Tool: "ainfra.status", OK: false,
+					Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E4601",
+						Severity: diagnostic.SeverityError, Message: err.Error(), Component: "status",
+						NextAction: "Inspect retained run evidence and deployment configuration."}},
+				}, nil
+			}
+			return nil, StatusResult{APIVersion: output.APIVersion,
+				Tool: "ainfra.status", OK: true, Result: &status,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
 	return server

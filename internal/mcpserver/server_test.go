@@ -3,18 +3,41 @@ package mcpserver_test
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/mcpserver"
-	"github.com/projectious-work/ainfra/internal/output"
 )
 
 func TestDefaultRegistryIsTypedAndReadOnly(t *testing.T) {
 	t.Parallel()
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
-	sessionPolicy := app.MCPServeSession{Project: output.Deployment{Name: "example", Root: "/project"}}
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: example
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	invalidRunsRoot := filepath.Join(t.TempDir(), "runs")
+	if err := os.WriteFile(invalidRunsRoot, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sessionPolicy, err := app.PrepareMCPServe(app.MCPServeRequest{ProjectPath: projectRoot},
+		app.PlanHostOptions{WorkingDirectory: t.TempDir(), HomeDirectory: t.TempDir(),
+			CacheDirectory: t.TempDir(), RunDirectory: invalidRunsRoot,
+			Environment: map[string]string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := mcpserver.New(sessionPolicy, mcpserver.Options{Build: app.Build{Version: "1.2.3",
 		Commit: "0123456789abcdef", BuiltAt: "2026-08-15T00:00:00Z"}, Stderr: &bytes.Buffer{}})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -36,7 +59,7 @@ func TestDefaultRegistryIsTypedAndReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 2 {
+	if len(tools.Tools) != 3 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -58,8 +81,19 @@ func TestDefaultRegistryIsTypedAndReadOnly(t *testing.T) {
 	}
 	value, ok = result.StructuredContent.(map[string]any)
 	project, projectOK := value["result"].(map[string]any)
-	if !ok || !projectOK || project["name"] != "example" || project["root"] != "/project" {
+	if !ok || !projectOK || project["name"] != "example" || project["root"] != projectRoot {
 		t.Fatalf("unexpected project result: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, ok = result.StructuredContent.(map[string]any)
+	diagnostics, diagnosticsOK := value["diagnostics"].([]any)
+	if !result.IsError || !ok || value["apiVersion"] != "ainfra.result/v1" ||
+		value["tool"] != "ainfra.status" || value["ok"] != false ||
+		!diagnosticsOK || len(diagnostics) != 1 {
+		t.Fatalf("unexpected typed status failure: %#v", result)
 	}
 }
 

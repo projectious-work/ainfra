@@ -132,7 +132,24 @@ spec:
 	}
 	process := exec.Command(binary, "mcp", "serve", "--stdio")
 	process.Dir = projectRoot
-	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+	home := t.TempDir()
+	runID := "20260816T120000Z-0123456789abcdef"
+	runRoot := filepath.Join(home, ".local", "state", "ainfra", "runs", runID)
+	if err := os.MkdirAll(runRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	retained := map[string]string{
+		"run.json":         `{"schemaVersion":1,"runId":"` + runID + `","operation":"apply","state":"succeeded","createdAt":"2026-08-16T12:00:00Z","planRecord":"plan-record.json"}`,
+		"plan-record.json": `{"schemaVersion":1,"runId":"` + runID + `","intent":"apply","deployment":{"name":"mcp-test","digest":"sha256:x"},"template":{"source":"local:x","digest":"sha256:x"},"inputs":[],"engine":{"name":"opentofu","version":"1.10.0","executableDigest":"sha256:x"},"plan":{"path":"plan.tfplan","digest":"sha256:x","summaryPath":"plan.json"}}`,
+		"events.jsonl": "{\"schemaVersion\":1,\"operation\":\"apply\",\"state\":\"started\",\"occurredAt\":\"2026-08-16T12:00:01Z\"}\n" +
+			"{\"schemaVersion\":1,\"operation\":\"apply\",\"state\":\"inspection-required\",\"occurredAt\":\"2026-08-16T12:00:02Z\"}\n",
+	}
+	for name, contents := range retained {
+		if err := os.WriteFile(filepath.Join(runRoot, name), []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	process.Env = []string{"TERM=dumb", "HOME=" + home,
 		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
 	var stderr bytes.Buffer
 	process.Stderr = &stderr
@@ -150,7 +167,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 2 {
+	if len(tools.Tools) != 3 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -175,6 +192,24 @@ spec:
 	project, projectOK := structured["result"].(map[string]any)
 	if !ok || !projectOK || project["name"] != "mcp-test" || project["root"] != projectRoot {
 		t.Fatalf("unexpected project result: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	status, statusOK := structured["result"].(map[string]any)
+	statusProject, statusProjectOK := status["deployment"].(map[string]any)
+	runs, runsOK := status["runs"].([]any)
+	if result.IsError || !ok || !statusOK || !statusProjectOK || !runsOK ||
+		statusProject["name"] != "mcp-test" || statusProject["root"] != projectRoot || len(runs) != 1 {
+		t.Fatalf("unexpected status result: %#v", result.StructuredContent)
+	}
+	run, runOK := runs[0].(map[string]any)
+	recovery, recoveryOK := run["recovery"].(map[string]any)
+	if !runOK || !recoveryOK || run["executionOutcome"] != "interrupted" ||
+		recovery["inspectionRequired"] != true || recovery["automaticRetryAllowed"] != false {
+		t.Fatalf("unexpected recovery result: %#v", runs[0])
 	}
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")

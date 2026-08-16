@@ -36,10 +36,16 @@ roots fail before any protocol output. Requests cannot replace the selected
 root. The default registry exposes that immutable identity through the typed,
 read-only `ainfra.project.inspect` tool.
 
+The typed, read-only `ainfra.status` adapter reuses the same retained-status
+application logic as the CLI while keeping project selection out of request
+arguments. It reads only the fixed startup project and its configured private
+run root, preserves inspection-required recovery guidance, and returns typed
+`AINFRA-E4601` diagnostics on failure.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining read-only application adapters, bounded concurrency, malformed
-and oversized frame coverage, capability groups, and independent mutation
-authorization remain subsequent Phase 7 slices.
+The remaining doctor, artifact, schema, and documentation adapters, bounded
+concurrency, malformed and oversized frame coverage, capability groups, and
+independent mutation authorization remain subsequent Phase 7 slices.

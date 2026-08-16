@@ -18,7 +18,15 @@ type MCPServeRequest struct {
 // MCPServeSession contains the immutable, validated project identity exposed
 // to protocol adapters. Request handlers cannot replace this root.
 type MCPServeSession struct {
-	Project output.Deployment
+	Project  output.Deployment
+	project  project.Deployment
+	runsRoot string
+}
+
+// Status reads sanitized retained lifecycle state for the fixed startup
+// project. It does not rediscover a root or reload configuration.
+func (session MCPServeSession) Status() (output.Status, error) {
+	return statusForDeployment(session.project, session.runsRoot)
 }
 
 // PrepareMCPServe resolves one project and validates its normal configuration
@@ -37,11 +45,12 @@ func PrepareMCPServe(request MCPServeRequest, options PlanHostOptions) (MCPServe
 	if err != nil {
 		return MCPServeSession{}, fmt.Errorf("load MCP project: %w", err)
 	}
-	if _, err := resolvePlanConfiguration(PlanRequest{}, deployment.Target.Root, options); err != nil {
+	settings, err := resolvePlanConfiguration(PlanRequest{}, deployment.Target.Root, options)
+	if err != nil {
 		return MCPServeSession{}, fmt.Errorf("resolve MCP configuration: %w", err)
 	}
 	return MCPServeSession{Project: output.Deployment{
 		Name: deployment.Metadata.Name,
 		Root: deployment.Target.Root,
-	}}, nil
+	}, project: deployment, runsRoot: settings.Paths.Runs}, nil
 }

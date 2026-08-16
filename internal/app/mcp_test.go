@@ -33,6 +33,13 @@ spec:
 	if session.Project.Name != "example" || session.Project.Root != projectRoot {
 		t.Fatalf("unexpected project: %+v", session.Project)
 	}
+	status, err := session.Status()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Deployment != session.Project || len(status.Runs) != 0 {
+		t.Fatalf("unexpected status: %+v", status)
+	}
 }
 
 func TestPrepareMCPServeRejectsConflictingEnvironmentProject(t *testing.T) {
