@@ -5,7 +5,8 @@ Status: in progress
 Phase 7 exposes ainfra's typed application use cases through the common
 `ainfra mcp serve --stdio` entry point. The default registry is read-only;
 planning and the first independently authorized deployment operation are
-available only through explicit capability groups. Destruction remains absent.
+available only through explicit capability groups. Destruction additionally
+requires its own capability group.
 
 ## Protocol selection
 
@@ -184,10 +185,21 @@ keys, invalid signatures, malformed times, and cancelled verification fail
 closed. The trusted keys are copied into the immutable serving session;
 protocol requests cannot select or reload the trust store.
 
+The `destruction` capability is now available only when `deployment` is also
+enabled and discloses `ainfra.destroy.execute`. It accepts the same closed
+plan/caller/approval input shape but requires a destroy-intent saved plan and
+an independent grant whose canonical operation and intent are both exactly
+`destroy`. Apply-intent plans and approvals fail before authorization evidence
+or child invocation. Successful execution reuses the CLI destroy core with the
+startup configuration snapshot, full under-lock plan reverification, immediate
+pre-execution expiry check, exclusive sanitized authorization evidence,
+cancellation, terminal outcome evidence, and inspection-required recovery.
+Neither capability enablement nor an apply grant can authorize destruction.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-Template planning operations, remaining deployment mutations, and the
-destruction capability remain subsequent Phase 7 slices. The destruction and
-undeclared capability groups are rejected by the current startup validator.
+Template planning operations and remaining deployment mutations remain
+subsequent Phase 7 slices. Undeclared capability groups are rejected by the
+current startup validator.

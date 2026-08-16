@@ -644,7 +644,8 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 		t.Fatal(err)
 	}
 	process := exec.Command(binary, "mcp", "serve", "--stdio",
-		"--capability", "deployment", "--authorization-trust", trustPath)
+		"--capability", "deployment", "--capability", "destruction",
+		"--authorization-trust", trustPath)
 	process.Dir = projectRoot
 	process.Env = []string{"TERM=dumb", "HOME=" + home,
 		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
@@ -654,6 +655,25 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
 	if err != nil {
 		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	tools, err := session.ListTools(ctx, nil)
+	foundDestroy := false
+	if err == nil {
+		for _, tool := range tools.Tools {
+			if tool.Name == "ainfra.destroy.execute" && tool.Annotations != nil &&
+				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint {
+				foundDestroy = true
+			}
+		}
+	}
+	if err != nil || len(tools.Tools) != 11 || !foundDestroy {
+		t.Fatalf("destruction registry=%+v err=%v", tools, err)
+	}
+	refused, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.destroy.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": string(approvalBytes)}})
+	if err != nil || !refused.IsError {
+		t.Fatalf("apply plan destruction result=%#v err=%v", refused, err)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
 		Arguments: map[string]any{"planId": runID, "caller": "agent-1",

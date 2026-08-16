@@ -187,6 +187,15 @@ type ApplyResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// DestroyResult is the versioned independently authorized destruction result.
+type DestroyResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *app.MCPExecutionResult `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -434,6 +443,29 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				}
 				return nil, ApplyResult{APIVersion: output.APIVersion,
 					Tool: "ainfra.apply.execute", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
+	}
+	if session.CapabilityEnabled(app.MCPDestructionCapability) {
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.destroy.execute",
+			Description: "Execute one exact independently authorized reviewed destroy plan.",
+			Annotations: &mcp.ToolAnnotations{Title: "execute authorized ainfra destruction",
+				ReadOnlyHint: false, DestructiveHint: boolPointer(true),
+				IdempotentHint: false, OpenWorldHint: boolPointer(true)}},
+			func(ctx context.Context, _ *mcp.CallToolRequest, input ApplyInput) (*mcp.CallToolResult,
+				DestroyResult, error) {
+				result, err := session.DestroyAuthorized(ctx, app.MCPExecutionRequest{
+					PlanID: input.PlanID, Caller: input.Caller, Approval: input.Approval})
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, DestroyResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.destroy.execute", OK: false,
+						Result: &result, Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E4402",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "destroy",
+							NextAction: "Reverify the destroy plan and obtain fresh destroy approval."}},
+					}, nil
+				}
+				return nil, DestroyResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.destroy.execute", OK: true, Result: &result,
 					Diagnostics: []diagnostic.Diagnostic{}}, nil
 			})
 	}

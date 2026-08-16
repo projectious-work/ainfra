@@ -71,20 +71,26 @@ type MCPReconciliationPlan struct {
 	Actions    []MCPReconciliationAction `json:"actions"`
 }
 
-// MCPApplyRequest carries only exact reviewed-plan and independent approval
+// MCPExecutionRequest carries only exact reviewed-plan and independent approval
 // inputs. Project and host policy remain fixed by the serving session.
-type MCPApplyRequest struct {
+type MCPExecutionRequest struct {
 	PlanID   string
 	Caller   string
 	Approval string
 }
 
-// MCPApplyResult combines normal execution semantics with sanitized approval
+// MCPApplyRequest preserves the initial apply-adapter request name.
+type MCPApplyRequest = MCPExecutionRequest
+
+// MCPExecutionResult combines normal execution semantics with sanitized approval
 // evidence. Opaque approval material is never retained or returned.
-type MCPApplyResult struct {
+type MCPExecutionResult struct {
 	Execution     output.Execution `json:"execution"`
 	Authorization MCPAuthorization `json:"authorization"`
 }
+
+// MCPApplyResult preserves the initial apply-adapter result name.
+type MCPApplyResult = MCPExecutionResult
 
 // Status reads sanitized retained lifecycle state for the fixed startup
 // project. It does not rediscover a root or reload configuration.
@@ -175,44 +181,66 @@ func (session MCPServeSession) CreatePlan(ctx context.Context, intent string) (o
 func (session MCPServeSession) ApplyAuthorized(ctx context.Context,
 	request MCPApplyRequest,
 ) (MCPApplyResult, error) {
+	return session.executeAuthorizedPlan(ctx, request, "apply", "apply",
+		func(beforeExecute func() error) (output.Execution, error) {
+			return applyForDeploymentWithHook(ctx, session.project, session.settings,
+				request.PlanID, session.planOptions, beforeExecute)
+		})
+}
+
+// DestroyAuthorized independently authorizes and executes one exact saved
+// destroy plan. It is exposed only by the separate destruction capability.
+func (session MCPServeSession) DestroyAuthorized(ctx context.Context,
+	request MCPExecutionRequest,
+) (MCPExecutionResult, error) {
+	return session.executeAuthorizedPlan(ctx, request, "destroy", "destroy",
+		func(beforeExecute func() error) (output.Execution, error) {
+			return destroyForDeploymentWithHook(ctx, session.project, session.settings,
+				request.PlanID, session.planOptions, beforeExecute)
+		})
+}
+
+func (session MCPServeSession) executeAuthorizedPlan(ctx context.Context,
+	request MCPExecutionRequest, operation, intent string,
+	execute func(func() error) (output.Execution, error),
+) (MCPExecutionResult, error) {
 	binding, err := runstate.LoadAuthorizationBinding(session.runsRoot,
-		request.PlanID, session.Project.Name, "apply")
+		request.PlanID, session.Project.Name, intent)
 	if err != nil {
-		return MCPApplyResult{}, err
+		return MCPExecutionResult{}, err
 	}
 	authorization, err := session.AuthorizeMutation(ctx, MCPMutationAuthorizationRequest{
-		Approval: request.Approval, Operation: "apply", PlanID: binding.PlanID,
+		Approval: request.Approval, Operation: operation, PlanID: binding.PlanID,
 		PlanDigest: binding.PlanDigest, Intent: binding.Intent, Caller: request.Caller,
 	})
 	if err != nil {
-		return MCPApplyResult{}, err
+		return MCPExecutionResult{}, err
 	}
 	now := session.now
 	if now == nil {
 		now = time.Now
 	}
 	recorded := false
-	execution, err := applyForDeploymentWithHook(ctx, session.project, session.settings,
-		binding.PlanID, session.planOptions, func() error {
-			expiresAt, parseErr := time.Parse(time.RFC3339, authorization.ExpiresAt)
-			current := now().UTC()
-			if parseErr != nil || !expiresAt.After(current) {
-				return errors.New("MCP authorization expired before execution")
-			}
-			record := runstate.NewAuthorizationRecord(authorization.AuthorizationID, "apply",
-				binding.PlanID, binding.PlanDigest, authorization.Caller, authorization.Issuer,
-				authorization.ExpiresAt, current)
-			if recordErr := runstate.RecordAuthorization(session.runsRoot, record); recordErr != nil {
-				return recordErr
-			}
-			recorded = true
-			return nil
-		})
+	execution, err := execute(func() error {
+		expiresAt, parseErr := time.Parse(time.RFC3339, authorization.ExpiresAt)
+		current := now().UTC()
+		if parseErr != nil || !expiresAt.After(current) {
+			return errors.New("MCP authorization expired before execution")
+		}
+		record := runstate.NewAuthorizationRecord(authorization.AuthorizationID, operation,
+			binding.PlanID, binding.PlanDigest, authorization.Caller, authorization.Issuer,
+			authorization.ExpiresAt, current)
+		if recordErr := runstate.RecordAuthorization(session.runsRoot, record); recordErr != nil {
+			return recordErr
+		}
+		recorded = true
+		return nil
+	})
 	if recorded {
 		execution.Evidence = append(execution.Evidence, output.Evidence{
 			Kind: "authorization", Path: "authorization.json", Sensitive: false})
 	}
-	result := MCPApplyResult{Execution: execution, Authorization: authorization}
+	result := MCPExecutionResult{Execution: execution, Authorization: authorization}
 	return result, err
 }
 
@@ -289,9 +317,7 @@ func validateMCPCapabilities(requested []string) (map[string]struct{}, error) {
 	capabilities := make(map[string]struct{}, len(requested))
 	for _, capability := range requested {
 		switch capability {
-		case MCPPlanningCapability, MCPDeploymentCapability:
-		case MCPDestructionCapability:
-			return nil, fmt.Errorf("MCP capability %q is not available", capability)
+		case MCPPlanningCapability, MCPDeploymentCapability, MCPDestructionCapability:
 		default:
 			return nil, fmt.Errorf("unsupported MCP capability %q", capability)
 		}
@@ -299,6 +325,11 @@ func validateMCPCapabilities(requested []string) (map[string]struct{}, error) {
 			return nil, fmt.Errorf("duplicate MCP capability %q", capability)
 		}
 		capabilities[capability] = struct{}{}
+	}
+	if _, destruction := capabilities[MCPDestructionCapability]; destruction {
+		if _, deployment := capabilities[MCPDeploymentCapability]; !deployment {
+			return nil, errors.New("MCP destruction capability requires deployment capability")
+		}
 	}
 	return capabilities, nil
 }

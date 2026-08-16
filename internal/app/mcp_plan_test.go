@@ -154,6 +154,37 @@ esac
 		"authorization.json")); !os.IsNotExist(err) {
 		t.Fatalf("expired authorization evidence exists: %v", err)
 	}
+	randomByte = 'c'
+	session.now = func() time.Time { return now }
+	destroyPlan, err := session.CreatePlan(context.Background(), "destroy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant.PlanID, grant.PlanDigest = destroyPlan.RunID, destroyPlan.PlanDigest
+	grant.Operation, grant.Intent = "apply", "apply"
+	session.authorization = mcpPlanAuthorizationProvider{grant: grant}
+	if _, err := session.DestroyAuthorized(context.Background(), MCPApplyRequest{
+		PlanID: destroyPlan.RunID, Caller: "agent-1", Approval: "apply-approval"}); err == nil {
+		t.Fatal("apply-intent approval authorized destruction")
+	}
+	grant.Operation, grant.Intent = "destroy", "destroy"
+	session.authorization = mcpPlanAuthorizationProvider{grant: grant}
+	destroyed, err := session.DestroyAuthorized(context.Background(), MCPApplyRequest{
+		PlanID: destroyPlan.RunID, Caller: "agent-1", Approval: "destroy-approval"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if destroyed.Execution.Operation != "destroy" ||
+		destroyed.Execution.ExecutionOutcome != "succeeded" ||
+		destroyed.Authorization.AuthorizationID != grant.AuthorizationID {
+		t.Fatalf("unexpected authorized destroy: %+v", destroyed)
+	}
+	contents, err = os.ReadFile(filepath.Join(runsRoot, destroyPlan.RunID,
+		"authorization.json"))
+	if err != nil || strings.Contains(string(contents), "destroy-approval") ||
+		!strings.Contains(string(contents), `"operation": "destroy"`) {
+		t.Fatalf("invalid destroy authorization evidence: %s, %v", contents, err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := session.CreatePlan(ctx, "destroy"); err == nil {

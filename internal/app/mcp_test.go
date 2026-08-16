@@ -134,10 +134,12 @@ spec:
 	plan := app.PlanHostOptions{WorkingDirectory: projectRoot, HomeDirectory: t.TempDir(),
 		CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(), Environment: map[string]string{}}
 	session, err := app.PrepareMCPServe(context.Background(), app.MCPServeRequest{
-		ProjectPath: projectRoot, Capabilities: []string{app.MCPDeploymentCapability},
+		ProjectPath: projectRoot, Capabilities: []string{
+			app.MCPDeploymentCapability, app.MCPDestructionCapability},
 	}, mcpServeOptions(t, plan))
-	if err != nil || !session.CapabilityEnabled(app.MCPDeploymentCapability) {
-		t.Fatalf("deployment capability was not enabled: %+v, %v", session, err)
+	if err != nil || !session.CapabilityEnabled(app.MCPDeploymentCapability) ||
+		!session.CapabilityEnabled(app.MCPDestructionCapability) {
+		t.Fatalf("lifecycle capabilities were not enabled: %+v, %v", session, err)
 	}
 }
 
