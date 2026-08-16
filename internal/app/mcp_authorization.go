@@ -107,7 +107,7 @@ func validMCPAuthorizationRequest(request MCPMutationAuthorizationRequest) bool 
 		return false
 	}
 	switch request.Operation {
-	case "apply", "deploy":
+	case "apply", "configure", "deploy":
 		return request.Intent == "apply"
 	case "destroy":
 		return request.Intent == "destroy"

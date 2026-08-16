@@ -209,6 +209,15 @@ func resolveArtifactContext(ctx context.Context, request ArtifactRequest, option
 	if err != nil {
 		return artifactContext{}, fmt.Errorf("resolve artifact configuration: %w", err)
 	}
+	return resolveArtifactContextForDeployment(ctx, deployment, settings, request.RunID, options)
+}
+
+func resolveArtifactContextForDeployment(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, runID string, options PlanHostOptions,
+) (artifactContext, error) {
+	if runID == "" {
+		return artifactContext{}, errors.New("--run requires an exact applied run ID")
+	}
 	lock, err := lockfile.Read(filepath.Join(deployment.Target.Root, lockfile.Filename))
 	if err != nil {
 		return artifactContext{}, fmt.Errorf("read template lock: %w", err)
@@ -239,7 +248,7 @@ func resolveArtifactContext(ctx context.Context, request ArtifactRequest, option
 	if err != nil {
 		return artifactContext{}, fmt.Errorf("read OpenTofu version: %w", err)
 	}
-	reviewed, err := runstate.LoadReviewed(runstate.ReviewOptions{ID: request.RunID,
+	reviewed, err := runstate.LoadReviewed(runstate.ReviewOptions{ID: runID,
 		RunsRoot: settings.Paths.Runs, CacheRoot: settings.Paths.Cache, Deployment: deployment,
 		Lock: lock, Executable: executable, EngineVersion: version})
 	if err != nil {

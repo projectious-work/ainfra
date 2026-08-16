@@ -612,7 +612,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 13 {
+	if len(tools.Tools) != 14 {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
@@ -623,6 +623,15 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(runRoot, "authorization.json")); !os.IsNotExist(err) {
 		t.Fatalf("unverified authorization retained evidence: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.configure.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unapproved configure result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(runRoot, "authorization-configure.json")); !os.IsNotExist(err) {
+		t.Fatalf("unverified configure retained evidence: %v", err)
 	}
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.reconciliation.execute",
 		Arguments: map[string]any{"planId": "reconcile-unreviewed", "caller": "agent-1",
@@ -694,7 +703,7 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 			}
 		}
 	}
-	if err != nil || len(tools.Tools) != 14 || !foundDestroy {
+	if err != nil || len(tools.Tools) != 15 || !foundDestroy {
 		t.Fatalf("destruction registry=%+v err=%v", tools, err)
 	}
 	refused, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.destroy.execute",
@@ -715,6 +724,32 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 		!strings.Contains(diagnostics[0].(map[string]any)["message"].(string),
 			"discover OpenTofu executable") {
 		t.Fatalf("trusted approval did not reach apply preparation: %#v", result)
+	}
+	grant.AuthorizationID = "approval-configure-1"
+	grant.Operation = "configure"
+	payload, err = json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature = ed25519.Sign(privateKey,
+		append([]byte("ainfra-mcp-authorization-v1\n"), payload...))
+	approvalBytes, err = json.Marshal(map[string]any{"schemaVersion": 1,
+		"grant": json.RawMessage(payload), "signature": base64.StdEncoding.EncodeToString(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.configure.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": string(approvalBytes)}})
+	if err != nil || !result.IsError {
+		t.Fatalf("trusted configure result=%#v err=%v", result, err)
+	}
+	configureEvidence := filepath.Join(home, ".local", "state", "ainfra", "runs", runID,
+		"authorization-configure.json")
+	contents, err := os.ReadFile(configureEvidence)
+	if err != nil || bytes.Contains(contents, approvalBytes) ||
+		!bytes.Contains(contents, []byte(`"operation": "configure"`)) {
+		t.Fatalf("configure authorization evidence=%q err=%v", contents, err)
 	}
 	if err := session.Close(); err != nil {
 		t.Fatal(err)

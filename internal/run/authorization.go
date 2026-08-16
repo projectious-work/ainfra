@@ -58,6 +58,16 @@ func LoadAuthorizationBinding(runsRoot, id, deploymentName, intent string) (
 // RecordAuthorization exclusively retains sanitized approval evidence before
 // execution. A second attempt cannot overwrite or reuse the authorization.
 func RecordAuthorization(runsRoot string, record AuthorizationRecord) error {
+	return RecordOperationAuthorization(runsRoot, "authorization.json", record)
+}
+
+// RecordOperationAuthorization exclusively retains sanitized approval
+// evidence under an operation-specific fixed filename.
+func RecordOperationAuthorization(runsRoot, name string, record AuthorizationRecord) error {
+	if name != "authorization.json" && name != "authorization-configure.json" ||
+		name == "authorization-configure.json" && record.Operation != "configure" {
+		return errors.New("invalid authorization evidence name")
+	}
 	root, err := security.ResolveContained(runsRoot, record.PlanID)
 	if err != nil {
 		return fmt.Errorf("resolve authorization evidence: %w", err)
@@ -66,7 +76,7 @@ func RecordAuthorization(runsRoot string, record AuthorizationRecord) error {
 	if err != nil {
 		return err
 	}
-	file, err := security.CreatePrivateFile(root, "authorization.json")
+	file, err := security.CreatePrivateFile(root, name)
 	if err != nil {
 		return fmt.Errorf("create authorization evidence: %w", err)
 	}

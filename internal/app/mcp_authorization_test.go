@@ -25,6 +25,18 @@ func TestVerifyMCPAuthorizationRequiresExactIndependentBinding(t *testing.T) {
 	}
 }
 
+func TestVerifyMCPAuthorizationAcceptsConfigureApplyBinding(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	request, grant := authorizationFixture(now)
+	request.Operation = "configure"
+	grant.Operation = "configure"
+	if _, err := app.VerifyMCPAuthorization(context.Background(),
+		authorizationProvider{grant: grant}, request, now); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVerifyMCPAuthorizationFailsClosed(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)

@@ -52,4 +52,19 @@ func TestAuthorizationBindingAndEvidenceAreClosedAndExclusive(t *testing.T) {
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("authorization evidence mode=%v", info.Mode())
 	}
+	configureEvidence := runstate.NewAuthorizationRecord("approval-2", "configure", runID,
+		digest, "agent-1", "operator-1", "2026-08-16T12:05:00Z",
+		time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC))
+	if err := runstate.RecordOperationAuthorization(runsRoot,
+		"authorization-configure.json", configureEvidence); err != nil {
+		t.Fatal(err)
+	}
+	if err := runstate.RecordOperationAuthorization(runsRoot,
+		"authorization-configure.json", configureEvidence); err == nil {
+		t.Fatal("configure authorization evidence overwrite succeeded")
+	}
+	if err := runstate.RecordOperationAuthorization(runsRoot,
+		"../authorization.json", configureEvidence); err == nil {
+		t.Fatal("arbitrary authorization evidence name succeeded")
+	}
 }

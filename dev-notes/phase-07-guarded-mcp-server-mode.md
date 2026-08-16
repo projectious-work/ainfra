@@ -232,8 +232,22 @@ normal deployment operation lock before writing. Refused, stale, absent,
 expired, or replayed approvals cannot create the runtime directory, and action
 failures return sanitized evidence without host paths.
 
+The `deployment` capability now additionally discloses
+`ainfra.configure.execute`. It accepts only an applied run ID, caller, and
+opaque approval. The handler derives the apply-plan digest from strict retained
+evidence and requires an independent grant bound to the `configure` operation,
+apply intent, plan ID and digest, caller, startup root, and expiry. Sanitized
+approval evidence is retained exclusively as
+`authorization-configure.json`; it cannot overwrite apply authorization or be
+replayed. Configuration now has a fixed-deployment/fixed-settings application
+entry point so MCP cannot reload a changed project configuration. The normal
+under-lock run reverification, private output/inventory validation, controlled
+Ansible Runner adapter, cancellation, outcome evidence, and recovery semantics
+remain shared with the CLI. Approval validity and cancellation are checked
+again immediately before the first configuration write or child invocation.
+
 Template migration planning and remaining deployment mutations
-(template writes, configure, and composed deploy)
+(template writes and composed deploy)
 remain subsequent Phase 7 slices. Final AINFRA-MCP-001 through
 AINFRA-MCP-010 conformance closure and end-user documentation also remain.
 Undeclared capability groups are rejected by the current startup validator.

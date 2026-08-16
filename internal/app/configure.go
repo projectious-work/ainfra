@@ -9,14 +9,19 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/projectious-work/ainfra/internal/ansible"
+	"github.com/projectious-work/ainfra/internal/config"
 	"github.com/projectious-work/ainfra/internal/inventory"
+	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 	runstate "github.com/projectious-work/ainfra/internal/run"
 	"github.com/projectious-work/ainfra/internal/security"
+	"github.com/projectious-work/ainfra/internal/template"
 )
 
 // ConfigureRequest selects a retained applied run and optional verification.
@@ -48,6 +53,42 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 		return output.Execution{}, err
 	}
 	defer func() { _ = unlock() }()
+	return configureResolved(ctx, resolved, request.RunID, request.Check, options, nil)
+}
+
+func configureForDeployment(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, runID string, check bool, options PlanHostOptions,
+	beforeExecute func() error,
+) (output.Execution, error) {
+	lock, err := lockfile.Read(filepath.Join(deployment.Target.Root, lockfile.Filename))
+	if err != nil {
+		return output.Execution{}, fmt.Errorf("read template lock: %w", err)
+	}
+	cachePath := filepath.Join(settings.Paths.Cache, "templates", "sha256",
+		strings.TrimPrefix(lock.Template.Digest, "sha256:"))
+	contract, err := template.LoadMaterialized(cachePath)
+	if err != nil {
+		return output.Execution{}, fmt.Errorf("load locked template: %w", err)
+	}
+	if contract.Ansible == nil || contract.Inventory == "none" {
+		return output.Execution{}, errors.New("ansible configuration is not applicable to this infrastructure-only template")
+	}
+	unlock, err := (reconcile.FileLocker{}).Lock(deployment.Target.Root, project.ManifestName)
+	if err != nil {
+		return output.Execution{}, fmt.Errorf("acquire deployment operation lock: %w", err)
+	}
+	resolved, err := resolveArtifactContextForDeployment(ctx, deployment, settings, runID, options)
+	if err != nil {
+		_ = unlock()
+		return output.Execution{}, fmt.Errorf("reverify run under operation lock: %w", err)
+	}
+	defer func() { _ = unlock() }()
+	return configureResolved(ctx, resolved, runID, check, options, beforeExecute)
+}
+
+func configureResolved(ctx context.Context, resolved artifactContext, runID string,
+	check bool, options PlanHostOptions, beforeExecute func() error,
+) (output.Execution, error) {
 	outputContents, err := readPrivateArtifact(resolved.reviewed.Root, "output.json", 16<<20)
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("read validated output: %w", err)
@@ -86,12 +127,17 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 		return output.Execution{}, fmt.Errorf("read Ansible Runner version: %w", err)
 	}
 	operation := "configure"
-	if request.Check {
+	if check {
 		operation = "configure-check"
 	}
 	now := time.Now
 	if options.Now != nil {
 		now = options.Now
+	}
+	if beforeExecute != nil {
+		if err := beforeExecute(); err != nil {
+			return output.Execution{}, err
+		}
 	}
 	privateData := filepath.Join("ansible-runner", operation)
 	artifactDir := filepath.Join(privateData, "artifacts")
@@ -113,8 +159,8 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 	}
 	outcome, runErr := adapter.Configure(ctx, resolved.reviewed.Root, privateData,
 		projectDir, "inventory.yaml", resolved.contract.Ansible.Playbook, artifactDir,
-		variableFiles, request.Check)
-	if runErr == nil && request.Check {
+		variableFiles, check)
+	if runErr == nil && check {
 		runErr = ansible.VerifyConverged(outcome.Stats, expectedHosts)
 	}
 	state, status, executionOutcome := "succeeded", "succeeded", "succeeded"
@@ -130,7 +176,7 @@ func Configure(ctx context.Context, request ConfigureRequest, options PlanHostOp
 		reportedExit = &exitCode
 	}
 	result := output.Execution{Deployment: output.Deployment{Name: resolved.deployment.Metadata.Name,
-		Root: resolved.deployment.Target.Root}, RunID: request.RunID, Operation: operation,
+		Root: resolved.deployment.Target.Root}, RunID: runID, Operation: operation,
 		ExecutionOutcome: executionOutcome,
 		EngineReports: []output.EngineReport{{Engine: "ansible-runner", Status: status,
 			ExitCode: reportedExit, Protocol: output.Protocol{Name: "ansible-runner-events", Version: version}}},
