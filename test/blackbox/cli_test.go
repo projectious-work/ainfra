@@ -146,6 +146,8 @@ spec:
 		"plan-record.json": `{"schemaVersion":1,"runId":"` + runID + `","intent":"apply","deployment":{"name":"mcp-test","digest":"sha256:x"},"template":{"source":"local:x","digest":"sha256:x"},"inputs":[],"engine":{"name":"opentofu","version":"1.10.0","executableDigest":"sha256:x"},"plan":{"path":"plan.tfplan","digest":"sha256:x","summaryPath":"plan.json"}}`,
 		"events.jsonl": "{\"schemaVersion\":1,\"operation\":\"apply\",\"state\":\"started\",\"occurredAt\":\"2026-08-16T12:00:01Z\"}\n" +
 			"{\"schemaVersion\":1,\"operation\":\"apply\",\"state\":\"inspection-required\",\"occurredAt\":\"2026-08-16T12:00:02Z\"}\n",
+		"output.json":    `{"schema_version":"1","hosts":{"node":{"groups":["all"],"connection":{"type":"local"}}}}`,
+		"inventory.yaml": "all:\n  hosts:\n    node:\n      ansible_connection: local\n",
 	}
 	for name, contents := range retained {
 		if err := os.WriteFile(filepath.Join(runRoot, name), []byte(contents), 0o600); err != nil {
@@ -179,7 +181,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 7 {
+	if len(tools.Tools) != 9 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -317,6 +319,37 @@ spec:
 	})
 	if unexpectedErr == nil && !unexpected.IsError {
 		t.Fatalf("environment doctor config override succeeded: %#v", unexpected)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.output.read",
+		Arguments: map[string]any{"runId": runID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	retainedOutput, retainedOutputOK := structured["result"].(map[string]any)
+	standardOutput, standardOutputOK := retainedOutput["output"].(map[string]any)
+	hosts, hostsOK := standardOutput["hosts"].(map[string]any)
+	if result.IsError || !ok || !retainedOutputOK || !standardOutputOK || !hostsOK ||
+		retainedOutput["runId"] != runID || hosts["node"] == nil {
+		t.Fatalf("unexpected retained output result: %#v", result)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.inventory.read",
+		Arguments: map[string]any{"runId": runID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	retainedInventory, retainedInventoryOK := structured["result"].(map[string]any)
+	if result.IsError || !ok || !retainedInventoryOK ||
+		retainedInventory["mediaType"] != "application/yaml" ||
+		!strings.Contains(retainedInventory["content"].(string), "ansible_connection: local") {
+		t.Fatalf("unexpected retained inventory result: %#v", result)
+	}
+	unexpected, unexpectedErr = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.output.read", Arguments: map[string]any{"runId": runID, "path": "/tmp/other"},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("retained output path override succeeded: %#v", unexpected)
 	}
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")

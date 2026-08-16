@@ -71,10 +71,22 @@ before opening stdio and exposes that immutable result as
 `ainfra.doctor.environment`; requests cannot replace configuration, executable
 paths, environment values, or log destinations.
 
+The default registry also exposes `ainfra.output.read` and
+`ainfra.inventory.read`. These are retained-artifact readers, not adapters for
+the mutating CLI output and inventory operations: they never invoke OpenTofu,
+acquire an operation lock, or publish a file. Both accept only `runId`, resolve
+it beneath the configured private runs root, and require matching v1 run and
+apply-plan records bound to the startup deployment. Standardized output is
+strictly decoded through the closed, secret-shape-rejecting v1 contract.
+Inventory is returned only when its private retained bytes exactly match a
+fresh deterministic rendering of that validated output. Traversal,
+cross-project bindings, public files, secret-shaped output, and altered
+inventory fail closed with typed diagnostics.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining sanitized artifact adapters, bounded concurrency, malformed and
-oversized frame coverage, capability groups, and independent mutation
-authorization remain subsequent Phase 7 slices.
+The remaining bounded concurrency, malformed and oversized frame coverage,
+capability groups, and independent mutation authorization remain subsequent
+Phase 7 slices.

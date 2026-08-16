@@ -76,7 +76,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 7 {
+	if len(tools.Tools) != 9 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -180,6 +180,17 @@ spec:
 	}
 	if inspections.Load() != 4 {
 		t.Fatalf("environment snapshot was recomputed: %d inspections", inspections.Load())
+	}
+	for _, name := range []string{"ainfra.output.read", "ainfra.inventory.read"} {
+		result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: name,
+			Arguments: map[string]any{"runId": "20260816T120000Z-0123456789abcdef0123456789abcdef"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		value, ok = result.StructuredContent.(map[string]any)
+		if !result.IsError || !ok || value["tool"] != name || value["ok"] != false {
+			t.Fatalf("unexpected typed retained artifact failure: %#v", result)
+		}
 	}
 }
 

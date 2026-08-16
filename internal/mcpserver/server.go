@@ -114,6 +114,30 @@ type DoctorEnvironmentResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// RetainedArtifactInput selects one retained run beneath the fixed runs root.
+// Filesystem paths and project selectors are deliberately absent.
+type RetainedArtifactInput struct {
+	RunID string `json:"runId" jsonschema:"retained run ID"`
+}
+
+// OutputResult is the versioned retained standardized-output result.
+type OutputResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *app.MCPRetainedOutput  `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
+// InventoryResult is the versioned retained inventory result.
+type InventoryResult struct {
+	APIVersion  string                    `json:"apiVersion"`
+	Tool        string                    `json:"tool"`
+	OK          bool                      `json:"ok"`
+	Result      *app.MCPRetainedInventory `json:"result"`
+	Diagnostics []diagnostic.Diagnostic   `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -260,6 +284,43 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				APIVersion: output.APIVersion, Tool: "ainfra.doctor.environment",
 				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
 			}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.output.read",
+		Description: "Read sanitized standardized output retained by a bound run.",
+		Annotations: &mcp.ToolAnnotations{Title: "read retained ainfra output", ReadOnlyHint: true,
+			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, input RetainedArtifactInput) (*mcp.CallToolResult,
+			OutputResult, error) {
+			result, err := session.ReadOutput(input.RunID)
+			if err != nil {
+				return &mcp.CallToolResult{IsError: true}, OutputResult{
+					APIVersion: output.APIVersion, Tool: "ainfra.output.read", OK: false,
+					Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E4101",
+						Severity: diagnostic.SeverityError, Message: err.Error(), Component: "output",
+						NextAction: "Inspect the applied run binding and retained artifacts."}},
+				}, nil
+			}
+			return nil, OutputResult{APIVersion: output.APIVersion, Tool: "ainfra.output.read",
+				OK: true, Result: &result, Diagnostics: []diagnostic.Diagnostic{}}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.inventory.read",
+		Description: "Read verified deterministic inventory retained by a bound run.",
+		Annotations: &mcp.ToolAnnotations{Title: "read retained ainfra inventory", ReadOnlyHint: true,
+			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, input RetainedArtifactInput) (*mcp.CallToolResult,
+			InventoryResult, error) {
+			result, err := session.ReadInventory(input.RunID)
+			if err != nil {
+				return &mcp.CallToolResult{IsError: true}, InventoryResult{
+					APIVersion: output.APIVersion, Tool: "ainfra.inventory.read", OK: false,
+					Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E4101",
+						Severity: diagnostic.SeverityError, Message: err.Error(), Component: "inventory",
+						NextAction: "Inspect the applied run binding and retained artifacts."}},
+				}, nil
+			}
+			return nil, InventoryResult{APIVersion: output.APIVersion,
+				Tool: "ainfra.inventory.read", OK: true, Result: &result,
+				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
 	addContractResources(server)
 	return server
