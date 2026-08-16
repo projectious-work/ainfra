@@ -59,7 +59,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 3 {
+	if len(tools.Tools) != 4 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -123,6 +123,16 @@ spec:
 		value["tool"] != "ainfra.status" || value["ok"] != false ||
 		!diagnosticsOK || len(diagnostics) != 1 {
 		t.Fatalf("unexpected typed status failure: %#v", result)
+	}
+	result, err = session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.doctor.deployment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, ok = result.StructuredContent.(map[string]any)
+	doctor, doctorOK := value["result"].(map[string]any)
+	if !ok || !doctorOK || doctor["scope"] != "deployment" {
+		t.Fatalf("unexpected deployment doctor result: %#v", result)
 	}
 }
 

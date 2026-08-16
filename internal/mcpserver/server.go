@@ -63,6 +63,19 @@ type StatusResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// DoctorDeploymentInput is closed because the project and reconciliation
+// policy are fixed at server startup.
+type DoctorDeploymentInput struct{}
+
+// DoctorDeploymentResult is the versioned deployment-diagnostic result.
+type DoctorDeploymentResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *output.Doctor          `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -118,6 +131,36 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			return nil, StatusResult{APIVersion: output.APIVersion,
 				Tool: "ainfra.status", OK: true, Result: &status,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
+		})
+	mcp.AddTool(server, &mcp.Tool{Name: "ainfra.doctor.deployment",
+		Description: "Diagnose the startup project without reconciliation or mutation.",
+		Annotations: &mcp.ToolAnnotations{Title: "diagnose ainfra project", ReadOnlyHint: true,
+			IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ DoctorDeploymentInput) (*mcp.CallToolResult,
+			DoctorDeploymentResult, error) {
+			result, err := session.DoctorDeployment()
+			if err != nil {
+				code := "AINFRA-E2300"
+				var doctorError *app.DoctorError
+				if errors.As(err, &doctorError) && doctorError.Kind == "security" {
+					code = "AINFRA-E2304"
+				}
+				return &mcp.CallToolResult{IsError: true}, DoctorDeploymentResult{
+					APIVersion: output.APIVersion, Tool: "ainfra.doctor.deployment", OK: false,
+					Diagnostics: []diagnostic.Diagnostic{{Code: code,
+						Severity: diagnostic.SeverityError, Message: err.Error(), Component: "doctor"}},
+				}, nil
+			}
+			failed := make([]diagnostic.Diagnostic, 0, result.Summary.Fail)
+			for _, finding := range result.Findings {
+				if finding.Status == "fail" {
+					failed = append(failed, finding)
+				}
+			}
+			return &mcp.CallToolResult{IsError: len(failed) > 0}, DoctorDeploymentResult{
+				APIVersion: output.APIVersion, Tool: "ainfra.doctor.deployment",
+				OK: len(failed) == 0, Result: &result, Diagnostics: failed,
+			}, nil
 		})
 	addContractResources(server)
 	return server

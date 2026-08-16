@@ -6,6 +6,7 @@ import (
 
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
+	"github.com/projectious-work/ainfra/internal/reconcile"
 )
 
 // MCPServeRequest contains server-start policy selected by the operator.
@@ -18,15 +19,24 @@ type MCPServeRequest struct {
 // MCPServeSession contains the immutable, validated project identity exposed
 // to protocol adapters. Request handlers cannot replace this root.
 type MCPServeSession struct {
-	Project  output.Deployment
-	project  project.Deployment
-	runsRoot string
+	Project   output.Deployment
+	project   project.Deployment
+	runsRoot  string
+	cacheRoot string
 }
 
 // Status reads sanitized retained lifecycle state for the fixed startup
 // project. It does not rediscover a root or reload configuration.
 func (session MCPServeSession) Status() (output.Status, error) {
 	return statusForDeployment(session.project, session.runsRoot)
+}
+
+// DoctorDeployment runs the existing deployment checks against the fixed
+// startup snapshot. Reconciliation is neither planned nor applied.
+func (session MCPServeSession) DoctorDeployment() (output.Doctor, error) {
+	result, _, err := diagnoseDeployment(session.project, session.cacheRoot,
+		reconcile.Planner{}, false, false)
+	return result, err
 }
 
 // PrepareMCPServe resolves one project and validates its normal configuration
@@ -52,5 +62,6 @@ func PrepareMCPServe(request MCPServeRequest, options PlanHostOptions) (MCPServe
 	return MCPServeSession{Project: output.Deployment{
 		Name: deployment.Metadata.Name,
 		Root: deployment.Target.Root,
-	}, project: deployment, runsRoot: settings.Paths.Runs}, nil
+	}, project: deployment, runsRoot: settings.Paths.Runs,
+		cacheRoot: settings.Paths.Cache}, nil
 }

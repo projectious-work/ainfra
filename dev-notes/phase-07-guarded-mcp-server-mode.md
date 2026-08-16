@@ -49,10 +49,17 @@ standard-output versions alongside the known schema URIs and canonical
 documentation references. Resource handlers never translate client URIs into
 filesystem paths and require neither the source checkout nor network access.
 
+The read-only `ainfra.doctor.deployment` adapter reuses the CLI's resolved
+deployment diagnostic core against the startup project and configuration
+snapshot. Its closed input has no target, configuration, reconciliation, or
+confirmation fields. Failed findings remain typed diagnostics, and tests prove
+that a missing runtime directory is reported without creating it.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-The remaining doctor and sanitized artifact adapters, bounded concurrency,
-malformed and oversized frame coverage, capability groups, and independent
-mutation authorization remain subsequent Phase 7 slices.
+The remaining environment, template, run, and sanitized artifact adapters,
+bounded concurrency, malformed and oversized frame coverage, capability
+groups, and independent mutation authorization remain subsequent Phase 7
+slices.

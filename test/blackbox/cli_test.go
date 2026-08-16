@@ -130,6 +130,9 @@ spec:
 	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Mkdir(filepath.Join(projectRoot, ".ainfra"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	process := exec.Command(binary, "mcp", "serve", "--stdio")
 	process.Dir = projectRoot
 	home := t.TempDir()
@@ -167,7 +170,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 3 {
+	if len(tools.Tools) != 4 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -235,6 +238,28 @@ spec:
 	if !runOK || !recoveryOK || run["executionOutcome"] != "interrupted" ||
 		recovery["inspectionRequired"] != true || recovery["automaticRetryAllowed"] != false {
 		t.Fatalf("unexpected recovery result: %#v", runs[0])
+	}
+	result, err = session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.doctor.deployment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	doctor, doctorOK := structured["result"].(map[string]any)
+	diagnostics, diagnosticsOK := structured["diagnostics"].([]any)
+	if !result.IsError || !ok || !doctorOK || structured["ok"] != false ||
+		doctor["scope"] != "deployment" || !diagnosticsOK || len(diagnostics) != 1 {
+		t.Fatalf("unexpected deployment doctor result: %#v", result)
+	}
+	finding, findingOK := diagnostics[0].(map[string]any)
+	if !findingOK || finding["code"] != "AINFRA-E2310" || finding["status"] != "fail" {
+		t.Fatalf("unexpected deployment diagnostic: %#v", diagnostics[0])
+	}
+	unexpected, unexpectedErr := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.doctor.deployment", Arguments: map[string]any{"reconcile": true},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("doctor reconciliation input succeeded: %#v", unexpected)
 	}
 	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
 		t.Fatal("undisclosed mutation tool call succeeded")

@@ -40,6 +40,16 @@ spec:
 	if status.Deployment != session.Project || len(status.Runs) != 0 {
 		t.Fatalf("unexpected status: %+v", status)
 	}
+	doctorResult, err := session.DoctorDeployment()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doctorResult.Scope != "deployment" || len(doctorResult.Findings) == 0 {
+		t.Fatalf("unexpected deployment doctor: %+v", doctorResult)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("read-only doctor created runtime directory: %v", err)
+	}
 }
 
 func TestPrepareMCPServeRejectsConflictingEnvironmentProject(t *testing.T) {
