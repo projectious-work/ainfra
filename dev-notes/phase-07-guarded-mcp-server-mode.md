@@ -200,6 +200,18 @@ The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-Template planning operations and remaining deployment mutations remain
-subsequent Phase 7 slices. Undeclared capability groups are rejected by the
-current startup validator.
+The default registry now also includes explicit typed contract inspection.
+`ainfra.deployment.inspect` returns a detached semantic view of the validated
+startup deployment, including its template reference and ordered native-input
+pointers. `ainfra.template.inspect` reads only the startup project's lock,
+requires its source/ref binding to match that deployment, verifies the
+digest-addressed cache, loads the strict template manifest, and returns the
+immutable binding plus engine and inventory declarations. It fails closed when
+the lock, binding, cache, digest, or template contract is invalid. Neither tool
+returns materialized cache paths, manifest paths, or template roots.
+
+Template lock/update/migration planning and remaining deployment mutations
+(reconciliation, template writes, configure, and composed deploy) remain
+subsequent Phase 7 slices. Final AINFRA-MCP-001 through AINFRA-MCP-010
+conformance closure and end-user documentation also remain. Undeclared
+capability groups are rejected by the current startup validator.

@@ -54,6 +54,31 @@ type ProjectResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// DeploymentInspectInput is closed because the deployment is startup-fixed.
+type DeploymentInspectInput struct{}
+
+// DeploymentInspectResult is the versioned sanitized deployment contract.
+type DeploymentInspectResult struct {
+	APIVersion  string                    `json:"apiVersion"`
+	Tool        string                    `json:"tool"`
+	OK          bool                      `json:"ok"`
+	Result      app.MCPDeploymentContract `json:"result"`
+	Diagnostics []diagnostic.Diagnostic   `json:"diagnostics"`
+}
+
+// TemplateInspectInput is closed because only the startup-bound lock and cache
+// may be inspected.
+type TemplateInspectInput struct{}
+
+// TemplateInspectResult is the versioned verified template contract.
+type TemplateInspectResult struct {
+	APIVersion  string                   `json:"apiVersion"`
+	Tool        string                   `json:"tool"`
+	OK          bool                     `json:"ok"`
+	Result      *app.MCPTemplateContract `json:"result"`
+	Diagnostics []diagnostic.Diagnostic  `json:"diagnostics"`
+}
+
 // StatusInput is the closed input contract for ainfra.status. The project is
 // deliberately absent because it is fixed at server startup.
 type StatusInput struct{}
@@ -234,6 +259,35 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 			ProjectResult, error) {
 			return nil, ProjectResult{APIVersion: output.APIVersion,
 				Tool: "ainfra.project.inspect", OK: true, Result: session.Project,
+				Diagnostics: []diagnostic.Diagnostic{}}, nil
+		})
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.deployment.inspect",
+		Description: "Return the validated semantic deployment contract fixed at startup.",
+		Annotations: &mcp.ToolAnnotations{Title: "inspect ainfra deployment contract",
+			ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ DeploymentInspectInput) (*mcp.CallToolResult,
+			DeploymentInspectResult, error) {
+			return nil, DeploymentInspectResult{APIVersion: output.APIVersion,
+				Tool: "ainfra.deployment.inspect", OK: true, Result: session.InspectDeployment(),
+				Diagnostics: []diagnostic.Diagnostic{}}, nil
+		})
+	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.template.inspect",
+		Description: "Return the verified template lock and semantic contract bound at startup.",
+		Annotations: &mcp.ToolAnnotations{Title: "inspect bound ainfra template contract",
+			ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: boolPointer(false)}},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ TemplateInspectInput) (*mcp.CallToolResult,
+			TemplateInspectResult, error) {
+			contract, err := session.InspectTemplate()
+			if err != nil {
+				return &mcp.CallToolResult{IsError: true}, TemplateInspectResult{
+					APIVersion: output.APIVersion, Tool: "ainfra.template.inspect", OK: false,
+					Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E2400",
+						Severity: diagnostic.SeverityError, Message: err.Error(), Component: "template",
+						NextAction: "Inspect the deployment binding, lock, and verified template cache."}},
+				}, nil
+			}
+			return nil, TemplateInspectResult{APIVersion: output.APIVersion,
+				Tool: "ainfra.template.inspect", OK: true, Result: &contract,
 				Diagnostics: []diagnostic.Diagnostic{}}, nil
 		})
 	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.status",

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -87,6 +88,23 @@ esac
 				return len(value), nil
 			}},
 		now: func() time.Time { return now },
+	}
+	deploymentContract := session.InspectDeployment()
+	if deploymentContract.Name != "mcp-plan" ||
+		deploymentContract.Template.Source != "local:../template" {
+		t.Fatalf("unexpected deployment contract: %+v", deploymentContract)
+	}
+	templateContract, err := session.InspectTemplate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedContract, err := json.Marshal(templateContract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if templateContract.Name == "" || templateContract.Digest != materialized.Digest ||
+		bytes.Contains(encodedContract, []byte(root)) || bytes.Contains(encodedContract, []byte(cacheRoot)) {
+		t.Fatalf("unsafe or incomplete template contract: %s", encodedContract)
 	}
 	result, err := session.CreatePlan(context.Background(), "apply")
 	if err != nil {

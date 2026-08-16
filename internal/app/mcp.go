@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/projectious-work/ainfra/internal/config"
+	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
 	"github.com/projectious-work/ainfra/internal/reconcile"
 	runstate "github.com/projectious-work/ainfra/internal/run"
+	"github.com/projectious-work/ainfra/internal/source"
+	"github.com/projectious-work/ainfra/internal/template"
 )
 
 // MCPServeRequest contains server-start policy selected by the operator.
@@ -71,6 +74,55 @@ type MCPReconciliationPlan struct {
 	Actions    []MCPReconciliationAction `json:"actions"`
 }
 
+// MCPDeploymentContract is the sanitized semantic deployment contract fixed at
+// server startup. Its paths are validated project-relative pointers only.
+type MCPDeploymentContract struct {
+	Name        string                `json:"name"`
+	Description string                `json:"description,omitempty"`
+	Template    MCPDeploymentTemplate `json:"template"`
+	Inputs      MCPDeploymentInputs   `json:"inputs"`
+	SSH         MCPDeploymentSSH      `json:"ssh"`
+}
+
+type MCPDeploymentTemplate struct {
+	Source string `json:"source"`
+	Ref    string `json:"ref,omitempty"`
+}
+
+type MCPDeploymentInputs struct {
+	TofuVariableFiles      []string `json:"tofuVariableFiles"`
+	TofuBackendConfigFiles []string `json:"tofuBackendConfigFiles"`
+	AnsibleVariableFiles   []string `json:"ansibleVariableFiles"`
+}
+
+type MCPDeploymentSSH struct {
+	KnownHosts string `json:"knownHosts,omitempty"`
+}
+
+// MCPTemplateContract combines the verified immutable lock binding with the
+// semantic template manifest. Cache and host filesystem paths are excluded.
+type MCPTemplateContract struct {
+	Source       string                    `json:"source"`
+	RequestedRef string                    `json:"requestedRef,omitempty"`
+	Resolved     string                    `json:"resolved"`
+	Version      string                    `json:"version"`
+	Digest       string                    `json:"digest"`
+	Name         string                    `json:"name"`
+	Tofu         MCPTemplateEngine         `json:"tofu"`
+	Ansible      *MCPTemplateAnsibleEngine `json:"ansible,omitempty"`
+	Inventory    string                    `json:"inventory"`
+}
+
+type MCPTemplateEngine struct {
+	Directory string `json:"directory"`
+	Version   string `json:"version"`
+}
+
+type MCPTemplateAnsibleEngine struct {
+	MCPTemplateEngine
+	Playbook string `json:"playbook"`
+}
+
 // MCPExecutionRequest carries only exact reviewed-plan and independent approval
 // inputs. Project and host policy remain fixed by the serving session.
 type MCPExecutionRequest struct {
@@ -96,6 +148,54 @@ type MCPApplyResult = MCPExecutionResult
 // project. It does not rediscover a root or reload configuration.
 func (session MCPServeSession) Status() (output.Status, error) {
 	return statusForDeployment(session.project, session.runsRoot)
+}
+
+// InspectDeployment returns a detached copy of the validated startup contract.
+func (session MCPServeSession) InspectDeployment() MCPDeploymentContract {
+	return MCPDeploymentContract{Name: session.project.Metadata.Name,
+		Description: session.project.Metadata.Description,
+		Template: MCPDeploymentTemplate{Source: session.project.Template.Source,
+			Ref: session.project.Template.Ref},
+		Inputs: MCPDeploymentInputs{
+			TofuVariableFiles:      append([]string(nil), session.project.Inputs.TofuVariableFiles...),
+			TofuBackendConfigFiles: append([]string(nil), session.project.Inputs.TofuBackendConfigFiles...),
+			AnsibleVariableFiles:   append([]string(nil), session.project.Inputs.AnsibleVariableFiles...),
+		}, SSH: MCPDeploymentSSH{KnownHosts: session.project.SSH.KnownHosts}}
+}
+
+// InspectTemplate verifies the startup deployment-to-lock binding and the
+// digest-addressed private cache before returning its sanitized contract.
+func (session MCPServeSession) InspectTemplate() (MCPTemplateContract, error) {
+	document, err := lockfile.Read(filepath.Join(session.project.Target.Root, lockfile.Filename))
+	if err != nil {
+		return MCPTemplateContract{}, fmt.Errorf("read template lock: %w", err)
+	}
+	reference, err := source.Parse(session.project.Template.Source, session.project.Template.Ref)
+	if err != nil || document.Template.Source != reference.Display ||
+		document.Template.RequestedRef != reference.RequestedRef {
+		return MCPTemplateContract{}, errors.New("template lock does not match deployment source binding")
+	}
+	cachePath := filepath.Join(session.cacheRoot, "templates", "sha256",
+		strings.TrimPrefix(document.Template.Digest, "sha256:"))
+	observed, err := source.TreeDigest(cachePath)
+	if err != nil || observed != document.Template.Digest {
+		return MCPTemplateContract{}, errors.New("verified template cache does not match template lock")
+	}
+	contract, err := template.LoadMaterialized(cachePath)
+	if err != nil {
+		return MCPTemplateContract{}, fmt.Errorf("load verified template contract: %w", err)
+	}
+	result := MCPTemplateContract{Source: document.Template.Source,
+		RequestedRef: document.Template.RequestedRef, Resolved: document.Template.Resolved,
+		Version: document.Template.Version, Digest: document.Template.Digest,
+		Name: contract.Name, Tofu: MCPTemplateEngine{Directory: contract.Tofu.Directory,
+			Version: contract.Tofu.Version}, Inventory: contract.Inventory}
+	if contract.Ansible != nil {
+		result.Ansible = &MCPTemplateAnsibleEngine{MCPTemplateEngine: MCPTemplateEngine{
+			Directory: contract.Ansible.Directory, Version: contract.Ansible.Version},
+			Playbook: contract.Ansible.Playbook}
+	}
+	return result, nil
 }
 
 // DoctorDeployment runs the existing deployment checks against the fixed

@@ -76,7 +76,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 9 {
+	if len(tools.Tools) != 11 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -130,12 +130,30 @@ spec:
 	if !ok || !projectOK || project["name"] != "example" || project["root"] != projectRoot {
 		t.Fatalf("unexpected project result: %#v", result.StructuredContent)
 	}
-	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.status"})
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.deployment.inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, ok = result.StructuredContent.(map[string]any)
+	deployment, deploymentOK := value["result"].(map[string]any)
+	if result.IsError || !ok || !deploymentOK || deployment["name"] != "example" {
+		t.Fatalf("unexpected deployment contract: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.template.inspect"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	value, ok = result.StructuredContent.(map[string]any)
 	diagnostics, diagnosticsOK := value["diagnostics"].([]any)
+	if !result.IsError || !ok || value["ok"] != false || !diagnosticsOK || len(diagnostics) != 1 {
+		t.Fatalf("unexpected typed template inspection failure: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, ok = result.StructuredContent.(map[string]any)
+	diagnostics, diagnosticsOK = value["diagnostics"].([]any)
 	if !result.IsError || !ok || value["apiVersion"] != "ainfra.result/v1" ||
 		value["tool"] != "ainfra.status" || value["ok"] != false ||
 		!diagnosticsOK || len(diagnostics) != 1 {
@@ -246,7 +264,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 11 {
+	if len(tools.Tools) != 13 {
 		t.Fatalf("planning registry: %+v", tools.Tools)
 	}
 	var createPlan *mcp.Tool
@@ -350,7 +368,7 @@ spec:
 				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
 		}
 	}
-	if len(tools.Tools) != 10 || !foundApply {
+	if len(tools.Tools) != 12 || !foundApply {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := clientConnection.CallTool(context.Background(), &mcp.CallToolParams{

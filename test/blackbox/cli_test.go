@@ -189,7 +189,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 9 {
+	if len(tools.Tools) != 11 {
 		t.Fatalf("unexpected default tools: %+v", tools.Tools)
 	}
 	for _, tool := range tools.Tools {
@@ -239,6 +239,25 @@ spec:
 	project, projectOK := structured["result"].(map[string]any)
 	if !ok || !projectOK || project["name"] != "mcp-test" || project["root"] != projectRoot {
 		t.Fatalf("unexpected project result: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.deployment.inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	deployment, deploymentOK := structured["result"].(map[string]any)
+	if result.IsError || !ok || !deploymentOK || deployment["name"] != "mcp-test" {
+		t.Fatalf("unexpected deployment contract: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.template.inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	templateDiagnostics, templateDiagnosticsOK := structured["diagnostics"].([]any)
+	if !result.IsError || !ok || structured["ok"] != false ||
+		!templateDiagnosticsOK || len(templateDiagnostics) != 1 {
+		t.Fatalf("unexpected typed template inspection failure: %#v", result.StructuredContent)
 	}
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.status"})
 	if err != nil {
@@ -497,7 +516,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 11 {
+	if len(tools.Tools) != 13 {
 		t.Fatalf("planning registry: %+v", tools.Tools)
 	}
 	result, err := session.CallTool(ctx,
@@ -593,7 +612,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 10 {
+	if len(tools.Tools) != 12 {
 		t.Fatalf("deployment registry: %+v", tools.Tools)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
@@ -666,7 +685,7 @@ func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) 
 			}
 		}
 	}
-	if err != nil || len(tools.Tools) != 11 || !foundDestroy {
+	if err != nil || len(tools.Tools) != 13 || !foundDestroy {
 		t.Fatalf("destruction registry=%+v err=%v", tools, err)
 	}
 	refused, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.destroy.execute",
