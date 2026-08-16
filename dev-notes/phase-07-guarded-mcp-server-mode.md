@@ -96,6 +96,16 @@ stdout. Compiled-binary tests cover malformed and oversized frames, concurrent
 tool calls, log separation, and clean rejection; unit tests prove the exact
 concurrency width, cancellation while queued, and frame-boundary behavior.
 
+Admitted tool and resource requests receive a server-local monotonic request
+identifier. At `info` level, the existing synchronized operational logger
+records paired start and finish events containing only the request ID, tool or
+resource URI, fixed deployment name, and safe-format run ID when the input
+type has one. Failures are recorded at `error` level. Raw arguments, project
+paths, environment values, and result or artifact content are never logged. The
+compiled-binary concurrency fixture verifies unique correlations and confirms
+that standardized output content and the project root do not enter the audit
+sink.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.

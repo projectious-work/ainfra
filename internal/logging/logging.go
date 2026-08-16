@@ -21,12 +21,24 @@ import (
 
 // Event is the sole value accepted by operational sinks.
 type Event struct {
-	Timestamp string `json:"timestamp"`
-	Level     string `json:"level"`
-	Component string `json:"component"`
-	Message   string `json:"message"`
-	Command   string `json:"command"`
-	RunID     string `json:"runId,omitempty"`
+	Timestamp  string `json:"timestamp"`
+	Level      string `json:"level"`
+	Component  string `json:"component"`
+	Message    string `json:"message"`
+	Command    string `json:"command"`
+	Deployment string `json:"deployment,omitempty"`
+	RunID      string `json:"runId,omitempty"`
+	RequestID  string `json:"requestId,omitempty"`
+}
+
+// NewMCPEvent constructs a sanitized request-correlated MCP audit event.
+func NewMCPEvent(at time.Time, level, message, tool, deployment, runID,
+	requestID string,
+) Event {
+	event := NewEvent(at, level, "mcp", message, tool, runID, nil)
+	event.Deployment = security.RedactString(deployment, nil)
+	event.RequestID = security.RedactString(requestID, nil)
+	return event
 }
 
 // NewEvent constructs a UTC, pre-redacted event shared by every sink.
@@ -326,8 +338,9 @@ func render(event Event, format string) ([]byte, error) {
 	if format != "text" {
 		return nil, errors.New("unsupported operational log format")
 	}
-	return []byte(fmt.Sprintf("%s %s %s %s command=%s run=%s\n", event.Timestamp,
-		event.Level, event.Component, event.Message, event.Command, event.RunID)), nil
+	return []byte(fmt.Sprintf("%s %s %s %s command=%s deployment=%s run=%s request=%s\n",
+		event.Timestamp, event.Level, event.Component, event.Message, event.Command,
+		event.Deployment, event.RunID, event.RequestID)), nil
 }
 
 func backupName(path string, index int, compressed bool) string {

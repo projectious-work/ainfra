@@ -6,9 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"sync/atomic"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	operational "github.com/projectious-work/ainfra/internal/logging"
 )
 
 const (
@@ -23,6 +27,7 @@ var (
 
 type requestLimiter struct {
 	slots chan struct{}
+	audit *requestAudit
 }
 
 func newRequestLimiter(limit int) *requestLimiter {
@@ -43,11 +48,11 @@ func (limiter *requestLimiter) release() { <-limiter.slots }
 func addBoundedTool[In, Out any](server *mcp.Server, limiter *requestLimiter,
 	tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out],
 ) {
-	mcp.AddTool(server, tool, boundedToolHandler(limiter, handler))
+	mcp.AddTool(server, tool, boundedToolHandler(limiter, tool.Name, handler))
 }
 
 func boundedToolHandler[In, Out any](limiter *requestLimiter,
-	handler mcp.ToolHandlerFor[In, Out],
+	tool string, handler mcp.ToolHandlerFor[In, Out],
 ) mcp.ToolHandlerFor[In, Out] {
 	return func(ctx context.Context, request *mcp.CallToolRequest,
 		input In,
@@ -57,7 +62,14 @@ func boundedToolHandler[In, Out any](limiter *requestLimiter,
 			return nil, zero, err
 		}
 		defer limiter.release()
-		return handler(ctx, request, input)
+		requestID, auditErr := limiter.audit.start(tool, mcpRunID(input))
+		if auditErr != nil {
+			return nil, zero, auditErr
+		}
+		result, output, handlerErr := handler(ctx, request, input)
+		failed := handlerErr != nil || result != nil && result.IsError
+		auditErr = limiter.audit.finish(tool, mcpRunID(input), requestID, failed)
+		return result, output, errors.Join(handlerErr, auditErr)
 	}
 }
 
@@ -71,8 +83,77 @@ func addBoundedResource(server *mcp.Server, limiter *requestLimiter,
 			return nil, err
 		}
 		defer limiter.release()
-		return handler(ctx, request)
+		requestID, auditErr := limiter.audit.start(resource.URI, "")
+		if auditErr != nil {
+			return nil, auditErr
+		}
+		result, handlerErr := handler(ctx, request)
+		auditErr = limiter.audit.finish(resource.URI, "", requestID, handlerErr != nil)
+		return result, errors.Join(handlerErr, auditErr)
 	})
+}
+
+type requestAudit struct {
+	logger     *operational.Logger
+	now        func() time.Time
+	deployment string
+	sequence   atomic.Uint64
+}
+
+func newRequestAudit(logger *operational.Logger, now func() time.Time,
+	deployment string,
+) *requestAudit {
+	if now == nil {
+		now = time.Now
+	}
+	return &requestAudit{logger: logger, now: now, deployment: deployment}
+}
+
+func (audit *requestAudit) start(tool, runID string) (string, error) {
+	if audit == nil || audit.logger == nil {
+		return "", nil
+	}
+	requestID := fmt.Sprintf("mcp-%016x", audit.sequence.Add(1))
+	err := audit.logger.Write(operational.NewMCPEvent(audit.now(), "info",
+		"request started", tool, audit.deployment, runID, requestID))
+	return requestID, err
+}
+
+func (audit *requestAudit) finish(tool, runID, requestID string, failed bool) error {
+	if audit == nil || audit.logger == nil {
+		return nil
+	}
+	level, message := "info", "request finished"
+	if failed {
+		level, message = "error", "request failed"
+	}
+	return audit.logger.Write(operational.NewMCPEvent(audit.now(), level,
+		message, tool, audit.deployment, runID, requestID))
+}
+
+func mcpRunID(input any) string {
+	if retained, ok := input.(RetainedArtifactInput); ok {
+		if safeCorrelationID(retained.RunID) {
+			return retained.RunID
+		}
+	}
+	return ""
+}
+
+func safeCorrelationID(value string) bool {
+	if len(value) < 16 || len(value) > 128 || value == "." || value == ".." {
+		return false
+	}
+	for _, character := range value {
+		if character >= 'a' && character <= 'z' ||
+			character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' ||
+			character == '.' || character == '_' || character == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 type frameLimitReadCloser struct {

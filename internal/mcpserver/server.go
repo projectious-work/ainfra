@@ -7,10 +7,12 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/projectious-work/ainfra/internal/app"
 	"github.com/projectious-work/ainfra/internal/diagnostic"
+	operational "github.com/projectious-work/ainfra/internal/logging"
 	"github.com/projectious-work/ainfra/internal/output"
 	contracts "github.com/projectious-work/ainfra/spec"
 )
@@ -19,11 +21,13 @@ const protocolVersion = "2026-07-28"
 
 // Options contains composition-root dependencies for one stdio server.
 type Options struct {
-	Build   app.Build
-	Prepare func(context.Context, app.MCPServeRequest) (app.MCPServeSession, error)
-	Stdin   io.ReadCloser
-	Stdout  io.WriteCloser
-	Stderr  io.Writer
+	Build       app.Build
+	Prepare     func(context.Context, app.MCPServeRequest) (app.MCPServeSession, error)
+	Stdin       io.ReadCloser
+	Stdout      io.WriteCloser
+	Stderr      io.Writer
+	Operational *operational.Logger
+	Now         func() time.Time
 }
 
 // VersionInput is the closed input contract for ainfra.version.
@@ -158,6 +162,7 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "ainfra", Version: options.Build.Version},
 		&mcp.ServerOptions{Instructions: "Read-only ainfra tools are exposed by default.", Logger: logger})
 	limiter := newRequestLimiter(maxConcurrentRequests)
+	limiter.audit = newRequestAudit(options.Operational, options.Now, session.Project.Name)
 	addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.version",
 		Description: "Return the ainfra build and supported contract versions.",
 		Annotations: &mcp.ToolAnnotations{Title: "ainfra version", ReadOnlyHint: true,

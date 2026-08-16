@@ -120,6 +120,7 @@ func main() {
 		},
 		MCPServe: func(ctx context.Context, request app.MCPServeRequest) error {
 			return mcpserver.Serve(ctx, request, mcpserver.Options{Build: build,
+				Operational: &logger,
 				Prepare: func(ctx context.Context, request app.MCPServeRequest) (app.MCPServeSession, error) {
 					planOptions, err := app.HostPlanOptions()
 					if err != nil {

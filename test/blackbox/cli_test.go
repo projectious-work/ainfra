@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	operational "github.com/projectious-work/ainfra/internal/logging"
 )
 
 var binary string
@@ -134,7 +136,9 @@ spec:
 	if err := os.Mkdir(filepath.Join(projectRoot, ".ainfra"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	process := exec.Command(binary, "mcp", "serve", "--stdio")
+	logPath := filepath.Join(t.TempDir(), "mcp-audit.jsonl")
+	process := exec.Command(binary, "mcp", "serve", "--stdio", "-v",
+		"--log-file", logPath, "--log-format", "json")
 	process.Dir = projectRoot
 	home := t.TempDir()
 	runID := "20260816T120000Z-0123456789abcdef"
@@ -369,6 +373,39 @@ spec:
 		if err := <-concurrent; err != nil {
 			t.Fatalf("concurrent MCP request: %v", err)
 		}
+	}
+	auditContents, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(auditContents))
+	requestIDs := make(map[string]bool)
+	foundBoundRun := false
+	for {
+		var event operational.Event
+		if err := decoder.Decode(&event); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if event.Component != "mcp" {
+			continue
+		}
+		if event.RequestID == "" || requestIDs[event.RequestID] && event.Message == "request started" {
+			t.Fatalf("invalid MCP audit correlation: %+v", event)
+		}
+		if event.Message == "request started" {
+			requestIDs[event.RequestID] = true
+		}
+		if event.Command == "ainfra.output.read" && event.RunID == runID &&
+			event.Deployment == "mcp-test" {
+			foundBoundRun = true
+		}
+	}
+	if len(requestIDs) < 32 || !foundBoundRun ||
+		bytes.Contains(auditContents, []byte("ansible_connection")) ||
+		bytes.Contains(auditContents, []byte(projectRoot)) {
+		t.Fatalf("incomplete or sensitive MCP audit log: %s", auditContents)
 	}
 }
 
