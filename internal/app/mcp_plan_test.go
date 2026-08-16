@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,6 +94,27 @@ esac
 	if deploymentContract.Name != "mcp-plan" ||
 		deploymentContract.Template.Source != "local:../template" {
 		t.Fatalf("unexpected deployment contract: %+v", deploymentContract)
+	}
+	lockPath := filepath.Join(projectRoot, lockfile.Filename)
+	if err := os.Remove(lockPath); err != nil {
+		t.Fatal(err)
+	}
+	templatePlan, err := session.PlanTemplateLock(context.Background(), "lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !templatePlan.Changed || templatePlan.ContentDigest != materialized.Digest {
+		t.Fatalf("unexpected template lock plan: %+v", templatePlan)
+	}
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Fatalf("template lock plan published a lock: %v", err)
+	}
+	if err := lockfile.Write(lockPath, document); err != nil {
+		t.Fatal(err)
+	}
+	templatePlan, err = session.PlanTemplateLock(context.Background(), "update")
+	if err != nil || templatePlan.Changed {
+		t.Fatalf("unchanged template update plan: %+v, %v", templatePlan, err)
 	}
 	templateContract, err := session.InspectTemplate()
 	if err != nil {
@@ -207,6 +229,37 @@ esac
 	cancel()
 	if _, err := session.CreatePlan(ctx, "destroy"); err == nil {
 		t.Fatal("cancelled MCP destroy planning succeeded")
+	}
+}
+
+func TestMCPTemplatePlanPropagatesCancellationToGitAcquisition(t *testing.T) {
+	t.Parallel()
+	projectRoot := t.TempDir()
+	writeMCPPlanFile(t, filepath.Join(projectRoot, project.ManifestName), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: mcp-template-plan
+spec:
+  template:
+    source: git::https://example.invalid/template.git
+    ref: main
+`)
+	deployment, err := project.Load(project.ResolveOptions{ProjectPath: projectRoot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	acquired := false
+	session := MCPServeSession{project: deployment, cacheRoot: t.TempDir(),
+		templateOptions: TemplateLockOptions{AcquireGit: func(ctx context.Context,
+			_ source.Reference, _, _ string,
+		) (source.GitAcquisition, error) {
+			acquired = true
+			return source.GitAcquisition{}, ctx.Err()
+		}}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := session.PlanTemplateLock(ctx, "lock"); !acquired || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled template plan: acquired=%v err=%v", acquired, err)
 	}
 }
 

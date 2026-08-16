@@ -29,6 +29,7 @@ type MCPServeRequest struct {
 // MCPServeOptions supplies the closed host facts captured before serving.
 type MCPServeOptions struct {
 	Plan          PlanHostOptions
+	Template      TemplateLockOptions
 	Doctor        DoctorEnvironmentOptions
 	Authorization MCPAuthorizationProvider
 	Now           func() time.Time
@@ -43,6 +44,7 @@ type MCPServeSession struct {
 	cacheRoot         string
 	settings          config.Settings
 	planOptions       PlanHostOptions
+	templateOptions   TemplateLockOptions
 	environmentDoctor output.Doctor
 	capabilities      map[string]struct{}
 	authorization     MCPAuthorizationProvider
@@ -276,6 +278,24 @@ func (session MCPServeSession) CreatePlan(ctx context.Context, intent string) (o
 	return planForDeployment(ctx, session.project, session.settings, destroy, session.planOptions)
 }
 
+// PlanTemplateLock resolves and validates the candidate lock binding without
+// publishing ainfra.lock. Cache materialization is the only permitted write.
+func (session MCPServeSession) PlanTemplateLock(ctx context.Context,
+	operation string,
+) (output.Template, error) {
+	allowUpdate := false
+	switch operation {
+	case "lock":
+	case "update":
+		allowUpdate = true
+	default:
+		return output.Template{}, errors.New("template operation must be lock or update")
+	}
+	options := session.templateOptions
+	options.CacheDirectory = session.cacheRoot
+	return resolveTemplateLockMutation(ctx, session.project, options, allowUpdate, false)
+}
+
 // ApplyAuthorized independently authorizes and then executes one exact saved
 // apply plan through the normal application core.
 func (session MCPServeSession) ApplyAuthorized(ctx context.Context,
@@ -404,7 +424,13 @@ func PrepareMCPServe(ctx context.Context, request MCPServeRequest,
 	}, project: deployment, runsRoot: settings.Paths.Runs, settings: settings,
 		cacheRoot: settings.Paths.Cache, environmentDoctor: environment.Result,
 		capabilities: capabilities, authorization: options.Authorization, now: now,
-		planOptions: clonePlanHostOptions(planOptions)}, nil
+		planOptions:     clonePlanHostOptions(planOptions),
+		templateOptions: cloneTemplateLockOptions(options.Template)}, nil
+}
+
+func cloneTemplateLockOptions(options TemplateLockOptions) TemplateLockOptions {
+	options.Environment = cloneEnvironment(options.Environment)
+	return options
 }
 
 func clonePlanHostOptions(options PlanHostOptions) PlanHostOptions {

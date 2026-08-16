@@ -264,7 +264,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 13 {
+	if len(tools.Tools) != 14 {
 		t.Fatalf("planning registry: %+v", tools.Tools)
 	}
 	var createPlan *mcp.Tool
@@ -297,6 +297,19 @@ spec:
 	}
 	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
 		t.Fatalf("planning tool applied reconciliation: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.template.plan",
+		Arguments: map[string]any{"operation": "replace"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	if !result.IsError || !ok || structured["tool"] != "ainfra.template.plan" ||
+		structured["ok"] != false {
+		t.Fatalf("unexpected invalid template plan result: %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, "ainfra.lock")); !os.IsNotExist(err) {
+		t.Fatalf("template planning published a lock: %v", err)
 	}
 	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.plan.create",
 		Arguments: map[string]any{"intent": "invalid"}})

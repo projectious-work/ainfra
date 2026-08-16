@@ -195,6 +195,20 @@ type CreatePlanResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// TemplatePlanInput selects a non-publishing lock or update preview.
+type TemplatePlanInput struct {
+	Operation string `json:"operation" jsonschema:"template operation: lock or update"`
+}
+
+// TemplatePlanResult is the versioned candidate template binding.
+type TemplatePlanResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *output.Template        `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // ApplyInput binds an independently approved caller to one exact saved plan.
 // Approval is opaque and is never returned, retained, or logged.
 type ApplyInput struct {
@@ -454,6 +468,26 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				}
 				return nil, ReconciliationPlanResult{APIVersion: output.APIVersion,
 					Tool: "ainfra.reconciliation.plan", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.template.plan",
+			Description: "Preview a validated template lock or update without publishing the lock.",
+			Annotations: &mcp.ToolAnnotations{Title: "plan ainfra template binding",
+				ReadOnlyHint: false, DestructiveHint: boolPointer(false),
+				IdempotentHint: false, OpenWorldHint: boolPointer(true)}},
+			func(ctx context.Context, _ *mcp.CallToolRequest, input TemplatePlanInput) (*mcp.CallToolResult,
+				TemplatePlanResult, error) {
+				result, err := session.PlanTemplateLock(ctx, input.Operation)
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, TemplatePlanResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.template.plan", OK: false,
+						Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E3001",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "template",
+							NextAction: "Correct the template source, lock state, or requested operation."}},
+					}, nil
+				}
+				return nil, TemplatePlanResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.template.plan", OK: true, Result: &result,
 					Diagnostics: []diagnostic.Diagnostic{}}, nil
 			})
 		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.plan.create",

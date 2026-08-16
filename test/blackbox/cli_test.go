@@ -516,7 +516,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 13 {
+	if len(tools.Tools) != 14 {
 		t.Fatalf("planning registry: %+v", tools.Tools)
 	}
 	result, err := session.CallTool(ctx,

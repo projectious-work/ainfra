@@ -137,12 +137,17 @@ func main() {
 					if err != nil {
 						return app.MCPServeSession{}, err
 					}
+					templateOptions, err := app.HostTemplateLockOptions()
+					if err != nil {
+						return app.MCPServeSession{}, err
+					}
 					doctorOptions, err := app.HostDoctorEnvironmentOptions()
 					if err != nil {
 						return app.MCPServeSession{}, err
 					}
 					return app.PrepareMCPServe(ctx, request,
-						app.MCPServeOptions{Plan: planOptions, Doctor: doctorOptions,
+						app.MCPServeOptions{Plan: planOptions, Template: templateOptions,
+							Doctor:        doctorOptions,
 							Authorization: authorization})
 				},
 				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})

@@ -210,8 +210,18 @@ immutable binding plus engine and inventory declarations. It fails closed when
 the lock, binding, cache, digest, or template contract is invalid. Neither tool
 returns materialized cache paths, manifest paths, or template roots.
 
-Template lock/update/migration planning and remaining deployment mutations
-(reconciliation, template writes, configure, and composed deploy) remain
-subsequent Phase 7 slices. Final AINFRA-MCP-001 through AINFRA-MCP-010
-conformance closure and end-user documentation also remain. Undeclared
-capability groups are rejected by the current startup validator.
+The `planning` capability now additionally discloses
+`ainfra.template.plan`. Its closed input selects only `lock` or `update`; the
+startup project, cache, source-acquisition policy, and configuration cannot be
+overridden. The application layer resolves and validates the candidate through
+the same template-lock core as the CLI but does not publish `ainfra.lock`.
+Digest-addressed cache materialization is permitted planning evidence. Existing
+lock/update preconditions are preserved, unchanged candidates report
+`changed: false`, Git acquisition receives MCP cancellation, and invalid
+operations return a typed failure.
+
+Template migration planning and remaining deployment mutations
+(approved reconciliation, template writes, configure, and composed deploy)
+remain subsequent Phase 7 slices. Final AINFRA-MCP-001 through
+AINFRA-MCP-010 conformance closure and end-user documentation also remain.
+Undeclared capability groups are rejected by the current startup validator.
