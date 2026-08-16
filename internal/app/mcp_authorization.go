@@ -67,12 +67,18 @@ func VerifyMCPAuthorization(ctx context.Context, provider MCPAuthorizationProvid
 	if !validMCPAuthorizationRequest(request) {
 		return MCPAuthorization{}, errors.New("MCP authorization expectation is invalid")
 	}
+	if err := ctx.Err(); err != nil {
+		return MCPAuthorization{}, err
+	}
 	grant, err := provider.Verify(ctx, request.Approval)
 	if err != nil {
 		if ctx.Err() != nil {
 			return MCPAuthorization{}, ctx.Err()
 		}
 		return MCPAuthorization{}, errors.New("independent MCP authorization was not verified")
+	}
+	if err := ctx.Err(); err != nil {
+		return MCPAuthorization{}, err
 	}
 	if !validAuthorizationID(grant.AuthorizationID) ||
 		!validAuthorizationID(grant.Issuer) || grant.Issuer == request.Caller ||

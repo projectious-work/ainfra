@@ -4,8 +4,8 @@ Status: in progress
 
 Phase 7 exposes ainfra's typed application use cases through the common
 `ainfra mcp serve --stdio` entry point. The default registry is read-only;
-planning, deployment, and destruction remain absent unless their capability
-groups and independent authorization contracts are implemented and enabled.
+planning and the first independently authorized deployment operation are
+available only through explicit capability groups. Destruction remains absent.
 
 ## Protocol selection
 
@@ -141,11 +141,30 @@ Adversarial tests cover absent providers and approval material, oversized
 material, self-approval, stale grants, every binding mismatch, invalid
 operation/intent pairs, cancellation, and provider error leakage.
 
+The `deployment` capability now discloses the first mutation tool,
+`ainfra.apply.execute`. Its input is limited to an exact saved-plan ID, caller
+identity, and opaque approval material. Before any OpenTofu invocation, ainfra
+strictly reads the startup-project plan binding and requires the independent
+provider to approve that exact apply operation, plan ID, plan digest, caller,
+root, intent, and validity window. Conversational claims and absent providers
+fail closed.
+
+After authorization, ainfra exclusively retains a private
+`authorization.json` containing only the sanitized authorization identity and
+exact binding. Replay cannot overwrite this evidence. The adapter then calls
+the same application apply core as the CLI with the startup configuration
+snapshot; full plan reverification, operation locking, a final approval-expiry
+check immediately before execution, cancellation, child invocation, outcome
+evidence, and ambiguous-state recovery remain shared.
+Opaque approval bytes are never logged, returned, or retained. The compiled
+binary currently has no authorization provider composition, so the tool is
+discoverable when explicitly enabled but fails closed before child execution.
+
 The compiled-binary suite verifies default registry disclosure, typed results,
 rejection of undisclosed mutation tools, and separation of startup diagnostics
 from protocol stdout.
 
-Template planning operations, the deployment and destruction capability
-groups, independent authorization-provider composition, and mutation adapters
-remain subsequent Phase 7 slices. Undeclared capability groups are rejected by
-the current startup validator.
+Template planning operations, authorization-provider composition, remaining
+deployment mutations, and the destruction capability remain subsequent Phase
+7 slices. The destruction and undeclared capability groups are rejected by the
+current startup validator.

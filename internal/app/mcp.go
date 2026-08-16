@@ -12,6 +12,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
 	"github.com/projectious-work/ainfra/internal/reconcile"
+	runstate "github.com/projectious-work/ainfra/internal/run"
 )
 
 // MCPServeRequest contains server-start policy selected by the operator.
@@ -67,6 +68,21 @@ type MCPReconciliationPlan struct {
 	Deployment output.Deployment         `json:"deployment"`
 	Doctor     output.Doctor             `json:"doctor"`
 	Actions    []MCPReconciliationAction `json:"actions"`
+}
+
+// MCPApplyRequest carries only exact reviewed-plan and independent approval
+// inputs. Project and host policy remain fixed by the serving session.
+type MCPApplyRequest struct {
+	PlanID   string
+	Caller   string
+	Approval string
+}
+
+// MCPApplyResult combines normal execution semantics with sanitized approval
+// evidence. Opaque approval material is never retained or returned.
+type MCPApplyResult struct {
+	Execution     output.Execution `json:"execution"`
+	Authorization MCPAuthorization `json:"authorization"`
 }
 
 // Status reads sanitized retained lifecycle state for the fixed startup
@@ -153,6 +169,52 @@ func (session MCPServeSession) CreatePlan(ctx context.Context, intent string) (o
 	return planForDeployment(ctx, session.project, session.settings, destroy, session.planOptions)
 }
 
+// ApplyAuthorized independently authorizes and then executes one exact saved
+// apply plan through the normal application core.
+func (session MCPServeSession) ApplyAuthorized(ctx context.Context,
+	request MCPApplyRequest,
+) (MCPApplyResult, error) {
+	binding, err := runstate.LoadAuthorizationBinding(session.runsRoot,
+		request.PlanID, session.Project.Name, "apply")
+	if err != nil {
+		return MCPApplyResult{}, err
+	}
+	authorization, err := session.AuthorizeMutation(ctx, MCPMutationAuthorizationRequest{
+		Approval: request.Approval, Operation: "apply", PlanID: binding.PlanID,
+		PlanDigest: binding.PlanDigest, Intent: binding.Intent, Caller: request.Caller,
+	})
+	if err != nil {
+		return MCPApplyResult{}, err
+	}
+	now := session.now
+	if now == nil {
+		now = time.Now
+	}
+	recorded := false
+	execution, err := applyForDeploymentWithHook(ctx, session.project, session.settings,
+		binding.PlanID, session.planOptions, func() error {
+			expiresAt, parseErr := time.Parse(time.RFC3339, authorization.ExpiresAt)
+			current := now().UTC()
+			if parseErr != nil || !expiresAt.After(current) {
+				return errors.New("MCP authorization expired before execution")
+			}
+			record := runstate.NewAuthorizationRecord(authorization.AuthorizationID, "apply",
+				binding.PlanID, binding.PlanDigest, authorization.Caller, authorization.Issuer,
+				authorization.ExpiresAt, current)
+			if recordErr := runstate.RecordAuthorization(session.runsRoot, record); recordErr != nil {
+				return recordErr
+			}
+			recorded = true
+			return nil
+		})
+	if recorded {
+		execution.Evidence = append(execution.Evidence, output.Evidence{
+			Kind: "authorization", Path: "authorization.json", Sensitive: false})
+	}
+	result := MCPApplyResult{Execution: execution, Authorization: authorization}
+	return result, err
+}
+
 // AuthorizeMutation verifies an exact mutation binding against the provider
 // fixed at server startup. The project root is always replaced by the
 // canonical startup root and cannot come from a protocol request.
@@ -226,8 +288,8 @@ func validateMCPCapabilities(requested []string) (map[string]struct{}, error) {
 	capabilities := make(map[string]struct{}, len(requested))
 	for _, capability := range requested {
 		switch capability {
-		case MCPPlanningCapability:
-		case MCPDeploymentCapability, MCPDestructionCapability:
+		case MCPPlanningCapability, MCPDeploymentCapability:
+		case MCPDestructionCapability:
 			return nil, fmt.Errorf("MCP capability %q is not available", capability)
 		default:
 			return nil, fmt.Errorf("unsupported MCP capability %q", capability)

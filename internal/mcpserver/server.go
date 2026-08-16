@@ -170,6 +170,23 @@ type CreatePlanResult struct {
 	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
 }
 
+// ApplyInput binds an independently approved caller to one exact saved plan.
+// Approval is opaque and is never returned, retained, or logged.
+type ApplyInput struct {
+	PlanID   string `json:"planId" jsonschema:"exact reviewed plan ID"`
+	Caller   string `json:"caller" jsonschema:"authenticated caller ID"`
+	Approval string `json:"approval" jsonschema:"opaque independent approval artifact"`
+}
+
+// ApplyResult is the versioned authorized execution result.
+type ApplyResult struct {
+	APIVersion  string                  `json:"apiVersion"`
+	Tool        string                  `json:"tool"`
+	OK          bool                    `json:"ok"`
+	Result      *app.MCPApplyResult     `json:"result"`
+	Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+}
+
 // Serve runs one MCP session until stdin closes or the context is cancelled.
 func Serve(ctx context.Context, request app.MCPServeRequest, options Options) error {
 	if options.Prepare == nil {
@@ -394,6 +411,29 @@ func New(session app.MCPServeSession, options Options) *mcp.Server {
 				}
 				return nil, CreatePlanResult{APIVersion: output.APIVersion,
 					Tool: "ainfra.plan.create", OK: true, Result: &result,
+					Diagnostics: []diagnostic.Diagnostic{}}, nil
+			})
+	}
+	if session.CapabilityEnabled(app.MCPDeploymentCapability) {
+		addBoundedTool(server, limiter, &mcp.Tool{Name: "ainfra.apply.execute",
+			Description: "Execute one exact independently authorized reviewed apply plan.",
+			Annotations: &mcp.ToolAnnotations{Title: "execute authorized ainfra apply",
+				ReadOnlyHint: false, DestructiveHint: boolPointer(true),
+				IdempotentHint: false, OpenWorldHint: boolPointer(true)}},
+			func(ctx context.Context, _ *mcp.CallToolRequest, input ApplyInput) (*mcp.CallToolResult,
+				ApplyResult, error) {
+				result, err := session.ApplyAuthorized(ctx, app.MCPApplyRequest{
+					PlanID: input.PlanID, Caller: input.Caller, Approval: input.Approval})
+				if err != nil {
+					return &mcp.CallToolResult{IsError: true}, ApplyResult{
+						APIVersion: output.APIVersion, Tool: "ainfra.apply.execute", OK: false,
+						Result: &result, Diagnostics: []diagnostic.Diagnostic{{Code: "AINFRA-E4002",
+							Severity: diagnostic.SeverityError, Message: err.Error(), Component: "apply",
+							NextAction: "Reverify the saved plan and obtain fresh independent approval."}},
+					}, nil
+				}
+				return nil, ApplyResult{APIVersion: output.APIVersion,
+					Tool: "ainfra.apply.execute", OK: true, Result: &result,
 					Diagnostics: []diagnostic.Diagnostic{}}, nil
 			})
 	}

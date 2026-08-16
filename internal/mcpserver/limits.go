@@ -136,9 +136,14 @@ func (audit *requestAudit) finish(tool, runID, requestID string, failed bool) er
 }
 
 func mcpRunID(input any) string {
-	if retained, ok := input.(RetainedArtifactInput); ok {
-		if safeCorrelationID(retained.RunID) {
-			return retained.RunID
+	switch value := input.(type) {
+	case RetainedArtifactInput:
+		if safeCorrelationID(value.RunID) {
+			return value.RunID
+		}
+	case ApplyInput:
+		if safeCorrelationID(value.PlanID) {
+			return value.PlanID
 		}
 	}
 	return ""

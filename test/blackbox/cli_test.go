@@ -522,7 +522,6 @@ func TestMCPStdioRejectsInvalidCapabilityBeforeProtocolOutput(t *testing.T) {
 	t.Parallel()
 	for _, arguments := range [][]string{
 		{"mcp", "serve", "--stdio", "--capability", "unknown"},
-		{"mcp", "serve", "--stdio", "--capability", "deployment"},
 		{"mcp", "serve", "--stdio", "--capability", "destruction"},
 	} {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -538,6 +537,76 @@ func TestMCPStdioRejectsInvalidCapabilityBeforeProtocolOutput(t *testing.T) {
 			t.Fatalf("invalid capability args=%v err=%v stdout=%q stderr=%q",
 				arguments, err, stdout.String(), stderr.String())
 		}
+	}
+}
+
+func TestMCPStdioDeploymentCapabilityRefusesUnavailableAuthorizationProvider(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: deployment-blackbox
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+		[]byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	const runID = "20260816T120000Z-0123456789abcdef"
+	runRoot := filepath.Join(home, ".local", "state", "ainfra", "runs", runID)
+	if err := os.MkdirAll(runRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	record := `{"schemaVersion":1,"runId":"` + runID +
+		`","intent":"apply","deployment":{"name":"deployment-blackbox",` +
+		`"digest":"sha256:x"},"template":{"source":"local:x",` +
+		`"digest":"sha256:x"},"inputs":[],"engine":{"name":"opentofu",` +
+		`"version":"1","executableDigest":"sha256:x"},"plan":{` +
+		`"path":"plan.tfplan","digest":"sha256:` + strings.Repeat("a", 64) +
+		`","summaryPath":"plan.json"}}`
+	if err := os.WriteFile(filepath.Join(runRoot, "plan-record.json"),
+		[]byte(record), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	process := exec.Command(binary, "mcp", "serve", "--stdio",
+		"--capability", "deployment")
+	process.Dir = projectRoot
+	process.Env = []string{"TERM=dumb", "HOME=" + home,
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "deployment-blackbox", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 10 {
+		t.Fatalf("deployment registry: %+v", tools.Tools)
+	}
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unavailable authorization result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(runRoot, "authorization.json")); !os.IsNotExist(err) {
+		t.Fatalf("unverified authorization retained evidence: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stderr.String(), "approval-canary-secret") {
+		t.Fatalf("opaque approval leaked to stderr: %q", stderr.String())
 	}
 }
 

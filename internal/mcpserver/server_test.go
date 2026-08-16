@@ -291,3 +291,76 @@ spec:
 		t.Fatalf("unexpected invalid plan result: %#v", result)
 	}
 }
+
+func TestDeploymentCapabilityDisclosesApplyButRefusesBeforeAuthorization(t *testing.T) {
+	t.Parallel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: deployment
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+		[]byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	planOptions := app.PlanHostOptions{WorkingDirectory: t.TempDir(),
+		HomeDirectory: t.TempDir(), CacheDirectory: t.TempDir(),
+		RunDirectory: t.TempDir(), Environment: map[string]string{}}
+	sessionState, err := app.PrepareMCPServe(context.Background(), app.MCPServeRequest{
+		ProjectPath: projectRoot, Capabilities: []string{app.MCPDeploymentCapability},
+	}, app.MCPServeOptions{Plan: planOptions, Doctor: app.DoctorEnvironmentOptions{
+		GOOS: "linux", GOARCH: "arm64", WorkingDirectory: planOptions.WorkingDirectory,
+		HomeDirectory: planOptions.HomeDirectory, CacheDirectory: planOptions.CacheDirectory,
+		RunDirectory: planOptions.RunDirectory, Environment: map[string]string{},
+		InspectExecutable: func(_ context.Context, name, _ string) (doctor.ExecutableFact, error) {
+			return doctor.ExecutableFact{Path: "/tools/" + name, Version: name + " 1.0"}, nil
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+	server := mcpserver.New(sessionState, mcpserver.Options{Build: app.Build{Version: "test"},
+		Stderr: &bytes.Buffer{}})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = server.Run(ctx, serverTransport) }()
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "test"}, nil)
+	clientConnection, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := clientConnection.Close(); err != nil {
+			t.Errorf("close MCP client: %v", err)
+		}
+	})
+	tools, err := clientConnection.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundApply := false
+	for _, tool := range tools.Tools {
+		if tool.Name == "ainfra.apply.execute" {
+			foundApply = tool.Annotations != nil && !tool.Annotations.ReadOnlyHint &&
+				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
+		}
+	}
+	if len(tools.Tools) != 10 || !foundApply {
+		t.Fatalf("deployment registry: %+v", tools.Tools)
+	}
+	result, err := clientConnection.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "ainfra.apply.execute", Arguments: map[string]any{
+			"planId": "20260816T120000Z-0123456789abcdef", "caller": "agent-1",
+			"approval": "conversational-claim"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatalf("apply without independently verified plan succeeded: %#v", result)
+	}
+}

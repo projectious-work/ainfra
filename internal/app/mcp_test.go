@@ -112,7 +112,7 @@ func TestPrepareMCPServeValidatesCapabilityAllowlist(t *testing.T) {
 	for _, capabilities := range [][]string{
 		{"unknown"},
 		{app.MCPPlanningCapability, app.MCPPlanningCapability},
-		{app.MCPDeploymentCapability},
+		{app.MCPDeploymentCapability, app.MCPDeploymentCapability},
 		{app.MCPDestructionCapability},
 	} {
 		_, err := app.PrepareMCPServe(context.Background(),
@@ -121,6 +121,23 @@ func TestPrepareMCPServeValidatesCapabilityAllowlist(t *testing.T) {
 		if err == nil {
 			t.Fatalf("invalid capabilities succeeded: %v", capabilities)
 		}
+	}
+	projectRoot := t.TempDir()
+	write(t, filepath.Join(projectRoot, "ainfra.yaml"), `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: capability-test
+spec:
+  template:
+    source: local:../template
+`)
+	plan := app.PlanHostOptions{WorkingDirectory: projectRoot, HomeDirectory: t.TempDir(),
+		CacheDirectory: t.TempDir(), RunDirectory: t.TempDir(), Environment: map[string]string{}}
+	session, err := app.PrepareMCPServe(context.Background(), app.MCPServeRequest{
+		ProjectPath: projectRoot, Capabilities: []string{app.MCPDeploymentCapability},
+	}, mcpServeOptions(t, plan))
+	if err != nil || !session.CapabilityEnabled(app.MCPDeploymentCapability) {
+		t.Fatalf("deployment capability was not enabled: %+v, %v", session, err)
 	}
 }
 

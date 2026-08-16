@@ -95,6 +95,18 @@ func TestVerifyMCPAuthorizationPropagatesCancellationWithoutProviderDetail(t *te
 	}
 }
 
+func TestVerifyMCPAuthorizationRejectsCancellationWhenProviderIgnoresIt(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	request, grant := authorizationFixture(now)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := app.VerifyMCPAuthorization(ctx,
+		authorizationProvider{grant: grant}, request, now); !errors.Is(err, context.Canceled) {
+		t.Fatalf("ignored provider cancellation succeeded: %v", err)
+	}
+}
+
 type authorizationProvider struct {
 	grant app.MCPAuthorizationGrant
 	err   error
