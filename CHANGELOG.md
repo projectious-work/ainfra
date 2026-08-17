@@ -5,6 +5,34 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.7] - 2026-08-17
+
+### Added
+
+- Added `ainfra mcp serve --stdio` with a fixed project boundary, read-only
+  diagnostics, status, sanitized retained artifacts, and bundled v1 contract
+  resources by default.
+- Added explicit planning, deployment, and destruction capability groups that
+  reuse the typed application lifecycle rather than shelling through the CLI.
+- Added externally issued, Ed25519-signed approval artifacts bound to the
+  project root, operation, reviewed plan, caller, independent issuer, and
+  validity window for every lifecycle mutation.
+
+### Changed
+
+- Reviewed apply and destroy execution can independently verify an authorized
+  plan digest and intent before executable discovery or child invocation.
+- MCP cancellation now propagates through planning and lifecycle operations,
+  while tool and resource execution is capped at eight concurrent requests.
+
+### Security
+
+- Added closed capability registries, separate destruction gating, a 4 MiB
+  frame limit, protocol-only stdout, and refusal of raw engine streams.
+- Added authorization mismatch, replay, expiry, self-approval, traversal,
+  symlink, malformed-frame, oversized-frame, concurrency, cancellation, and
+  compiled-binary black-box coverage.
+
 ## [1.0.0-alpha.6] - 2026-08-15
 
 ### Added
@@ -189,3 +217,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 [1.0.0-alpha.4]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.3...v1.0.0-alpha.4
 [1.0.0-alpha.5]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.4...v1.0.0-alpha.5
 [1.0.0-alpha.6]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.5...v1.0.0-alpha.6
+[1.0.0-alpha.7]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.6...v1.0.0-alpha.7
