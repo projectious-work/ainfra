@@ -6,6 +6,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+integrity_tool="${AINFRA_RELEASE_INTEGRITY:-$repo_root/scripts/release-integrity.py}"
 identity='info@projectious.work'
 issuer='https://github.com/login/oauth'
 version=''
@@ -36,7 +37,13 @@ version="${version#v}"
 tag="v$version"
 
 cd "$repo_root"
-for tool in cosign gh git; do
+required_stage=signed
+if [[ "$dry_run" == true ]]; then
+  required_stage=gated
+fi
+"$integrity_tool" require \
+  "--version=$version" "--stage=$required_stage"
+for tool in gh git; do
   command -v "$tool" >/dev/null 2>&1 || die "missing required tool: $tool"
 done
 if command -v sha256sum >/dev/null 2>&1; then
@@ -60,17 +67,22 @@ notes="$repo_root/docs/releases/$tag.md"
 [[ -d "$release_dir" && ! -L "$release_dir" ]] ||
   die "missing or unsafe release directory: $release_dir"
 [[ -s "$manifest" && ! -L "$manifest" ]] || die 'missing checksum manifest'
-[[ -s "$bundle" && ! -L "$bundle" ]] || die 'missing Sigstore bundle'
 [[ -s "$notes" && ! -L "$notes" ]] || die 'missing release notes'
 
 (
   cd "$release_dir"
   "${checksum_command[@]}" checksums.sha256
 )
-cosign verify-blob "$manifest" \
-  --bundle "$bundle" \
-  --certificate-identity "$identity" \
-  --certificate-oidc-issuer "$issuer"
+if [[ -e "$bundle" ]]; then
+  command -v cosign >/dev/null 2>&1 || die 'missing required tool: cosign'
+  [[ -s "$bundle" && ! -L "$bundle" ]] || die 'unsafe Sigstore bundle'
+  cosign verify-blob "$manifest" \
+    --bundle "$bundle" \
+    --certificate-identity "$identity" \
+    --certificate-oidc-issuer "$issuer"
+elif [[ "$dry_run" != true ]]; then
+  die 'missing Sigstore bundle'
+fi
 
 assets=(
   "$release_dir/install.sh"
@@ -83,11 +95,17 @@ assets=(
   "$release_dir/ainfra_${version}_linux_arm64.spdx.json"
   "$release_dir/ainfra_${version}_linux_arm64.tar.gz"
   "$manifest"
-  "$bundle"
 )
+if [[ -e "$bundle" ]]; then
+  assets+=("$bundle")
+fi
 for asset in "${assets[@]}"; do
   [[ -s "$asset" && ! -L "$asset" ]] || die "missing release asset: $asset"
 done
+
+printf '%s\n' '+ publication credential preflight'
+git ls-remote origin HEAD >/dev/null
+gh repo view --json nameWithOwner --jq .nameWithOwner >/dev/null
 
 if [[ "$dry_run" == true ]]; then
   printf '%s\n' \
@@ -96,20 +114,33 @@ if [[ "$dry_run" == true ]]; then
   exit 0
 fi
 
-[[ -z "$(git tag --list "$tag")" ]] || die "local tag already exists: $tag"
-[[ -z "$(git ls-remote --tags origin "refs/tags/$tag")" ]] ||
-  die "remote tag already exists: $tag"
-if gh release view "$tag" >/dev/null 2>&1; then
-  die "GitHub release already exists: $tag"
+if [[ -n "$(git tag --list "$tag")" ]]; then
+  [[ "$(git rev-list -n 1 "$tag")" == "$head_commit" ]] ||
+    die "local tag points to a different commit: $tag"
+else
+  git tag --annotate "$tag" --message "ainfra $tag" "$head_commit"
 fi
 
-git tag --annotate "$tag" --message "ainfra $tag" "$head_commit"
-git push origin "refs/tags/$tag"
-gh release create "$tag" "${assets[@]}" \
-  --verify-tag \
-  --prerelease \
-  --title "$tag" \
-  --notes-file "$notes"
+remote_tag="$(git ls-remote --tags origin "refs/tags/$tag^{}" | awk '{print $1}')"
+if [[ -z "$remote_tag" ]]; then
+  remote_tag="$(git ls-remote --tags origin "refs/tags/$tag" | awk '{print $1}')"
+fi
+if [[ -n "$remote_tag" && "$remote_tag" != "$head_commit" ]]; then
+  die "remote tag points to a different commit: $tag"
+fi
+if [[ -z "$remote_tag" ]]; then
+  git push origin "refs/tags/$tag"
+fi
+
+if gh release view "$tag" >/dev/null 2>&1; then
+  gh release upload "$tag" "${assets[@]}" --clobber
+else
+  gh release create "$tag" "${assets[@]}" \
+    --verify-tag \
+    --prerelease \
+    --title "$tag" \
+    --notes-file "$notes"
+fi
 
 verify_dir=$(mktemp -d "${TMPDIR:-/tmp}/ainfra-release-verify.XXXXXX")
 cleanup_verify() {
@@ -127,5 +158,8 @@ gh release download "$tag" --dir "$verify_dir"
 )
 cleanup_verify
 trap - EXIT
+
+"$integrity_tool" record \
+  "--version=$version" --stage=published
 
 printf 'release published and independently verified: %s\n' "$tag"

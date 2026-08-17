@@ -143,6 +143,11 @@ class ContainerGateValidationTests(unittest.TestCase):
                 return_value={"invocation": "fixture uv invocation"},
             ),
             mock.patch.object(host, "execute", side_effect=fake_execute),
+            mock.patch.object(
+                host.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ),
             mock.patch.object(host.platform, "machine", return_value="arm64"),
             mock.patch.object(host.sys, "argv", argv),
         ):
@@ -309,7 +314,7 @@ class ContainerGateValidationTests(unittest.TestCase):
         source = (ROOT / "scripts" / "prepare-container-gate.py").read_text(
             encoding="utf-8"
         )
-        self.assertIn("dist\" / \"release", source)
+        self.assertIn('dist" / "release', source)
         self.assertIn("copy_packaged_binary", source)
         self.assertNotIn('["go", "build"', source)
 
@@ -322,7 +327,9 @@ class ContainerGateValidationTests(unittest.TestCase):
             "feat/phase-7-guarded-mcp",
         )
 
-    def test_preparation_extracts_checksum_verified_packaged_binary(self) -> None:
+    def test_preparation_extracts_checksum_verified_packaged_binary(
+        self,
+    ) -> None:
         release_dir = Path(self.temporary.name) / "release"
         release_dir.mkdir()
         base = "ainfra_1.2.3_linux_arm64"

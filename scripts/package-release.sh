@@ -6,6 +6,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+integrity_tool="${AINFRA_RELEASE_INTEGRITY:-$repo_root/scripts/release-integrity.py}"
 version=""
 dry_run=false
 
@@ -52,6 +53,9 @@ fi
 
 [[ -z "$(git status --porcelain)" ]] || die 'worktree is not clean'
 [[ ! -e "$destination" ]] || die "release directory already exists: $destination"
+
+"$integrity_tool" require \
+  "--version=$version" --stage=frozen
 
 mkdir -p "$release_root"
 staging="$release_root/.${version}.packaging.$$"
@@ -133,6 +137,9 @@ rm -rf -- "$staging/.syft-cache"
 
 mv "$staging" "$destination"
 trap - EXIT
+
+"$integrity_tool" record \
+  "--version=$version" --stage=packaged
 
 printf '%s\n' \
   "release packaging complete: $destination" \

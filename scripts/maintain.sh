@@ -11,6 +11,7 @@ repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)"
 usage() {
   printf '%s\n' \
     'usage:' \
+    '  host: scripts/maintain.sh release-freeze --version=SEMVER' \
     '  devcontainer: scripts/maintain.sh release-package --version=SEMVER [--dry-run]' \
     '  host: scripts/maintain.sh release-host-prepare --version=SEMVER' \
     '  host: scripts/maintain.sh release-host --version=SEMVER [--dry-run]' \
@@ -100,6 +101,28 @@ resolve_prepared_run() {
 }
 
 case "${1:-}" in
+  release-freeze)
+    shift
+    parse_release_options "$@"
+    [ "$dry_run" = false ] || {
+      usage >&2
+      exit 2
+    }
+    command -v gh >/dev/null 2>&1 || {
+      printf '%s\n' 'release freeze failed: GitHub CLI is required' >&2
+      exit 1
+    }
+    git -C "$repo_root" fetch --prune origin
+    open_prs=$(gh pr list --state open --base v1.x-dev \
+      --json number --jq length)
+    [ "$open_prs" -eq 0 ] || {
+      printf 'release freeze failed: %s pull request(s) still target v1.x-dev\n' \
+        "$open_prs" >&2
+      exit 1
+    }
+    exec "$repo_root/scripts/release-integrity.py" freeze \
+      "--version=$release_version"
+    ;;
   release-package)
     shift
     parse_release_options "$@"

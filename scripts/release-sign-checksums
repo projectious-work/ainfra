@@ -6,6 +6,7 @@
 set -eu
 
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)
+integrity_tool=${AINFRA_RELEASE_INTEGRITY:-$repo_root/scripts/release-integrity.py}
 signing_identity='info@projectious.work'
 oidc_issuer='https://github.com/login/oauth'
 
@@ -52,6 +53,9 @@ version=${version#v}
 case "$version" in
   '' | *[!0-9A-Za-z.+-]*) fail 'invalid or missing version' ;;
 esac
+
+"$integrity_tool" require \
+  "--version=$version" --stage=gated
 
 command -v cosign >/dev/null 2>&1 || {
   printf '%s\n' 'release signing failed: cosign is missing' >&2
@@ -108,8 +112,6 @@ if [ "$dry_run" = true ]; then
   exit 0
 fi
 
-[ ! -e "$bundle" ] || fail "signature bundle already exists: $bundle"
-
 # Execute the packaged native binary before signing the manifest. Extraction
 # occurs in a private temporary directory and is removed on every exit path.
 smoke_dir=$(mktemp -d "${TMPDIR:-/tmp}/ainfra-release-smoke.XXXXXX")
@@ -129,10 +131,18 @@ printf 'native archive smoke test passed: %s\n' "$native_target"
 
 # GH_TOKEN is deliberately irrelevant here. Cosign opens Sigstore's OIDC flow;
 # the operator selects GitHub and signs in as the projectious user. Fulcio then
-# issues a short-lived certificate for the email asserted by that login.
-cosign sign-blob "$manifest" \
-  --bundle "$bundle" \
-  --yes
+# issues a short-lived certificate for the email asserted by that login. If a
+# prior attempt created the bundle but stopped before recording release state,
+# verify and adopt that exact bundle instead of asking the owner to sign again.
+if [ -e "$bundle" ]; then
+  [ -s "$bundle" ] && [ ! -L "$bundle" ] ||
+    fail 'existing signature bundle is unsafe or empty'
+  printf '%s\n' 'resuming with existing signature bundle'
+else
+  cosign sign-blob "$manifest" \
+    --bundle "$bundle" \
+    --yes
+fi
 
 if [ ! -s "$bundle" ] || [ -L "$bundle" ]; then
   fail 'Cosign did not create a safe, non-empty signature bundle'
@@ -144,6 +154,9 @@ cosign verify-blob "$manifest" \
   --bundle "$bundle" \
   --certificate-identity "$signing_identity" \
   --certificate-oidc-issuer "$oidc_issuer"
+
+"$integrity_tool" record \
+  "--version=$version" --stage=signed
 
 printf '%s\n' \
   'release checksum signature created and verified' \

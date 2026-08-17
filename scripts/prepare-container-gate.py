@@ -149,6 +149,20 @@ def main() -> int:
     if discovered_repo != repo:
         fail("repository root could not be resolved from the script path")
 
+    integrity_tool = os.environ.get(
+        "AINFRA_RELEASE_INTEGRITY",
+        str(repo / "scripts" / "release-integrity.py"),
+    )
+    run(
+        [
+            integrity_tool,
+            "require",
+            f"--version={release_version}",
+            "--stage=packaged",
+        ],
+        cwd=repo,
+    )
+
     now = dt.datetime.now(dt.UTC).replace(microsecond=0)
     run_id = now.strftime("%Y%m%dT%H%M%SZ-") + secrets.token_hex(16)
     version_dir = repo / "tmp" / "container-gate" / release_version

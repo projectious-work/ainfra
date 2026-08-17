@@ -39,17 +39,31 @@ order and in the environment shown:
 
 | Order | Environment | Command | Required tools | Result |
 |---|---|---|---|---|
-| 1 | Devcontainer | `release-package` | Git, Go, tar, gzip, Syft, sha256sum | Four cross-built archives, four archive SBOMs, and checksums |
-| 2 | Host | `release-host-prepare` | Git, Python | Immutable, checksum-verified gate input |
-| 3 | Host | `release-host` | uv, Docker, Syft, Grype | Container smoke-test, image SBOM, vulnerability report, and evidence |
-| 4 | Host | `release-sign` | Cosign | Signed and verified checksum manifest |
-| 5 | Host | `release-publish` | Git, GitHub CLI, Cosign | Tag, prerelease assets, and independent verification |
+| 1 | Host | `release-freeze` | Git, GitHub CLI, Python | Immutable commit, tree, and aligned-lane identity |
+| 2 | Devcontainer | `release-package` | Git, Go, tar, gzip, Syft, sha256sum | Four cross-built archives, four archive SBOMs, and checksums |
+| 3 | Host | `release-host-prepare` | Git, Python | Immutable, checksum-verified gate input |
+| 4 | Host | `release-host` | uv, Docker, Syft, Grype | Container smoke-test, image SBOM, vulnerability report, and evidence |
+| 5 | Host | `release-publish --dry-run` | Git, GitHub CLI | Publication and credential preflight without mutation |
+| 6 | Host | `release-sign` | Cosign | Signed and verified checksum manifest |
+| 7 | Host | `release-publish` | Git, GitHub CLI, Cosign | Tag, prerelease assets, and independent verification |
 
 `release-package` is the only command that compiles Go. Do not run it on the
 host. Syft is required in both environments for different subjects: the
 devcontainer inventories the publishable archives, while the host inventories
 the independently built container image. The host never compiles or modifies
 the release archives.
+
+Merge every release change and fast-forward `v1.x-dev`,
+`v1.x-pre-release`, and `v1.x-release` to the same exact commit before any
+artifact is built. Then freeze that identity from a clean worktree:
+
+```bash
+scripts/maintain.sh release-freeze --version=1.0.0-alpha.2
+```
+
+Every later command verifies the ignored `tmp/release/<version>/` state. No
+merge, rebase, dependency update, generation, or lane promotion is permitted
+after this point.
 
 ### 1. Package in the devcontainer
 
@@ -149,6 +163,14 @@ creating a public transparency-log entry:
 scripts/maintain.sh release-sign --version=1.0.0-alpha.1 --dry-run
 ```
 
+Also run the non-mutating publication preflight. It verifies the frozen
+identity, host evidence, checksums, release notes, remote connectivity, and
+repository credentials before the interactive signing step:
+
+```bash
+scripts/maintain.sh release-publish --version=1.0.0-alpha.1 --dry-run
+```
+
 For the release, run the same command without `--dry-run`:
 
 ```bash
@@ -178,7 +200,9 @@ scripts/maintain.sh release-publish --version=1.0.0-alpha.1 --dry-run
 The real command creates the immutable annotated tag, uploads the eleven
 prepared assets as a GitHub prerelease, downloads them into a private
 temporary directory, and independently re-verifies checksums and the Sigstore
-identity:
+identity.
+It is safely resumable after a matching local tag, remote tag, or GitHub
+release was created by an interrupted prior attempt:
 
 ```bash
 scripts/maintain.sh release-publish --version=1.0.0-alpha.1

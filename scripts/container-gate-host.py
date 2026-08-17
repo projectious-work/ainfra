@@ -966,6 +966,31 @@ def main() -> int:
     )
     if failure is not None:
         raise GateError(str(failure))
+    integrity_tool = os.environ.get(
+        "AINFRA_RELEASE_INTEGRITY",
+        str(repo / "scripts" / "release-integrity.py"),
+    )
+    integrity = subprocess.run(
+        [
+            integrity_tool,
+            "record",
+            f"--version={provenance['releaseVersion']}",
+            "--stage=gated",
+        ],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if integrity.returncode != 0:
+        detail = integrity.stderr.strip() or integrity.stdout.strip()
+        metadata["ok"] = False
+        metadata["error"] = f"release integrity recording failed: {detail}"
+        (evidence / "result.json").write_text(
+            json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        raise GateError(metadata["error"])
     print(f"container gate complete: {run_id}")
     print(f"input: {input_dir}")
     print(f"evidence: {evidence}")

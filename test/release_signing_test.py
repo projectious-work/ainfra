@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tarfile
 import tempfile
 import unittest
-
+from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "scripts" / "release-sign-checksums"
@@ -35,7 +34,7 @@ class ReleaseSigningTest(unittest.TestCase):
         binary.write_text(
             "#!/bin/sh\n"
             f"if [ \"$1\" = --format ]; then printf '%s\\n' "
-            f"'{{\"version\":\"{self.version}\"}}'; fi\n"
+            f'\'{{"version":"{self.version}"}}\'; fi\n'
             "exit 0\n"
         )
         binary.chmod(0o755)
@@ -48,10 +47,10 @@ class ReleaseSigningTest(unittest.TestCase):
         fake = self.temp_dir / "cosign"
         fake.write_text(
             "#!/bin/sh\n"
-            "printf '%s\\n' \"$*\" >> \"$COSIGN_TEST_LOG\"\n"
-            "if [ \"$1\" = sign-blob ]; then\n"
-            "  while [ \"$#\" -gt 0 ]; do\n"
-            "    if [ \"$1\" = --bundle ]; then\n"
+            'printf \'%s\\n\' "$*" >> "$COSIGN_TEST_LOG"\n'
+            'if [ "$1" = sign-blob ]; then\n'
+            '  while [ "$#" -gt 0 ]; do\n'
+            '    if [ "$1" = --bundle ]; then\n'
             "      shift\n"
             "      printf '{}\\n' > \"$1\"\n"
             "    fi\n"
@@ -60,10 +59,14 @@ class ReleaseSigningTest(unittest.TestCase):
             "fi\n"
         )
         fake.chmod(0o755)
+        integrity = self.temp_dir / "release-integrity"
+        integrity.write_text("#!/bin/sh\nexit 0\n")
+        integrity.chmod(0o755)
         self.env = {
             **os.environ,
             "PATH": f"{self.temp_dir}:{os.environ['PATH']}",
             "COSIGN_TEST_LOG": str(self.log),
+            "AINFRA_RELEASE_INTEGRITY": str(integrity),
         }
 
     @staticmethod
@@ -116,6 +119,19 @@ class ReleaseSigningTest(unittest.TestCase):
             "--certificate-oidc-issuer https://github.com/login/oauth",
             calls[1],
         )
+
+    def test_resumes_existing_bundle_without_signing_again(self) -> None:
+        """A post-signing interruption never asks for a second signature."""
+        bundle = self.release_dir / "checksums.sha256.sigstore.json"
+        bundle.write_text("{}\n")
+
+        completed = self.run_script()
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        calls = self.log.read_text().splitlines()
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0].startswith("verify-blob "))
+        self.assertIn("resuming with existing signature", completed.stdout)
 
     def test_maintain_dispatches_non_signing_dry_run(self) -> None:
         """The public maintainer command exposes the safe signing preflight."""
