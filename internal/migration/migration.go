@@ -53,7 +53,12 @@ func Analyze(sourceRoot, targetVersion string) (Plan, error) {
 	if err != nil || !information.IsDir() || information.Mode()&os.ModeSymlink != 0 {
 		return Plan{}, errors.New("template migration source must be a non-symlink local directory")
 	}
-	contents, err := os.ReadFile(filepath.Join(root, "ainfra-template.yaml"))
+	rootDirectory, err := os.OpenRoot(root)
+	if err != nil {
+		return Plan{}, fmt.Errorf("open template migration source: %w", err)
+	}
+	defer func() { _ = rootDirectory.Close() }()
+	contents, err := rootDirectory.ReadFile("ainfra-template.yaml")
 	if err != nil {
 		return Plan{}, fmt.Errorf("read template migration manifest: %w", err)
 	}
