@@ -313,6 +313,15 @@ class ContainerGateValidationTests(unittest.TestCase):
         self.assertIn("copy_packaged_binary", source)
         self.assertNotIn('["go", "build"', source)
 
+    def test_preparation_rejects_detached_source_checkout(self) -> None:
+        with self.assertRaisesRegex(SystemExit, "named branch"):
+            prepare.validate_source_branch("")
+
+        self.assertEqual(
+            prepare.validate_source_branch("feat/phase-7-guarded-mcp"),
+            "feat/phase-7-guarded-mcp",
+        )
+
     def test_preparation_extracts_checksum_verified_packaged_binary(self) -> None:
         release_dir = Path(self.temporary.name) / "release"
         release_dir.mkdir()
