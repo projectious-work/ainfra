@@ -58,7 +58,7 @@ groups:
           Add reviewed destroy plans, teardown verification, interruption
           recovery, redaction, binding checks, cache defenses, and negative
           security fixtures.
-        status: in_progress
+        status: shipped
         devNote: dev-notes/phase-06-destruction-recovery-hardening.md
 
   - label: Automation interface
@@ -71,7 +71,8 @@ groups:
           over MCP stdio by default, and expose explicitly allowlisted planning
           and plan-bound lifecycle mutations through the same typed application
           use cases, authorization, locking, evidence, and recovery contracts.
-        status: planned
+        status: in_progress
+        devNote: dev-notes/phase-07-guarded-mcp-server-mode.md
 
   - label: Template authoring
     note: the v1 authoring promise

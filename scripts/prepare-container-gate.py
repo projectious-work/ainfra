@@ -76,6 +76,19 @@ def load_release_checksums(release_dir: Path) -> dict[str, str]:
     return checksums
 
 
+def validate_source_branch(branch: str) -> str:
+    """Require provenance that the host gate can validate.
+
+    ``git branch --show-current`` returns an empty string for detached HEAD.
+    Such a checkout can identify an exact commit but cannot produce the
+    non-empty branch provenance required by the host gate.
+    """
+
+    if not branch:
+        fail("source checkout must be on a named branch")
+    return branch
+
+
 def copy_packaged_binary(
     release_dir: Path,
     checksums: dict[str, str],
@@ -149,7 +162,9 @@ def main() -> int:
     context_dir.mkdir(parents=True, mode=0o700)
 
     commit = run(["git", "rev-parse", "HEAD"], cwd=repo).decode().strip()
-    branch = run(["git", "branch", "--show-current"], cwd=repo).decode().strip()
+    branch = validate_source_branch(
+        run(["git", "branch", "--show-current"], cwd=repo).decode().strip()
+    )
     status = run(["git", "status", "--porcelain=v1", "-z"], cwd=repo)
     diff = run(["git", "diff", "--binary", "HEAD"], cwd=repo)
     untracked = run(

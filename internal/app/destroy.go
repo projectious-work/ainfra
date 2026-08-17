@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/projectious-work/ainfra/internal/config"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
 	"github.com/projectious-work/ainfra/internal/project"
@@ -49,7 +50,21 @@ func Destroy(ctx context.Context, request DestroyRequest, options PlanHostOption
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("resolve destroy configuration: %w", err)
 	}
+	return destroyForDeployment(ctx, deployment, settings, request.PlanID, options)
+}
+
+func destroyForDeployment(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, planID string, options PlanHostOptions,
+) (output.Execution, error) {
+	return destroyForDeploymentWithHook(ctx, deployment, settings, planID, options, nil)
+}
+
+func destroyForDeploymentWithHook(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, planID string, options PlanHostOptions,
+	beforeExecute func() error,
+) (output.Execution, error) {
 	tofuPath := settings.Executables.Tofu
+	var err error
 	if tofuPath == "" {
 		tofuPath, err = exec.LookPath("tofu")
 		if err != nil {
@@ -76,8 +91,7 @@ func Destroy(ctx context.Context, request DestroyRequest, options PlanHostOption
 		return output.Execution{}, fmt.Errorf("acquire deployment operation lock: %w", err)
 	}
 	defer func() { _ = unlock() }()
-	deployment, err = project.Load(project.ResolveOptions{WorkingDirectory: options.WorkingDirectory,
-		ExplicitPath: request.Target, ProjectPath: request.ProjectPath, EnvironmentPath: environmentPath})
+	deployment, err = project.Load(project.ResolveOptions{ProjectPath: deployment.Target.Root})
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("reload deployment under operation lock: %w", err)
 	}
@@ -85,7 +99,7 @@ func Destroy(ctx context.Context, request DestroyRequest, options PlanHostOption
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("read template lock: %w", err)
 	}
-	reviewed, err := runstate.LoadReviewedIntent(runstate.ReviewOptions{ID: request.PlanID,
+	reviewed, err := runstate.LoadReviewedIntent(runstate.ReviewOptions{ID: planID,
 		RunsRoot: settings.Paths.Runs, CacheRoot: settings.Paths.Cache,
 		Deployment: deployment, Lock: lock, Executable: executable, EngineVersion: version}, "destroy")
 	if err != nil {
@@ -96,6 +110,11 @@ func Destroy(ctx context.Context, request DestroyRequest, options PlanHostOption
 	contract, err := template.LoadMaterialized(cachePath)
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("load reviewed template contract: %w", err)
+	}
+	if beforeExecute != nil {
+		if err := beforeExecute(); err != nil {
+			return output.Execution{}, fmt.Errorf("authorize reviewed destroy execution: %w", err)
+		}
 	}
 	return ExecuteReviewedDestroy(ctx, ApplyExecutionOptions{Reviewed: reviewed,
 		Deployment: deployment, Template: contract, Adapter: adapter, Now: options.Now})

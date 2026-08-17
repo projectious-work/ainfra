@@ -75,28 +75,42 @@ func DoctorDeployment(
 	if err != nil {
 		return DoctorEnvironmentResponse{}, err
 	}
+	planner := reconcile.Planner{}
+	if options.ReconcilePlanner != nil {
+		planner = *options.ReconcilePlanner
+	}
+	result, plan, err := diagnoseDeployment(deployment,
+		configuration.Settings.Paths.Cache, planner,
+		request.ApplyReconciliation, request.Reconcile)
+	if err != nil {
+		return DoctorEnvironmentResponse{}, err
+	}
+	return DoctorEnvironmentResponse{Result: result,
+		Format: configuration.Settings.UI.Format, OutputStyle: configuration.Settings.UI.OutputStyle,
+		Color: configuration.Settings.UI.Color, ReconciliationPlan: plan}, nil
+}
+
+func diagnoseDeployment(deployment project.Deployment, cacheRoot string,
+	planner reconcile.Planner, applyReconciliation, includePlan bool,
+) (output.Doctor, []reconcile.Action, error) {
 	nativeFiles := len(deployment.Inputs.TofuVariableFiles) +
 		len(deployment.Inputs.TofuBackendConfigFiles) +
 		len(deployment.Inputs.AnsibleVariableFiles)
 	if deployment.SSH.KnownHosts != "" {
 		nativeFiles++
 	}
-	planner := reconcile.Planner{}
-	if options.ReconcilePlanner != nil {
-		planner = *options.ReconcilePlanner
-	}
 	runtimePlan, err := planner.RuntimeDirectory(deployment.Target.Root)
 	if err != nil {
-		return DoctorEnvironmentResponse{}, classifyDoctorLoad("runtime directory", err)
+		return output.Doctor{}, nil, classifyDoctorLoad("runtime directory", err)
 	}
 	reconciliationStatus := ""
 	reconciliationEvidence := ""
-	if request.ApplyReconciliation && len(runtimePlan.Actions) > 0 {
+	if applyReconciliation && len(runtimePlan.Actions) > 0 {
 		results, applyErr := planner.Apply(
 			runtimePlan, reconcile.FileLocker{},
 		)
 		if applyErr != nil {
-			return DoctorEnvironmentResponse{}, fmt.Errorf("apply reconciliation: %w", applyErr)
+			return output.Doctor{}, nil, fmt.Errorf("apply reconciliation: %w", applyErr)
 		}
 		failed := false
 		for _, result := range results {
@@ -111,14 +125,14 @@ func DoctorDeployment(
 		}
 		runtimePlan, err = planner.RuntimeDirectory(deployment.Target.Root)
 		if err != nil {
-			return DoctorEnvironmentResponse{}, err
+			return output.Doctor{}, nil, err
 		}
 	}
 	report := doctor.DeploymentRegistry(doctor.DeploymentInput{
 		Name: deployment.Metadata.Name, Root: deployment.Target.Root,
 		ManifestPath: deployment.Target.ManifestPath, NativeFiles: nativeFiles,
 		RuntimeSafe:   len(runtimePlan.Actions) == 0,
-		TemplateFacts: deploymentTemplateFacts(deployment, configuration.Settings.Paths.Cache),
+		TemplateFacts: deploymentTemplateFacts(deployment, cacheRoot),
 	}).Run(context.Background(), doctor.ScopeDeployment, doctor.Input{}, doctor.Capabilities{})
 	if reconciliationStatus != "" {
 		for index := range report.Findings {
@@ -135,21 +149,15 @@ func DoctorDeployment(
 		}
 	}
 	plan := []reconcile.Action{}
-	if request.Reconcile {
+	if includePlan {
 		plan = runtimePlan.Actions
 	}
-	return DoctorEnvironmentResponse{
-		Result: output.Doctor{
-			Scope: "deployment",
-			Summary: output.DoctorSummary{
-				Pass: report.Summary.Pass, Skip: report.Summary.Skip,
-				Warning: report.Summary.Warning, Fail: report.Summary.Fail,
-			},
-			Findings: report.Findings,
+	return output.Doctor{
+		Scope: "deployment",
+		Summary: output.DoctorSummary{
+			Pass: report.Summary.Pass, Skip: report.Summary.Skip,
+			Warning: report.Summary.Warning, Fail: report.Summary.Fail,
 		},
-		Format:             configuration.Settings.UI.Format,
-		OutputStyle:        configuration.Settings.UI.OutputStyle,
-		Color:              configuration.Settings.UI.Color,
-		ReconciliationPlan: plan,
-	}, nil
+		Findings: report.Findings,
+	}, plan, nil
 }

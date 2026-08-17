@@ -50,12 +50,12 @@ func executableCheck(name, code string, required bool) Definition {
 	return Definition{
 		ID:    "environment.executable." + name,
 		Scope: ScopeEnvironment, ChildToolNeeds: []string{name},
-		Run: func(_ context.Context, input Input, capabilities Capabilities) diagnostic.Diagnostic {
+		Run: func(ctx context.Context, input Input, capabilities Capabilities) diagnostic.Diagnostic {
 			if capabilities.InspectExecutable == nil {
 				return unavailableExecutable(name, code, required, "executable discovery is unavailable")
 			}
 			fact, err := capabilities.InspectExecutable(
-				context.Background(), name, input.Executables[name],
+				ctx, name, input.Executables[name],
 			)
 			if err != nil {
 				return unavailableExecutable(name, code, required, err.Error())

@@ -18,6 +18,7 @@ import (
 	"github.com/projectious-work/ainfra/internal/config"
 	"github.com/projectious-work/ainfra/internal/initialize"
 	operational "github.com/projectious-work/ainfra/internal/logging"
+	"github.com/projectious-work/ainfra/internal/mcpserver"
 	"github.com/projectious-work/ainfra/internal/output"
 )
 
@@ -116,6 +117,40 @@ func main() {
 				return output.Execution{}, err
 			}
 			return app.Deploy(context.Background(), request, options)
+		},
+		MCPServe: func(ctx context.Context, request app.MCPServeRequest) error {
+			return mcpserver.Serve(ctx, request, mcpserver.Options{Build: build,
+				Operational: &logger,
+				Prepare: func(ctx context.Context, request app.MCPServeRequest) (app.MCPServeSession, error) {
+					var authorization app.MCPAuthorizationProvider
+					if request.AuthorizationTrust != "" {
+						trustPath, err := filepath.Abs(request.AuthorizationTrust)
+						if err != nil {
+							return app.MCPServeSession{}, fmt.Errorf("resolve MCP authorization trust path: %w", err)
+						}
+						authorization, err = app.LoadMCPAuthorizationTrust(trustPath)
+						if err != nil {
+							return app.MCPServeSession{}, err
+						}
+					}
+					planOptions, err := app.HostPlanOptions()
+					if err != nil {
+						return app.MCPServeSession{}, err
+					}
+					templateOptions, err := app.HostTemplateLockOptions()
+					if err != nil {
+						return app.MCPServeSession{}, err
+					}
+					doctorOptions, err := app.HostDoctorEnvironmentOptions()
+					if err != nil {
+						return app.MCPServeSession{}, err
+					}
+					return app.PrepareMCPServe(ctx, request,
+						app.MCPServeOptions{Plan: planOptions, Template: templateOptions,
+							Doctor:        doctorOptions,
+							Authorization: authorization})
+				},
+				Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})
 		},
 		DoctorEnvironment: func(
 			request app.DoctorEnvironmentRequest,

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/projectious-work/ainfra/internal/config"
 	childexec "github.com/projectious-work/ainfra/internal/exec"
 	lockfile "github.com/projectious-work/ainfra/internal/lock"
 	"github.com/projectious-work/ainfra/internal/output"
@@ -53,7 +54,21 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("resolve apply configuration: %w", err)
 	}
+	return applyForDeployment(ctx, deployment, settings, request.PlanID, options)
+}
+
+func applyForDeployment(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, planID string, options PlanHostOptions,
+) (output.Execution, error) {
+	return applyForDeploymentWithHook(ctx, deployment, settings, planID, options, nil)
+}
+
+func applyForDeploymentWithHook(ctx context.Context, deployment project.Deployment,
+	settings config.Settings, planID string, options PlanHostOptions,
+	beforeExecute func() error,
+) (output.Execution, error) {
 	tofuPath := settings.Executables.Tofu
+	var err error
 	if tofuPath == "" {
 		tofuPath, err = exec.LookPath("tofu")
 		if err != nil {
@@ -80,8 +95,7 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 		return output.Execution{}, fmt.Errorf("acquire deployment operation lock: %w", err)
 	}
 	defer func() { _ = unlock() }()
-	deployment, err = project.Load(project.ResolveOptions{WorkingDirectory: options.WorkingDirectory,
-		ExplicitPath: request.Target, ProjectPath: request.ProjectPath, EnvironmentPath: environmentPath})
+	deployment, err = project.Load(project.ResolveOptions{ProjectPath: deployment.Target.Root})
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("reload deployment under operation lock: %w", err)
 	}
@@ -89,7 +103,7 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("read template lock: %w", err)
 	}
-	reviewed, err := runstate.LoadReviewed(runstate.ReviewOptions{ID: request.PlanID,
+	reviewed, err := runstate.LoadReviewed(runstate.ReviewOptions{ID: planID,
 		RunsRoot: settings.Paths.Runs, CacheRoot: settings.Paths.Cache,
 		Deployment: deployment, Lock: lock, Executable: executable, EngineVersion: version})
 	if err != nil {
@@ -100,6 +114,11 @@ func Apply(ctx context.Context, request ApplyRequest, options PlanHostOptions) (
 	contract, err := template.LoadMaterialized(cachePath)
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("load reviewed template contract: %w", err)
+	}
+	if beforeExecute != nil {
+		if err := beforeExecute(); err != nil {
+			return output.Execution{}, fmt.Errorf("authorize reviewed apply execution: %w", err)
+		}
 	}
 	return ExecuteReviewedApply(ctx, ApplyExecutionOptions{Reviewed: reviewed,
 		Deployment: deployment, Template: contract, Adapter: adapter, Now: options.Now})

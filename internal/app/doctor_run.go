@@ -40,7 +40,16 @@ func DoctorRun(
 	if err != nil {
 		return DoctorEnvironmentResponse{}, err
 	}
-	finding := latestRunFinding(deployment.Target.Root)
+	result := diagnoseLatestRun(deployment.Target.Root)
+	return DoctorEnvironmentResponse{
+		Result: result, Format: effective.Settings.UI.Format,
+		OutputStyle: effective.Settings.UI.OutputStyle,
+		Color:       effective.Settings.UI.Color,
+	}, nil
+}
+
+func diagnoseLatestRun(deploymentRoot string) output.Doctor {
+	finding := latestRunFinding(deploymentRoot)
 	summary := output.DoctorSummary{}
 	switch finding.Status {
 	case "pass":
@@ -52,15 +61,8 @@ func DoctorRun(
 	case "fail":
 		summary.Fail = 1
 	}
-	return DoctorEnvironmentResponse{
-		Result: output.Doctor{
-			Scope: "run", Summary: summary,
-			Findings: []diagnostic.Diagnostic{finding},
-		},
-		Format:      effective.Settings.UI.Format,
-		OutputStyle: effective.Settings.UI.OutputStyle,
-		Color:       effective.Settings.UI.Color,
-	}, nil
+	return output.Doctor{Scope: "run", Summary: summary,
+		Findings: []diagnostic.Diagnostic{finding}}
 }
 
 func latestRunFinding(deploymentRoot string) diagnostic.Diagnostic {

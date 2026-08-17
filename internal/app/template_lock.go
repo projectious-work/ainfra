@@ -43,19 +43,21 @@ type TemplateLockOptions struct {
 // TemplateLock resolves, validates, materializes, and locks one local source.
 // Git sources remain unavailable until the Phase 3 Git adapter is composed.
 func TemplateLock(request TemplateLockRequest, options TemplateLockOptions) (output.Template, error) {
-	return mutateTemplateLock(request, options, false)
+	return mutateTemplateLock(context.Background(), request, options, false, true)
 }
 
 // TemplateUpdate explicitly replaces an existing template binding after
 // resolving and validating the currently requested source.
 func TemplateUpdate(request TemplateLockRequest, options TemplateLockOptions) (output.Template, error) {
-	return mutateTemplateLock(request, options, true)
+	return mutateTemplateLock(context.Background(), request, options, true, true)
 }
 
 func mutateTemplateLock(
+	ctx context.Context,
 	request TemplateLockRequest,
 	options TemplateLockOptions,
 	allowUpdate bool,
+	publish bool,
 ) (output.Template, error) {
 	environmentPath := options.Environment["AINFRA_PROJECT"]
 	if request.Target != "" && (request.ProjectPath != "" || environmentPath != "") {
@@ -72,17 +74,39 @@ func mutateTemplateLock(
 	if err != nil {
 		return output.Template{}, fmt.Errorf("resolve template configuration: %w", err)
 	}
-	reference, err := source.Parse(deployment.Template.Source, deployment.Template.Ref)
-	if err != nil {
-		return output.Template{}, fmt.Errorf("parse template source: %w", err)
-	}
-	materialized, immutable, err := resolveTemplate(reference, deployment.Target.Root, options)
+	return resolveTemplateLockMutation(ctx, deployment, options, allowUpdate, publish)
+}
+
+func resolveTemplateLockMutation(ctx context.Context, deployment project.Deployment,
+	options TemplateLockOptions, allowUpdate, publish bool,
+) (output.Template, error) {
+	result, document, err := planTemplateLockMutation(ctx, deployment, options, allowUpdate)
 	if err != nil {
 		return output.Template{}, err
 	}
+	if !publish || !result.Changed {
+		return result, nil
+	}
+	if err := lockfile.Write(filepath.Join(deployment.Target.Root, lockfile.Filename), document); err != nil {
+		return output.Template{}, err
+	}
+	return result, nil
+}
+
+func planTemplateLockMutation(ctx context.Context, deployment project.Deployment,
+	options TemplateLockOptions, allowUpdate bool,
+) (output.Template, lockfile.Document, error) {
+	reference, err := source.Parse(deployment.Template.Source, deployment.Template.Ref)
+	if err != nil {
+		return output.Template{}, lockfile.Document{}, fmt.Errorf("parse template source: %w", err)
+	}
+	materialized, immutable, err := resolveTemplate(ctx, reference, deployment.Target.Root, options)
+	if err != nil {
+		return output.Template{}, lockfile.Document{}, err
+	}
 	contract, err := template.LoadMaterialized(materialized.Path)
 	if err != nil {
-		return output.Template{}, fmt.Errorf("validate materialized template: %w", err)
+		return output.Template{}, lockfile.Document{}, fmt.Errorf("validate materialized template: %w", err)
 	}
 	now := time.Now
 	if options.Now != nil {
@@ -97,25 +121,23 @@ func mutateTemplateLock(
 	lockPath := filepath.Join(deployment.Target.Root, lockfile.Filename)
 	if existing, readErr := lockfile.Read(lockPath); readErr == nil {
 		if lockfile.Equivalent(existing, document) {
-			return templateLockResult(document, false), nil
+			return templateLockResult(document, false), document, nil
 		}
 		if !allowUpdate {
-			return output.Template{}, errors.New(
+			return output.Template{}, lockfile.Document{}, errors.New(
 				"template lock already exists with a different binding; use 'ainfra template update'",
 			)
 		}
 	} else if !errors.Is(readErr, os.ErrNotExist) {
-		return output.Template{}, readErr
+		return output.Template{}, lockfile.Document{}, readErr
 	} else if allowUpdate {
-		return output.Template{}, errors.New("template update requires an existing ainfra.lock")
+		return output.Template{}, lockfile.Document{}, errors.New("template update requires an existing ainfra.lock")
 	}
-	if err := lockfile.Write(lockPath, document); err != nil {
-		return output.Template{}, err
-	}
-	return templateLockResult(document, true), nil
+	return templateLockResult(document, true), document, nil
 }
 
 func resolveTemplate(
+	ctx context.Context,
 	reference source.Reference,
 	deploymentRoot string,
 	options TemplateLockOptions,
@@ -135,7 +157,7 @@ func resolveTemplate(
 		return source.Materialized{}, "", errors.New("git template acquisition is unavailable")
 	}
 	acquired, err := options.AcquireGit(
-		context.Background(), reference, options.CacheDirectory, options.GitPath,
+		ctx, reference, options.CacheDirectory, options.GitPath,
 	)
 	if err != nil {
 		return source.Materialized{}, "", fmt.Errorf("acquire Git template source: %w", err)

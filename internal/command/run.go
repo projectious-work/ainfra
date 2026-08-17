@@ -2,6 +2,7 @@ package command
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -46,6 +47,7 @@ type Options struct {
 	Inventory         func(app.ArtifactRequest) (output.Artifact, error)
 	Configure         func(app.ConfigureRequest) (output.Execution, error)
 	Deploy            func(app.DeployRequest) (output.Execution, error)
+	MCPServe          func(context.Context, app.MCPServeRequest) error
 	Initialize        func(string) (initialize.Result, error)
 	Operational       *operational.Logger
 	Now               func() time.Time
@@ -104,6 +106,9 @@ func Run(arguments []string, options Options) (exit ExitCode) {
 		return runDoctorEnvironment(
 			arguments, renderArguments, controlArguments, renderOptions, options,
 		)
+	}
+	if len(positional) == 2 && positional[0] == "mcp" && positional[1] == "serve" {
+		return runMCPServe(arguments, controlArguments, options)
 	}
 	if len(positional) >= 1 && len(positional) <= 2 && positional[0] == "init" {
 		if len(controlArguments) != 0 {
@@ -177,6 +182,40 @@ func Run(arguments []string, options Options) (exit ExitCode) {
 		if _, writeErr := fmt.Fprintf(options.IO.Stderr, "AINFRA-E0003: render result: %s\n", err); writeErr != nil {
 			return ExitOperationFailed
 		}
+		return ExitOperationFailed
+	}
+	return ExitSuccess
+}
+
+func runMCPServe(arguments, controlArguments []string, options Options) ExitCode {
+	flags := flag.NewFlagSet("mcp serve", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	stdio := flags.Bool("stdio", false, "serve MCP over standard input and output")
+	projectPath := flags.String("project", "", "allowed project root")
+	authorizationTrust := flags.String("authorization-trust", "",
+		"trusted MCP authorization issuer store")
+	capabilities := make([]string, 0, 3)
+	flags.Func("capability", "explicitly allowlisted capability group", func(value string) error {
+		if value == "" {
+			return errors.New("capability name is required")
+		}
+		capabilities = append(capabilities, value)
+		return nil
+	})
+	if err := flags.Parse(controlArguments); err != nil {
+		return failInvocation(arguments, err.Error(), options.IO)
+	}
+	if !*stdio {
+		return failInvocation(arguments, "mcp serve requires --stdio", options.IO)
+	}
+	if options.MCPServe == nil {
+		return failInvocation(arguments, "MCP server mode is unavailable", options.IO)
+	}
+	if err := options.MCPServe(context.Background(), app.MCPServeRequest{
+		ProjectPath: *projectPath, Capabilities: capabilities,
+		AuthorizationTrust: *authorizationTrust,
+	}); err != nil {
+		_, _ = fmt.Fprintf(options.IO.Stderr, "AINFRA-E5001: MCP server failed: %s\n", err)
 		return ExitOperationFailed
 	}
 	return ExitSuccess
@@ -991,8 +1030,10 @@ func splitInvocation(arguments []string) (
 			renderArguments = append(renderArguments, argument)
 			continue
 		}
-		if argument == "--config" || argument == "--project" || argument == "--plan" ||
-			argument == "--run" || argument == "--source" || argument == "--stream" {
+		if argument == "--config" || argument == "--project" ||
+			argument == "--authorization-trust" || argument == "--plan" ||
+			argument == "--run" || argument == "--source" || argument == "--stream" ||
+			argument == "--capability" {
 			controlArguments = append(controlArguments, argument)
 			if index+1 < len(arguments) {
 				index++
@@ -1002,7 +1043,7 @@ func splitInvocation(arguments []string) (
 		}
 		if argument == "--reconcile" || argument == "--non-interactive" ||
 			argument == "--yes" || argument == "--destroy" || argument == "--check" ||
-			argument == "--errors" || argument == "--raw" {
+			argument == "--errors" || argument == "--raw" || argument == "--stdio" {
 			controlArguments = append(controlArguments, argument)
 			continue
 		}
@@ -1018,6 +1059,8 @@ func splitInvocation(arguments []string) (
 func stringsHasControlPrefix(argument string) bool {
 	return strings.HasPrefix(argument, "--config=") ||
 		strings.HasPrefix(argument, "--project=") ||
+		strings.HasPrefix(argument, "--authorization-trust=") ||
+		strings.HasPrefix(argument, "--capability=") ||
 		strings.HasPrefix(argument, "--plan=") ||
 		strings.HasPrefix(argument, "--run=")
 }

@@ -259,6 +259,10 @@ func Status(request EvidenceRequest, options PlanHostOptions) (output.Status, er
 	if err != nil {
 		return output.Status{}, err
 	}
+	return statusForDeployment(deployment, runsRoot)
+}
+
+func statusForDeployment(deployment project.Deployment, runsRoot string) (output.Status, error) {
 	entries, err := os.ReadDir(runsRoot)
 	if errors.Is(err, os.ErrNotExist) {
 		return output.Status{Deployment: output.Deployment{Name: deployment.Metadata.Name,

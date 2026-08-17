@@ -3,7 +3,12 @@ package blackbox_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +16,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	operational "github.com/projectious-work/ainfra/internal/logging"
 )
 
 var binary string
@@ -109,6 +117,916 @@ func TestVersionJSON(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Errorf("stderr = %q", stderr.String())
+	}
+}
+
+func TestMCPStdioDefaultRegistry(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: mcp-test
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(projectRoot, ".ainfra"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(t.TempDir(), "mcp-audit.jsonl")
+	process := exec.Command(binary, "mcp", "serve", "--stdio", "-v",
+		"--log-file", logPath, "--log-format", "json")
+	process.Dir = projectRoot
+	home := t.TempDir()
+	runID := "20260816T120000Z-0123456789abcdef"
+	runRoot := filepath.Join(home, ".local", "state", "ainfra", "runs", runID)
+	if err := os.MkdirAll(runRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	retained := map[string]string{
+		"run.json":         `{"schemaVersion":1,"runId":"` + runID + `","operation":"apply","state":"succeeded","createdAt":"2026-08-16T12:00:00Z","planRecord":"plan-record.json"}`,
+		"plan-record.json": `{"schemaVersion":1,"runId":"` + runID + `","intent":"apply","deployment":{"name":"mcp-test","digest":"sha256:x"},"template":{"source":"local:x","digest":"sha256:x"},"inputs":[],"engine":{"name":"opentofu","version":"1.10.0","executableDigest":"sha256:x"},"plan":{"path":"plan.tfplan","digest":"sha256:x","summaryPath":"plan.json"}}`,
+		"events.jsonl": "{\"schemaVersion\":1,\"operation\":\"apply\",\"state\":\"started\",\"occurredAt\":\"2026-08-16T12:00:01Z\"}\n" +
+			"{\"schemaVersion\":1,\"operation\":\"apply\",\"state\":\"inspection-required\",\"occurredAt\":\"2026-08-16T12:00:02Z\"}\n",
+		"output.json":    `{"schema_version":"1","hosts":{"node":{"groups":["all"],"connection":{"type":"local"}}}}`,
+		"inventory.yaml": "all:\n  hosts:\n    node:\n      ansible_connection: local\n",
+	}
+	for name, contents := range retained {
+		if err := os.WriteFile(filepath.Join(runRoot, name), []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	localRunRoot := filepath.Join(projectRoot, ".ainfra", "runs", runID)
+	if err := os.MkdirAll(localRunRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"run.json", "events.jsonl"} {
+		if err := os.WriteFile(filepath.Join(localRunRoot, name), []byte(retained[name]), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	process.Env = []string{"TERM=dumb", "HOME=" + home,
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "ainfra-blackbox", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	t.Cleanup(func() {
+		if err := session.Close(); err != nil {
+			t.Errorf("close session: %v", err)
+		}
+	})
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 11 {
+		t.Fatalf("unexpected default tools: %+v", tools.Tools)
+	}
+	for _, tool := range tools.Tools {
+		if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
+			t.Fatalf("default tool is not read-only: %+v", tool)
+		}
+	}
+	resources, err := session.ListResources(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resources.Resources) != 11 {
+		t.Fatalf("unexpected resources: %+v", resources.Resources)
+	}
+	catalog, err := session.ReadResource(ctx,
+		&mcp.ReadResourceParams{URI: "ainfra://contracts/v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Contents) != 1 ||
+		!strings.Contains(catalog.Contents[0].Text, `"apiVersion":"ainfra.contracts/v1"`) {
+		t.Fatalf("unexpected contract catalog: %+v", catalog)
+	}
+	schema, err := session.ReadResource(ctx,
+		&mcp.ReadResourceParams{URI: "ainfra://schemas/v1/machine-output.schema.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(schema.Contents) != 1 || schema.Contents[0].MIMEType != "application/schema+json" ||
+		!strings.Contains(schema.Contents[0].Text, `"$schema"`) {
+		t.Fatalf("unexpected schema resource: %+v", schema)
+	}
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	if !ok || structured["apiVersion"] != "ainfra.result/v1" ||
+		structured["tool"] != "ainfra.version" {
+		t.Fatalf("unexpected structured result: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.project.inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	project, projectOK := structured["result"].(map[string]any)
+	if !ok || !projectOK || project["name"] != "mcp-test" || project["root"] != projectRoot {
+		t.Fatalf("unexpected project result: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.deployment.inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	deployment, deploymentOK := structured["result"].(map[string]any)
+	if result.IsError || !ok || !deploymentOK || deployment["name"] != "mcp-test" {
+		t.Fatalf("unexpected deployment contract: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.template.inspect"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	templateDiagnostics, templateDiagnosticsOK := structured["diagnostics"].([]any)
+	if !result.IsError || !ok || structured["ok"] != false ||
+		!templateDiagnosticsOK || len(templateDiagnostics) != 1 {
+		t.Fatalf("unexpected typed template inspection failure: %#v", result.StructuredContent)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	status, statusOK := structured["result"].(map[string]any)
+	statusProject, statusProjectOK := status["deployment"].(map[string]any)
+	runs, runsOK := status["runs"].([]any)
+	if result.IsError || !ok || !statusOK || !statusProjectOK || !runsOK ||
+		statusProject["name"] != "mcp-test" || statusProject["root"] != projectRoot || len(runs) != 1 {
+		t.Fatalf("unexpected status result: %#v", result.StructuredContent)
+	}
+	run, runOK := runs[0].(map[string]any)
+	recovery, recoveryOK := run["recovery"].(map[string]any)
+	if !runOK || !recoveryOK || run["executionOutcome"] != "interrupted" ||
+		recovery["inspectionRequired"] != true || recovery["automaticRetryAllowed"] != false {
+		t.Fatalf("unexpected recovery result: %#v", runs[0])
+	}
+	result, err = session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.doctor.deployment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	doctor, doctorOK := structured["result"].(map[string]any)
+	diagnostics, diagnosticsOK := structured["diagnostics"].([]any)
+	if !result.IsError || !ok || !doctorOK || structured["ok"] != false ||
+		doctor["scope"] != "deployment" || !diagnosticsOK || len(diagnostics) != 1 {
+		t.Fatalf("unexpected deployment doctor result: %#v", result)
+	}
+	finding, findingOK := diagnostics[0].(map[string]any)
+	if !findingOK || finding["code"] != "AINFRA-E2310" || finding["status"] != "fail" {
+		t.Fatalf("unexpected deployment diagnostic: %#v", diagnostics[0])
+	}
+	unexpected, unexpectedErr := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.doctor.deployment", Arguments: map[string]any{"reconcile": true},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("doctor reconciliation input succeeded: %#v", unexpected)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.doctor.run"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	runDoctor, runDoctorOK := structured["result"].(map[string]any)
+	if result.IsError || !ok || !runDoctorOK || structured["ok"] != true ||
+		runDoctor["scope"] != "run" {
+		t.Fatalf("unexpected run doctor result: %#v", result)
+	}
+	unexpected, unexpectedErr = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.doctor.run", Arguments: map[string]any{"runId": runID},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("run doctor override input succeeded: %#v", unexpected)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.doctor.template"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	templateDoctor, templateDoctorOK := structured["result"].(map[string]any)
+	summary, summaryOK := templateDoctor["summary"].(map[string]any)
+	if result.IsError || !ok || !templateDoctorOK || !summaryOK || structured["ok"] != true ||
+		templateDoctor["scope"] != "template" || summary["skip"] != float64(1) {
+		t.Fatalf("unexpected template doctor result: %#v", result)
+	}
+	unexpected, unexpectedErr = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.doctor.template", Arguments: map[string]any{"path": "/tmp/other"},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("template doctor path override succeeded: %#v", unexpected)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.doctor.environment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	environmentDoctor, environmentDoctorOK := structured["result"].(map[string]any)
+	if !ok || !environmentDoctorOK || environmentDoctor["scope"] != "environment" {
+		t.Fatalf("unexpected environment doctor result: %#v", result)
+	}
+	unexpected, unexpectedErr = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.doctor.environment", Arguments: map[string]any{"config": "/tmp/other"},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("environment doctor config override succeeded: %#v", unexpected)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.output.read",
+		Arguments: map[string]any{"runId": runID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	retainedOutput, retainedOutputOK := structured["result"].(map[string]any)
+	standardOutput, standardOutputOK := retainedOutput["output"].(map[string]any)
+	hosts, hostsOK := standardOutput["hosts"].(map[string]any)
+	if result.IsError || !ok || !retainedOutputOK || !standardOutputOK || !hostsOK ||
+		retainedOutput["runId"] != runID || hosts["node"] == nil {
+		t.Fatalf("unexpected retained output result: %#v", result)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.inventory.read",
+		Arguments: map[string]any{"runId": runID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	retainedInventory, retainedInventoryOK := structured["result"].(map[string]any)
+	if result.IsError || !ok || !retainedInventoryOK ||
+		retainedInventory["mediaType"] != "application/yaml" ||
+		!strings.Contains(retainedInventory["content"].(string), "ansible_connection: local") {
+		t.Fatalf("unexpected retained inventory result: %#v", result)
+	}
+	unexpected, unexpectedErr = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.output.read", Arguments: map[string]any{"runId": runID, "path": "/tmp/other"},
+	})
+	if unexpectedErr == nil && !unexpected.IsError {
+		t.Fatalf("retained output path override succeeded: %#v", unexpected)
+	}
+	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply"}); err == nil {
+		t.Fatal("undisclosed mutation tool call succeeded")
+	}
+	if _, err := session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.reconciliation.plan"}); err == nil {
+		t.Fatal("undisclosed planning tool call succeeded")
+	}
+	concurrent := make(chan error, 32)
+	for range 32 {
+		go func() {
+			response, callErr := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"})
+			if callErr == nil && response.IsError {
+				callErr = errors.New("version returned an error result")
+			}
+			concurrent <- callErr
+		}()
+	}
+	for range 32 {
+		if err := <-concurrent; err != nil {
+			t.Fatalf("concurrent MCP request: %v", err)
+		}
+	}
+	auditContents, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(auditContents))
+	requestIDs := make(map[string]bool)
+	foundBoundRun := false
+	for {
+		var event operational.Event
+		if err := decoder.Decode(&event); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if event.Component != "mcp" {
+			continue
+		}
+		if event.RequestID == "" || requestIDs[event.RequestID] && event.Message == "request started" {
+			t.Fatalf("invalid MCP audit correlation: %+v", event)
+		}
+		if event.Message == "request started" {
+			requestIDs[event.RequestID] = true
+		}
+		if event.Command == "ainfra.output.read" && event.RunID == runID &&
+			event.Deployment == "mcp-test" {
+			foundBoundRun = true
+		}
+	}
+	if len(requestIDs) < 32 || !foundBoundRun ||
+		bytes.Contains(auditContents, []byte("ansible_connection")) ||
+		bytes.Contains(auditContents, []byte(projectRoot)) {
+		t.Fatalf("incomplete or sensitive MCP audit log: %s", auditContents)
+	}
+}
+
+func TestMCPStdioRejectsMalformedAndOversizedFrames(t *testing.T) {
+	t.Parallel()
+	for _, fixture := range []struct {
+		name    string
+		payload string
+	}{
+		{name: "malformed", payload: "{not-json}\n"},
+		{name: "oversized", payload: `{"jsonrpc":"2.0","id":1,"method":"` +
+			strings.Repeat("frame-canary-", (4<<20)/len("frame-canary-")+1) + `"}` + "\n"},
+	} {
+		fixture := fixture
+		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			projectRoot := t.TempDir()
+			manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: malformed-frame-test
+spec:
+  template:
+    source: local:../template
+`
+			if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+				[]byte(manifest), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			process := exec.CommandContext(ctx, binary, "mcp", "serve", "--stdio")
+			process.Dir = projectRoot
+			process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+				"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+			process.Stdin = strings.NewReader(fixture.payload)
+			var stdout, stderr bytes.Buffer
+			process.Stdout, process.Stderr = &stdout, &stderr
+			if err := process.Run(); err == nil {
+				t.Fatal("invalid MCP frame succeeded")
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("invalid MCP frame polluted stdout: %q", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), "AINFRA-E5001") ||
+				strings.Contains(stderr.String(), "frame-canary-") {
+				t.Fatalf("unexpected sanitized stderr: %q", stderr.String())
+			}
+		})
+	}
+}
+
+func TestMCPStdioShutsDownCleanlyWhenClientCloses(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: clean-shutdown-test
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+		[]byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	process := exec.Command(binary, "mcp", "serve", "--stdio")
+	process.Dir = projectRoot
+	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "shutdown-test", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	if _, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.version"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("clean shutdown: %v, stderr: %s", err, stderr.String())
+	}
+}
+
+func TestMCPStdioPlanningCapabilityIsExplicitAndNonApplying(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: planning-blackbox
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	process := exec.Command(binary, "mcp", "serve", "--stdio", "--capability", "planning")
+	process.Dir = projectRoot
+	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "planning-blackbox", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 15 {
+		t.Fatalf("planning registry: %+v", tools.Tools)
+	}
+	result, err := session.CallTool(ctx,
+		&mcp.CallToolParams{Name: "ainfra.reconciliation.plan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	plan, planOK := structured["result"].(map[string]any)
+	actions, actionsOK := plan["actions"].([]any)
+	if result.IsError || !ok || !planOK || !actionsOK || len(actions) != 1 {
+		t.Fatalf("planning result: %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("planning capability applied a repair: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.plan.create",
+		Arguments: map[string]any{"intent": "invalid"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("invalid plan intent result=%#v err=%v", result, err)
+	}
+}
+
+func TestMCPStdioRejectsInvalidCapabilityBeforeProtocolOutput(t *testing.T) {
+	t.Parallel()
+	for _, arguments := range [][]string{
+		{"mcp", "serve", "--stdio", "--capability", "unknown"},
+		{"mcp", "serve", "--stdio", "--capability", "destruction"},
+	} {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		process := exec.CommandContext(ctx, binary, arguments...)
+		process.Dir = t.TempDir()
+		process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+			"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+		var stdout, stderr bytes.Buffer
+		process.Stdout, process.Stderr = &stdout, &stderr
+		err := process.Run()
+		cancel()
+		if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "AINFRA-E5001") {
+			t.Fatalf("invalid capability args=%v err=%v stdout=%q stderr=%q",
+				arguments, err, stdout.String(), stderr.String())
+		}
+	}
+}
+
+func TestMCPStdioDeploymentCapabilityRefusesUnavailableAuthorizationProvider(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: deployment-blackbox
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+		[]byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	const runID = "20260816T120000Z-0123456789abcdef"
+	runRoot := filepath.Join(home, ".local", "state", "ainfra", "runs", runID)
+	if err := os.MkdirAll(runRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	record := `{"schemaVersion":1,"runId":"` + runID +
+		`","intent":"apply","deployment":{"name":"deployment-blackbox",` +
+		`"digest":"sha256:x"},"template":{"source":"local:x",` +
+		`"digest":"sha256:x"},"inputs":[],"engine":{"name":"opentofu",` +
+		`"version":"1","executableDigest":"sha256:x"},"plan":{` +
+		`"path":"plan.tfplan","digest":"sha256:` + strings.Repeat("a", 64) +
+		`","summaryPath":"plan.json"}}`
+	if err := os.WriteFile(filepath.Join(runRoot, "plan-record.json"),
+		[]byte(record), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	process := exec.Command(binary, "mcp", "serve", "--stdio",
+		"--capability", "deployment")
+	process.Dir = projectRoot
+	process.Env = []string{"TERM=dumb", "HOME=" + home,
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "deployment-blackbox", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tools.Tools) != 16 {
+		t.Fatalf("deployment registry: %+v", tools.Tools)
+	}
+	for _, tool := range tools.Tools {
+		if tool.Name == "ainfra.destroy.execute" {
+			t.Fatal("destroy tool disclosed without destruction capability")
+		}
+	}
+	if result, callErr := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "ainfra.destroy.execute", Arguments: map[string]any{"planId": runID,
+			"caller": "agent-1", "approval": "approval-canary-secret"},
+	}); callErr == nil && !result.IsError {
+		t.Fatalf("destroy without capability result=%#v err=%v", result, callErr)
+	}
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unavailable authorization result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(runRoot, "authorization.json")); !os.IsNotExist(err) {
+		t.Fatalf("unverified authorization retained evidence: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.configure.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unapproved configure result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(runRoot, "authorization-configure.json")); !os.IsNotExist(err) {
+		t.Fatalf("unverified configure retained evidence: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.deploy.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unapproved deploy result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(runRoot, "authorization-deploy.json")); !os.IsNotExist(err) {
+		t.Fatalf("unverified deploy retained evidence: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.template.write",
+		Arguments: map[string]any{"operation": "lock", "planId": "template-unreviewed",
+			"caller": "agent-1", "approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unreviewed template write result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, "ainfra.lock")); !os.IsNotExist(err) {
+		t.Fatalf("unreviewed template write published lock: %v", err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.reconciliation.execute",
+		Arguments: map[string]any{"planId": "reconcile-unreviewed", "caller": "agent-1",
+			"approval": "approval-canary-secret"}})
+	if err != nil || !result.IsError {
+		t.Fatalf("unreviewed reconciliation result=%#v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(projectRoot, ".ainfra")); !os.IsNotExist(err) {
+		t.Fatalf("refused reconciliation mutated project: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stderr.String(), "approval-canary-secret") {
+		t.Fatalf("opaque approval leaked to stderr: %q", stderr.String())
+	}
+}
+
+func TestMCPStdioDeploymentCapabilityAcceptsTrustedSignedApproval(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	projectRoot, home, runID, planDigest := mcpAuthorizationBlackboxFixture(t)
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trustPath := filepath.Join(t.TempDir(), "trust.json")
+	trust := map[string]any{"schemaVersion": 1, "issuers": []any{map[string]any{
+		"id": "operator-1", "publicKey": base64.StdEncoding.EncodeToString(publicKey)}}}
+	writeBlackboxJSON(t, trustPath, trust)
+	grant := mcpBlackboxGrant{AuthorizationID: "approval-1", Issuer: "operator-1",
+		Caller: "agent-1", ProjectRoot: projectRoot, Operation: "apply",
+		PlanID: runID, PlanDigest: planDigest, Intent: "apply",
+		ApprovedAt: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339),
+		ExpiresAt:  time.Now().UTC().Add(time.Minute).Format(time.RFC3339)}
+	payload, err := json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature := ed25519.Sign(privateKey,
+		append([]byte("ainfra-mcp-authorization-v1\n"), payload...))
+	approvalBytes, err := json.Marshal(map[string]any{"schemaVersion": 1,
+		"grant":     json.RawMessage(payload),
+		"signature": base64.StdEncoding.EncodeToString(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	process := exec.Command(binary, "mcp", "serve", "--stdio",
+		"--capability", "deployment", "--capability", "destruction",
+		"--authorization-trust", trustPath)
+	process.Dir = projectRoot
+	process.Env = []string{"TERM=dumb", "HOME=" + home,
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stderr bytes.Buffer
+	process.Stderr = &stderr
+	client := mcp.NewClient(&mcp.Implementation{Name: "trusted-deployment", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+	if err != nil {
+		t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+	}
+	tools, err := session.ListTools(ctx, nil)
+	foundDestroy := false
+	if err == nil {
+		for _, tool := range tools.Tools {
+			if tool.Name == "ainfra.destroy.execute" && tool.Annotations != nil &&
+				tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint {
+				foundDestroy = true
+			}
+		}
+	}
+	if err != nil || len(tools.Tools) != 17 || !foundDestroy {
+		t.Fatalf("destruction registry=%+v err=%v", tools, err)
+	}
+	refused, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.destroy.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": string(approvalBytes)}})
+	if err != nil || !refused.IsError {
+		t.Fatalf("apply plan destruction result=%#v err=%v", refused, err)
+	}
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": string(approvalBytes)}})
+	if err != nil || !result.IsError {
+		t.Fatalf("trusted approval result=%#v err=%v", result, err)
+	}
+	structured, ok := result.StructuredContent.(map[string]any)
+	diagnostics, diagnosticsOK := structured["diagnostics"].([]any)
+	if !ok || !diagnosticsOK || len(diagnostics) != 1 ||
+		!strings.Contains(diagnostics[0].(map[string]any)["message"].(string),
+			"discover OpenTofu executable") {
+		t.Fatalf("trusted approval did not reach apply preparation: %#v", result)
+	}
+	grant.AuthorizationID = "approval-configure-1"
+	grant.Operation = "configure"
+	payload, err = json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature = ed25519.Sign(privateKey,
+		append([]byte("ainfra-mcp-authorization-v1\n"), payload...))
+	approvalBytes, err = json.Marshal(map[string]any{"schemaVersion": 1,
+		"grant": json.RawMessage(payload), "signature": base64.StdEncoding.EncodeToString(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.configure.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": string(approvalBytes)}})
+	if err != nil || !result.IsError {
+		t.Fatalf("trusted configure result=%#v err=%v", result, err)
+	}
+	configureEvidence := filepath.Join(home, ".local", "state", "ainfra", "runs", runID,
+		"authorization-configure.json")
+	contents, err := os.ReadFile(configureEvidence)
+	if err != nil || bytes.Contains(contents, approvalBytes) ||
+		!bytes.Contains(contents, []byte(`"operation": "configure"`)) {
+		t.Fatalf("configure authorization evidence=%q err=%v", contents, err)
+	}
+	grant.AuthorizationID = "approval-deploy-1"
+	grant.Operation = "deploy"
+	payload, err = json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature = ed25519.Sign(privateKey,
+		append([]byte("ainfra-mcp-authorization-v1\n"), payload...))
+	approvalBytes, err = json.Marshal(map[string]any{"schemaVersion": 1,
+		"grant": json.RawMessage(payload), "signature": base64.StdEncoding.EncodeToString(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.deploy.execute",
+		Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+			"approval": string(approvalBytes)}})
+	if err != nil || !result.IsError {
+		t.Fatalf("trusted deploy result=%#v err=%v", result, err)
+	}
+	structured, ok = result.StructuredContent.(map[string]any)
+	diagnostics, diagnosticsOK = structured["diagnostics"].([]any)
+	if !ok || !diagnosticsOK || len(diagnostics) != 1 ||
+		strings.Contains(diagnostics[0].(map[string]any)["message"].(string), "authorization") {
+		t.Fatalf("trusted approval did not reach deploy preparation: %#v", result)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMCPStdioRejectsMismatchedSignedApprovalsBeforeChildInvocation(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		mutate func(*mcpBlackboxGrant)
+	}{
+		{name: "self approved", mutate: func(grant *mcpBlackboxGrant) {
+			grant.Issuer = grant.Caller
+		}},
+		{name: "caller", mutate: func(grant *mcpBlackboxGrant) {
+			grant.Caller = "another-agent"
+		}},
+		{name: "root", mutate: func(grant *mcpBlackboxGrant) {
+			grant.ProjectRoot = filepath.Dir(grant.ProjectRoot)
+		}},
+		{name: "plan id", mutate: func(grant *mcpBlackboxGrant) {
+			grant.PlanID += "-stale"
+		}},
+		{name: "digest", mutate: func(grant *mcpBlackboxGrant) {
+			grant.PlanDigest = "sha256:" + strings.Repeat("b", 64)
+		}},
+		{name: "intent", mutate: func(grant *mcpBlackboxGrant) {
+			grant.Intent = "destroy"
+		}},
+		{name: "expired", mutate: func(grant *mcpBlackboxGrant) {
+			grant.ExpiresAt = time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			projectRoot, home, runID, planDigest := mcpAuthorizationBlackboxFixture(t)
+			publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			trustPath := filepath.Join(t.TempDir(), "trust.json")
+			writeBlackboxJSON(t, trustPath, map[string]any{"schemaVersion": 1,
+				"issuers": []any{map[string]any{"id": "operator-1",
+					"publicKey": base64.StdEncoding.EncodeToString(publicKey)}}})
+			grant := mcpBlackboxGrant{AuthorizationID: "approval-refused",
+				Issuer: "operator-1", Caller: "agent-1", ProjectRoot: projectRoot,
+				Operation: "apply", PlanID: runID, PlanDigest: planDigest, Intent: "apply",
+				ApprovedAt: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339),
+				ExpiresAt:  time.Now().UTC().Add(time.Minute).Format(time.RFC3339)}
+			test.mutate(&grant)
+			approval := signedMCPApproval(t, privateKey, grant)
+			process := exec.Command(binary, "mcp", "serve", "--stdio",
+				"--capability", "deployment", "--authorization-trust", trustPath)
+			process.Dir = projectRoot
+			process.Env = []string{"TERM=dumb", "HOME=" + home,
+				"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+			var stderr bytes.Buffer
+			process.Stderr = &stderr
+			client := mcp.NewClient(&mcp.Implementation{Name: "refusal-test", Version: "1"}, nil)
+			session, err := client.Connect(ctx, &mcp.CommandTransport{Command: process}, nil)
+			if err != nil {
+				t.Fatalf("connect: %v, stderr: %s", err, stderr.String())
+			}
+			result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ainfra.apply.execute",
+				Arguments: map[string]any{"planId": runID, "caller": "agent-1",
+					"approval": approval}})
+			if err != nil || !result.IsError {
+				t.Fatalf("mismatched approval result=%#v err=%v", result, err)
+			}
+			structured, ok := result.StructuredContent.(map[string]any)
+			diagnostics, diagnosticsOK := structured["diagnostics"].([]any)
+			if !ok || !diagnosticsOK || len(diagnostics) != 1 ||
+				!strings.Contains(diagnostics[0].(map[string]any)["message"].(string),
+					"authorization") {
+				t.Fatalf("refusal reached child preparation: %#v", result)
+			}
+			if _, err := os.Stat(filepath.Join(home, ".local", "state", "ainfra", "runs",
+				runID, "authorization.json")); !os.IsNotExist(err) {
+				t.Fatalf("refused approval retained evidence: %v", err)
+			}
+			if err := session.Close(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+type mcpBlackboxGrant struct {
+	AuthorizationID string `json:"authorizationId"`
+	Issuer          string `json:"issuer"`
+	Caller          string `json:"caller"`
+	ProjectRoot     string `json:"projectRoot"`
+	Operation       string `json:"operation"`
+	PlanID          string `json:"planId"`
+	PlanDigest      string `json:"planDigest"`
+	Intent          string `json:"intent"`
+	ApprovedAt      string `json:"approvedAt"`
+	ExpiresAt       string `json:"expiresAt"`
+}
+
+func signedMCPApproval(t *testing.T, privateKey ed25519.PrivateKey,
+	grant mcpBlackboxGrant,
+) string {
+	t.Helper()
+	payload, err := json.Marshal(grant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature := ed25519.Sign(privateKey,
+		append([]byte("ainfra-mcp-authorization-v1\n"), payload...))
+	approval, err := json.Marshal(map[string]any{"schemaVersion": 1,
+		"grant": json.RawMessage(payload), "signature": base64.StdEncoding.EncodeToString(signature)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(approval)
+}
+
+func mcpAuthorizationBlackboxFixture(t *testing.T) (string, string, string, string) {
+	t.Helper()
+	projectRoot := t.TempDir()
+	manifest := `apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: deployment-blackbox
+spec:
+  template:
+    source: local:../template
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "ainfra.yaml"),
+		[]byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	runID := "20260816T120000Z-0123456789abcdef"
+	planDigest := "sha256:" + strings.Repeat("a", 64)
+	runRoot := filepath.Join(home, ".local", "state", "ainfra", "runs", runID)
+	if err := os.MkdirAll(runRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	record := `{"schemaVersion":1,"runId":"` + runID +
+		`","intent":"apply","deployment":{"name":"deployment-blackbox",` +
+		`"digest":"sha256:x"},"template":{"source":"local:x",` +
+		`"digest":"sha256:x"},"inputs":[],"engine":{"name":"opentofu",` +
+		`"version":"1","executableDigest":"sha256:x"},"plan":{` +
+		`"path":"plan.tfplan","digest":"` + planDigest +
+		`","summaryPath":"plan.json"}}`
+	if err := os.WriteFile(filepath.Join(runRoot, "plan-record.json"),
+		[]byte(record), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return projectRoot, home, runID, planDigest
+}
+
+func writeBlackboxJSON(t *testing.T, path string, value any) {
+	t.Helper()
+	contents, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMCPStdioRejectsMissingProjectBeforeProtocolOutput(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	process := exec.CommandContext(ctx, binary, "mcp", "serve", "--stdio")
+	process.Dir = t.TempDir()
+	process.Env = []string{"TERM=dumb", "HOME=" + t.TempDir(),
+		"XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	var stdout, stderr bytes.Buffer
+	process.Stdout, process.Stderr = &stdout, &stderr
+	if err := process.Run(); err == nil {
+		t.Fatal("MCP server without a project succeeded")
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("startup diagnostics contaminated protocol stdout: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "AINFRA-E5001") {
+		t.Fatalf("missing startup diagnostic: %q", stderr.String())
 	}
 }
 
