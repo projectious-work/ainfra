@@ -413,6 +413,34 @@ func TestDoctorTemplateDispatchesCanonicalResult(t *testing.T) {
 	}
 }
 
+func TestDoctorTemplateReturnsDependencyExitForContractFailures(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	code := command.Run(
+		[]string{"doctor", "template", "/template", "--format=json"},
+		command.Options{
+			IO: command.IO{Stdout: &stdout, Stderr: &bytes.Buffer{}},
+			DoctorTemplate: func(
+				app.DoctorTemplateRequest,
+			) (app.DoctorEnvironmentResponse, error) {
+				return app.DoctorEnvironmentResponse{
+					Format: "json", OutputStyle: "auto", Color: "auto",
+					Result: output.Doctor{
+						Scope: "template", Summary: output.DoctorSummary{Fail: 1},
+						Findings: []diagnostic.Diagnostic{{
+							Code: "AINFRA-E2406", Status: "fail",
+						}},
+					},
+				}, nil
+			},
+		},
+	)
+	if code != command.ExitDependency ||
+		!strings.Contains(stdout.String(), `"ok":false`) {
+		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
+	}
+}
+
 func TestBareDoctorIsExactAliasForDoctorAll(t *testing.T) {
 	t.Parallel()
 	invoke := func(arguments ...string) (command.ExitCode, string) {

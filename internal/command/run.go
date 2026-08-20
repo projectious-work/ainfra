@@ -914,17 +914,9 @@ func runDoctorTemplate(
 			arguments, output.CommandDoctorTemplate, code, err.Error(), options.IO, exit,
 		)
 	}
-	if err := output.Render(
-		options.IO.Stdout,
-		output.Success(output.CommandDoctorTemplate, response.Result),
-		output.RenderOptions{
-			Format: output.Format(response.Format), Style: output.Style(response.OutputStyle),
-			Color: output.ColorMode(response.Color), IsTerminal: renderOptions.IsTerminal,
-		},
-	); err != nil {
-		return ExitOperationFailed
-	}
-	return ExitSuccess
+	return renderDoctorResponse(
+		output.CommandDoctorTemplate, response, renderOptions, options.IO,
+	)
 }
 
 func runDoctorDeployment(

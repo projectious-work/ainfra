@@ -50,9 +50,10 @@ expected, and new deployments should evaluate the v1 line.
 The Go-based v1 rewrite is under active alpha development. Phases 0 through 7
 are released as `v1.0.0-alpha.7`: contracts, diagnostics, immutable sources,
 reviewed apply and destroy, output and Ansible workflows, recovery hardening,
-and guarded MCP mode are implemented. Template authoring conformance and the
-first production template remain phases 8 and 9. Review plans, understand
-provider costs, and keep teardown available when evaluating an alpha release.
+and guarded MCP mode are implemented. Phase 8 now provides template authoring
+conformance and clean-room documentation; the first production template remains
+Phase 9. Review plans, understand provider costs, and keep teardown available
+when evaluating an alpha release.
 
 ## Installation
 
@@ -106,8 +107,10 @@ before provisioning real infrastructure.
 
 The maintained documentation is published at
 [projectious-work.github.io/ainfra](https://projectious-work.github.io/ainfra/).
-It includes the quick start, installation and configuration guides, template
-and reviewed-plan contracts, operational references, change log, and roadmap.
+It includes the quick start, installation and configuration guides, the
+[template-authoring guide](https://projectious-work.github.io/ainfra/docs/templates/),
+an [AI authoring checklist](https://projectious-work.github.io/ainfra/docs/template-authoring-ai/),
+reviewed-plan contracts, operational references, change log, and roadmap.
 
 Build or serve the site locally with:
 

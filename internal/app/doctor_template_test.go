@@ -24,8 +24,8 @@ func TestDoctorTemplateReportsLocalContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doctor template: %v", err)
 	}
-	if response.Result.Scope != "template" || response.Result.Summary.Pass != 4 ||
-		len(response.Result.Findings) != 4 {
+	if response.Result.Scope != "template" || response.Result.Summary.Pass != 7 ||
+		response.Result.Summary.Skip != 1 || len(response.Result.Findings) != 8 {
 		t.Fatalf("response = %#v", response)
 	}
 }
