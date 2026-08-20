@@ -4,8 +4,8 @@ weight: 60
 ---
 
 Templates are self-contained, reviewable infrastructure environments for
-specific AI-agent workloads. The Phase 8 candidate defines the authoring
-contract; the first production template is a later milestone.
+specific AI-agent workloads. Phase 8 defines the released authoring contract;
+the first production template is a later milestone.
 
 Start by copying the
 [reference template](https://github.com/projectious-work/ainfra/tree/v1.x-dev/spec/examples/v1/template-example).

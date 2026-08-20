@@ -1,6 +1,6 @@
 # Phase 8: Template authoring and conformance
 
-Status: implementation complete; release pending
+Status: shipped in `v1.0.0-alpha.8`
 
 Phase 8 publishes the v1 template-authoring contract for humans and AI agents,
 adds deterministic local conformance findings, and proves that an independent
@@ -69,5 +69,5 @@ clean-room tests without a contract migration.
 
 Phase 9 is ready to begin authoring the first production provider template.
 Actual hosting remains unexecuted until its explicit lifecycle approval gate.
-The roadmap stays `in_progress` until a Phase 8 release is published and
-independently verified.
+The Phase 8 release is published and independently verified as
+`v1.0.0-alpha.8`; the roadmap is now `shipped`.

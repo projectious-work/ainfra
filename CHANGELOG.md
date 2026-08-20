@@ -5,6 +5,44 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.8] - 2026-08-20
+
+### Added
+
+- Added Phase 8 template-authoring conformance diagnostics for native variable
+  declarations, applicable clean-room fixtures, the standard variable
+  reference, and required lifecycle documentation.
+- Added a self-contained human and AI authoring package covering manifest and
+  output schemas, native dependency and variable rules, security, validation,
+  disposable live acceptance, and sanitized evidence requirements.
+- Added an independently authored provider-free clean-room template whose
+  OpenTofu format, init, validate, plan, apply, destroy-plan, and destroy-apply
+  lifecycle is executable without provider credentials.
+
+### Changed
+
+- Template doctor failures now produce a typed partial-failure result and a
+  non-zero dependency exit while native-tool checks remain explicitly
+  delegated to each template's clean-room validation script.
+- Published the branded Hugo documentation site, installation guidance,
+  template-authoring workflow, clean-room tutorial, and AI completion
+  checklist through GitHub Pages.
+
+### Fixed
+
+- Inventory-free templates no longer need artificial output declarations or
+  standardized-output fixtures.
+- Updated compiled black-box coverage to verify the complete Phase 8 doctor
+  summary instead of the pre-Phase 8 finding count.
+
+### Security
+
+- Scoped authoring-file inspection beneath the validated template root and
+  retained the provider/tool boundary without adding provider-specific logic.
+- Required fresh explicit approval before any billable live lifecycle and
+  prohibited live-support claims without disposable evidence and independent
+  teardown confirmation.
+
 ## [1.0.0-alpha.7] - 2026-08-17
 
 ### Added
@@ -218,3 +256,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 [1.0.0-alpha.5]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.4...v1.0.0-alpha.5
 [1.0.0-alpha.6]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.5...v1.0.0-alpha.6
 [1.0.0-alpha.7]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.6...v1.0.0-alpha.7
+[1.0.0-alpha.8]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.7...v1.0.0-alpha.8
