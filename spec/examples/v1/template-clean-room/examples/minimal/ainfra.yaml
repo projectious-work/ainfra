@@ -1,0 +1,10 @@
+apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: clean-room-example
+spec:
+  template:
+    source: local:../..
+  inputs:
+    tofu:
+      variableFiles: [terraform.tfvars]

@@ -4,19 +4,20 @@ weight: 60
 ---
 
 Templates are self-contained, reviewable infrastructure environments for
-specific AI-agent workloads. Phase 8 defines the authoring contract; the first
-production template is a later milestone.
+specific AI-agent workloads. The Phase 8 candidate defines the authoring
+contract; the first production template is a later milestone.
 
 Start by copying the
 [reference template](https://github.com/projectious-work/ainfra/tree/v1.x-dev/spec/examples/v1/template-example).
-Keep the authoring layout intact:
+Keep the applicable authoring layout intact:
 
 ```text
 README.md
 docs/variables.md
-tofu/{versions,variables,outputs}.tf
-ansible/
-tests/{README.md,validate.sh,fixtures/output.json}
+tofu/{versions,variables}.tf
+tofu/outputs.tf                           # when the template emits outputs
+ansible/                                  # when hosts are configurable
+tests/{README.md,validate.sh,fixtures/}   # output fixture when inventory exists
 ```
 
 The template manifest declares identity, engine requirements, inventory and

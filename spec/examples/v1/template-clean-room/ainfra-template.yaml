@@ -1,0 +1,13 @@
+apiVersion: ainfra.projectious.work/v1
+kind: Template
+metadata:
+  name: template-clean-room
+  version: 1.0.0
+  description: Provider-free clean-room authoring proof
+spec:
+  engines:
+    tofu:
+      directory: tofu
+      version: ">=1.10.0 <2.0.0"
+  outputs:
+    inventory: none

@@ -52,6 +52,7 @@ check_schema spec/schemas/v1/standard-output.schema.json \
   spec/examples/v1/template-example/tests/fixtures/output.json
 check_schema spec/schemas/v1/template-manifest.schema.json \
   spec/examples/v1/manifest-infrastructure-only.yaml \
+  spec/examples/v1/template-clean-room/ainfra-template.yaml \
   spec/examples/v1/template-example/ainfra-template.yaml
 
 for invalid_fixture in spec/tests/v1/machine-output/invalid-*.json

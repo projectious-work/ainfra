@@ -27,10 +27,10 @@ func TemplateRegistry(input TemplateInput) Registry {
 		templateFact("template.layout", "AINFRA-E2402", input.Root,
 			"required documentation, native engine paths, and minimal example are present"),
 		templateFact("template.engine-ownership", "AINFRA-E2403", input.Root,
-			"native engine files and dependency declarations remain engine-owned"),
+			"declared native engine paths resolve inside the template root"),
 		templateFact("template.inventory-applicability", "AINFRA-E2404", input.Root,
 			fmt.Sprintf("inventory %q and Ansible applicability are consistent", input.Inventory)),
-		templateAuthoringLayout(input.Root),
+		templateAuthoringLayout(input.Root, input.Inventory),
 		templateVariableReference(input.Root),
 		templateAuthoringReadme(input.Root),
 		templateChildTools(),
@@ -42,21 +42,28 @@ func TemplateRegistry(input TemplateInput) Registry {
 	return registry
 }
 
-func templateAuthoringLayout(root string) Definition {
+func templateAuthoringLayout(root, inventory string) Definition {
 	return Definition{ID: "template.authoring-layout", Scope: ScopeTemplate,
 		Run: func(context.Context, Input, Capabilities) diagnostic.Diagnostic {
 			required := []string{
-				"tofu/variables.tf", "tofu/outputs.tf", "tofu/versions.tf",
-				"tests/README.md", "tests/validate.sh", "tests/fixtures/output.json",
+				"tofu/variables.tf", "tests/README.md", "tests/validate.sh",
+			}
+			if inventory != "none" {
+				required = append(required, "tests/fixtures/output.json")
 			}
 			for _, path := range required {
-				if info, err := templateStat(root, path); err != nil || info.IsDir() {
+				info, err := templateStat(root, path)
+				if err != nil || info.IsDir() {
 					return templateFailure("AINFRA-E2406", root,
 						fmt.Sprintf("template authoring layout requires %s", path))
 				}
+				if path == "tests/validate.sh" && info.Mode().Perm()&0o111 == 0 {
+					return templateFailure("AINFRA-E2406", root,
+						"template clean-room validation script must be executable")
+				}
 			}
 			return templatePass("AINFRA-E2406", root,
-				"native variable/output declarations and clean-room conformance fixtures are present")
+				"native variable declarations and applicable clean-room fixtures are present")
 		}}
 }
 
@@ -121,7 +128,7 @@ func templateChildTools() Definition {
 		Run: func(context.Context, Input, Capabilities) diagnostic.Diagnostic {
 			return diagnostic.Diagnostic{Code: "AINFRA-E2409", Severity: diagnostic.SeverityInfo,
 				Status: "skip", Component: "template",
-				Message:    "native OpenTofu and Ansible validation is delegated to the template's clean-room test script",
+				Message:    "native formatting, validation, dependency, output, secret, and idempotency checks are delegated to the template's clean-room test script",
 				NextAction: "Run tests/validate.sh with compatible OpenTofu and Ansible tools."}
 		}}
 }

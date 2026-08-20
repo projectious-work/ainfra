@@ -50,10 +50,11 @@ expected, and new deployments should evaluate the v1 line.
 The Go-based v1 rewrite is under active alpha development. Phases 0 through 7
 are released as `v1.0.0-alpha.7`: contracts, diagnostics, immutable sources,
 reviewed apply and destroy, output and Ansible workflows, recovery hardening,
-and guarded MCP mode are implemented. Phase 8 now provides template authoring
-conformance and clean-room documentation; the first production template remains
-Phase 9. Review plans, understand provider costs, and keep teardown available
-when evaluating an alpha release.
+and guarded MCP mode are implemented. The `v1.x-dev` branch now contains the
+Phase 8 template-authoring conformance candidate and clean-room proof; it is not
+part of `v1.0.0-alpha.7`. The first production template remains Phase 9. Review
+plans, understand provider costs, and keep teardown available when evaluating
+an alpha release.
 
 ## Installation
 

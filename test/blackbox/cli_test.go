@@ -1609,15 +1609,20 @@ func TestDoctorTemplateJSON(t *testing.T) {
 		Command string `json:"command"`
 		OK      bool   `json:"ok"`
 		Result  struct {
-			Scope    string `json:"scope"`
-			Findings []any  `json:"findings"`
+			Scope   string `json:"scope"`
+			Summary struct {
+				Pass int `json:"pass"`
+				Skip int `json:"skip"`
+			} `json:"summary"`
+			Findings []any `json:"findings"`
 		} `json:"result"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
 		t.Fatal(err)
 	}
 	if envelope.Command != "doctor.template" || !envelope.OK ||
-		envelope.Result.Scope != "template" || len(envelope.Result.Findings) != 4 ||
+		envelope.Result.Scope != "template" || envelope.Result.Summary.Pass != 7 ||
+		envelope.Result.Summary.Skip != 1 || len(envelope.Result.Findings) != 8 ||
 		stderr.Len() != 0 {
 		t.Fatalf("envelope=%+v stderr=%q", envelope, stderr.String())
 	}
