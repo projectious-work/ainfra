@@ -1,10 +1,11 @@
 baseURL: https://projectious-work.github.io/ainfra/
-locale: en-US
 title: ainfra
+defaultContentLanguage: en
+enableRobotsTXT: true
 
 module:
   imports:
-    - path: github.com/imfing/hextra
+    - path: github.com/projectious-work/brand-theme-hugo-vanilla
   mounts:
     - source: assets
       target: assets
@@ -16,51 +17,63 @@ module:
       target: static
     - source: ../spec/doc/v1/roadmap.yaml
       target: data/roadmap.yaml
+    - source: node_modules/@tabler/icons/icons/outline
+      target: assets/tabler-icons/outline
 
-enableRobotsTXT: true
+build:
+  buildStats:
+    enable: true
+
+security:
+  exec:
+    allow:
+      - ^(dart-)?sass$
+      - ^go$
+      - ^git$
+      - ^node$
+      - ^postcss$
+      - ^tailwindcss$
+
+pagination:
+  pagerSize: 8
+
+taxonomies:
+  tag: tags
+
+outputFormats:
+  SearchIndex:
+    mediaType: application/json
+    baseName: index
+    isPlainText: true
+    notAlternative: true
+  Print:
+    mediaType: text/html
+    baseName: print
+    isHTML: true
+    notAlternative: true
+    permalinkable: true
+  LLMS:
+    mediaType: text/plain
+    baseName: llms
+    isPlainText: true
+    notAlternative: true
+  Markdown:
+    mediaType: text/markdown
+    isPlainText: true
+    permalinkable: true
 
 outputs:
-  home: [HTML]
-  section: [HTML]
-  taxonomy: [HTML]
-  term: [HTML]
-
-params:
-  description: Infrastructure for containerized AI.
-  navbar:
-    displayTitle: true
-    displayLogo: true
-    width: wide
-    logo:
-      path: logo/ainfra-light.svg
-      dark: logo/ainfra-dark.svg
-      link: /ainfra/
-      width: 32
-      height: 32
-  page:
-    width: wide
-    displayPagination: true
-  theme:
-    default: system
-    displayToggle: true
-  search:
-    enable: true
-    type: flexsearch
-    flexsearch:
-      index: content
-      tokenize: forward
-  footer:
-    width: wide
-    displayCopyright: true
-    displayPoweredBy: false
+  home: [HTML, RSS, SearchIndex, LLMS]
+  section: [HTML, RSS, Print, Markdown]
+  page: [HTML, Markdown]
 
 menu:
   main:
     - name: Quick start
       pageRef: /docs/quick-start
       weight: 10
-    - name: Blog
-      pageRef: /blog
+    - name: Change log
+      pageRef: /changelog
       weight: 15
     - name: Templates
       pageRef: /docs/templates
@@ -71,22 +84,64 @@ menu:
     - name: Roadmap
       pageRef: /docs/roadmap
       weight: 40
-    - name: Releases
+
+params:
+  description: Immutable, auditable infrastructure lifecycle orchestration.
+  github: https://github.com/projectious-work/ainfra
+  version: v1.0.0-alpha.7
+  releaseMenuLabel: Releases
+  versionProbe: false
+  versions:
+    - label: v1.0.0-alpha.7
+      url: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.7
+      note: latest
+      probe: false
+    - label: v1.0.0-alpha.6
+      url: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.6
+      probe: false
+    - label: v1.0.0-alpha.5
+      url: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.5
+      probe: false
+    - label: v1.0.0-alpha.4
+      url: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.4
+      probe: false
+    - label: v1.0.0-alpha.3
+      url: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.3
+      probe: false
+    - label: v1.0.0-alpha.2
+      url: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.2
+      probe: false
+    - label: v1.0.0-alpha.1
+      url: https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.1
+      probe: false
+    - label: All releases
       url: https://github.com/projectious-work/ainfra/releases
-      weight: 50
-    - name: Search
-      weight: 60
-      params:
-        type: search
-    - name: GitHub
-      url: https://github.com/projectious-work/ainfra
-      weight: 70
-      params:
-        icon: github
+      probe: false
+  darkSurface: navy
+  codeTheme: adaptive
+  sidebarOpenDepth: 1
+  sidebarSections: [docs]
+  selfHostAssets: false
+  build:
+    tailwind: true
+  editURL:
+    default: https://github.com/projectious-work/ainfra/edit/v1.x-dev/docs/content/
 
 markup:
-  highlight:
-    noClasses: false
   goldmark:
     renderer:
-      unsafe: true
+      unsafe: false
+    extensions:
+      passthrough:
+        enable: true
+        delimiters:
+          block: [['\\[', '\\]'], ['$$', '$$']]
+          inline: [['\\(', '\\)']]
+  highlight:
+    noClasses: false
+    lineNos: false
+    guessSyntax: true
+    tabWidth: 2
+  tableOfContents:
+    startLevel: 2
+    endLevel: 3

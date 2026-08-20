@@ -1,0 +1,13 @@
+<nav class="header__nav" aria-label="{{ i18n "mainNav" }}">
+  {{- $page := . -}}
+  {{- $inDocs := eq $page.Section "docs" -}}
+  {{- range site.Menus.main -}}
+    {{- $current := or ($page.IsMenuCurrent "main" .)
+      ($page.HasMenuCurrent "main" .) -}}
+    {{- if $inDocs -}}
+      {{- $current = eq .PageRef "/docs" -}}
+    {{- end -}}
+    <a href="{{ partial "menu-url.html" . }}"
+      {{- if $current }} aria-current="true"{{ end }}>{{ .Name }}</a>
+  {{- end -}}
+</nav>

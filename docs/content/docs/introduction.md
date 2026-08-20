@@ -3,12 +3,14 @@ title: Introduction
 weight: 10
 ---
 
-ainfra provides reusable infrastructure templates for running containerized AI
-agents inside secured, controlled environments.
+ainfra turns reusable infrastructure templates into repeatable, reviewable
+deployments. It validates explicit contracts, locks template content, and
+coordinates established provisioning and configuration tools.
 
 Templates combine OpenTofu for infrastructure provisioning with Ansible for
-system configuration. The goal is to make environments repeatable, reviewable,
-and straightforward to operate without hiding the underlying tools.
+system configuration. ainfra verifies the boundary between lifecycle steps
+and retains sanitized evidence without hiding either underlying tool.
 
-This documentation is an early draft for ainfra v1 and will grow alongside the
-implementation.
+The Go-based v1 line is in alpha. Phases 0 through 7 are released; template
+authoring conformance and the first production template are the next planned
+milestones.

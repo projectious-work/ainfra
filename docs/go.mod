@@ -1,5 +1,5 @@
-module example.com/hugo-hextra-kitchen-sink
+module github.com/projectious-work/ainfra/docs
 
 go 1.22
 
-require github.com/imfing/hextra v0.10.0
+require github.com/projectious-work/brand-theme-hugo-vanilla v0.3.3

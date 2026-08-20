@@ -1,0 +1,9 @@
+{
+  "name": "ainfra-docs",
+  "private": true,
+  "description": "Build dependencies for the ainfra Hugo documentation site.",
+  "devDependencies": {
+    "@tabler/icons": "3.31.0",
+    "@tailwindcss/cli": "^4.1.0"
+  }
+}

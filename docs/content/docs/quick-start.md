@@ -7,6 +7,16 @@ The current alpha CLI can validate a local deployment, lock a local or Git
 template source, create a reviewed OpenTofu plan, and apply only that exact
 saved plan.
 
+Install the latest release:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/projectious-work/ainfra/v1.x-release/scripts/install.sh | bash
+```
+
+If `~/.local/bin` is not already on `PATH`, add it before continuing. See
+[Installation](../installation/) for version pinning and signature
+verification.
+
 Start by checking local prerequisites:
 
 ```sh

@@ -90,6 +90,7 @@ site/
 node_modules/
 public/
 docs/resources/_gen/
+docs/hugo_stats.json
 .hugo_build.lock
 .next/
 dist/

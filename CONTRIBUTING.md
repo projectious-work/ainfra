@@ -2,8 +2,9 @@
 
 ## Prerequisites
 
-- Go, using the version selected by the repository once implementation begins.
-- Hugo Extended, compatible with the pinned Hextra module.
+- Go 1.26.5, matching the version selected by `go.mod`.
+- Hugo Extended, Node.js, and npm, compatible with the pinned
+  projectious.work brand-theme module.
 - OpenTofu and Ansible for engine integration work.
 
 ## Build
@@ -174,9 +175,10 @@ publication without changing GitHub:
 scripts/maintain.sh release-publish --version=1.0.0-alpha.1 --dry-run
 ```
 
-The real command creates the immutable annotated tag, uploads the ten prepared
-assets as a GitHub prerelease, downloads them into a private temporary
-directory, and independently re-verifies checksums and the Sigstore identity:
+The real command creates the immutable annotated tag, uploads the eleven
+prepared assets as a GitHub prerelease, downloads them into a private
+temporary directory, and independently re-verifies checksums and the Sigstore
+identity:
 
 ```bash
 scripts/maintain.sh release-publish --version=1.0.0-alpha.1
@@ -209,7 +211,7 @@ before changing a long-lived branch or preparing a release.
 
 | Path | Owns |
 |---|---|
-| `docs/` | Hugo/Hextra end-user documentation |
+| `docs/` | Hugo/projectious.work brand-theme end-user documentation |
 | `spec/` | Normative v1 specification, examples, schemas, and fixtures |
 | `scripts/` | Local validation and release tooling |
 | `context/` | processkit-managed project context |

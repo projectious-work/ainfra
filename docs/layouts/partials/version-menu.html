@@ -1,0 +1,31 @@
+{{- with site.Params.versions -}}
+  {{- $current := or site.Params.version (index . 0).label -}}
+  {{- $label := site.Params.releaseMenuLabel | default $current -}}
+  {{- $probe := true -}}
+  {{- if isset site.Params "versionprobe" -}}
+    {{- $probe = site.Params.versionProbe -}}
+  {{- end -}}
+  {{- $here := strings.TrimPrefix (relLangURL "") $.RelPermalink -}}
+  <div class="menu">
+    <button class="chipbtn target" type="button" data-menu-trigger
+      aria-expanded="false" aria-haspopup="true">
+      {{ partial "icon.html" (dict "name" "versions" "class" "ico--sm") }}
+      <span>{{ $label }}</span>
+    </button>
+    <div class="menu__panel" role="menu">
+      <div class="menu__label">{{ $label }}</div>
+      {{- range . -}}
+        {{- $href := partial "url.html" .url -}}
+        {{- if and $probe (ne .label $current)
+          (ne (.probe | default true) false) $here -}}
+          {{- $href = printf "%s%s" (strings.TrimSuffix "/" $href)
+            (printf "/%s" (strings.TrimPrefix "/" $here)) -}}
+        {{- end -}}
+        <a href="{{ $href }}" role="menuitemradio"
+          aria-checked="{{ eq .label $current }}">{{ .label }}
+          {{- with .note }} <span class="badge">{{ . }}</span>{{ end -}}
+        </a>
+      {{- end -}}
+    </div>
+  </div>
+{{- end -}}

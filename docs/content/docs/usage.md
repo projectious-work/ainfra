@@ -68,11 +68,43 @@ ainfra logs example-deployment --run RUN_ID
 ainfra doctor run example-deployment
 ```
 
-The published `v1.0.0-alpha.6` includes output, inventory, Ansible, composed
-deploy commands, reviewed destruction, recovery status, retained logs, and
-operational logging. See
-[Output, inventory, and Ansible](output-inventory-ansible/) and
-[Reviewed plans](reviewed-plans/). Guarded MCP serving is the current
-in-progress roadmap phase and is not part of the published alpha yet. See the
-[Guarded MCP server](mcp/) guide for the implemented stdio command, default
-read-only registry, optional capability groups, and signed-approval format.
+The published `v1.0.0-alpha.7` includes reviewed destroy, recovery, retained
+logs, and operational logging in addition to output, inventory, Ansible, and
+composed deploy commands; see
+[Output, inventory, and Ansible](output-inventory-ansible/). Phase 7 adds
+guarded MCP serving. The interface is read-only by
+default and fixes one project root for the lifetime of the process:
+
+```sh
+ainfra mcp serve --stdio --project /path/to/deployment
+```
+
+Saved plan creation is discoverable only when explicitly enabled:
+
+```sh
+ainfra mcp serve --stdio --project /path/to/deployment \
+  --capability planning
+```
+
+Enabling a capability does not approve a lifecycle mutation. Deployment and
+destruction require independent, operation-bound authorization.
+
+Deployment capability startup requires `AINFRA_MCP_APPROVAL_KEY` containing at
+least 32 bytes of verifier key material. Each mutation request must carry an
+externally issued `ainfra.approval/v1` artifact signed with HMAC-SHA256. The
+artifact binds the canonical root, operation, saved plan ID and digest, intent,
+caller, independent approver, issue time, expiry, and nonce. ainfra exposes no
+approval-signing command or MCP tool.
+
+The default registry exposes read-only diagnostics, status, sanitized retained
+output and inventory, all published v1 schemas, and the normative MCP server
+contract. It never exposes raw engine streams.
+
+With an authorization provider configured, `deployment` exposes apply,
+configure, convergence-check, and deploy operations. `destruction` additionally
+exposes exact reviewed destroy-plan execution and cannot be enabled without
+`deployment`. Every stdio request frame is limited to 1 MiB.
+
+Tool and resource execution is bounded to eight concurrent requests. Client
+cancellation propagates into planning and lifecycle operations, including any
+permitted child process through the existing application execution contract.

@@ -13,37 +13,27 @@
   {{- end -}}
 {{- end -}}
 
-<div class="ainfra-roadmap not-prose">
-  <div class="ainfra-roadmap-summary" aria-label="Roadmap summary">
-    <div class="ainfra-roadmap-stat">
-      <strong>{{ $counts.Get "total" }}</strong>
-      <span>Total phases</span>
-    </div>
+<div class="ainfra-roadmap">
+  <dl class="ainfra-roadmap__summary" aria-label="Roadmap summary">
+    <div><dt>Total</dt><dd>{{ $counts.Get "total" }}</dd></div>
     {{- range slice "shipped" "in_progress" "planned" "idea" -}}
       {{- $count := $counts.Get . -}}
       {{- if $count -}}
-        <div class="ainfra-roadmap-stat">
-          <strong>{{ $count }}</strong>
-          <span>{{ . | humanize }}</span>
-        </div>
+        <div><dt>{{ . | humanize }}</dt><dd>{{ $count }}</dd></div>
       {{- end -}}
     {{- end -}}
-  </div>
+  </dl>
 
-  <div class="ainfra-roadmap-groups">
-    {{- range $groupIndex, $group := $roadmap.groups -}}
-      <section class="ainfra-roadmap-group">
-        <header class="ainfra-roadmap-group-header">
-          <span class="ainfra-roadmap-group-number"
-            aria-hidden="true">{{ printf "%02d" (add $groupIndex 1) }}</span>
-          <div>
-            <p>{{ $group.note }}</p>
-            <h2>{{ $group.label }}</h2>
-          </div>
+  <div class="ainfra-roadmap__groups">
+    {{- range collections.Reverse $roadmap.groups -}}
+      <section class="ainfra-roadmap__group">
+        <header>
+          <h2>{{ .label }}</h2>
+          <p>{{ .note }}</p>
         </header>
 
-        <div class="ainfra-roadmap-phases">
-          {{- range $group.phases -}}
+        <div class="steps ainfra-roadmap__phases">
+          {{- range collections.Reverse .phases -}}
             {{- $status := .status | default "planned" -}}
             {{- $statusClass := replace $status "_" "-" -}}
             {{- $symbol := "○" -}}
@@ -54,20 +44,20 @@
             {{- else if eq $status "idea" -}}
               {{- $symbol = "◇" -}}
             {{- end -}}
-            <article class="ainfra-roadmap-phase status-{{ $statusClass }}">
-              <div class="ainfra-roadmap-phase-marker" aria-hidden="true">
-                {{ $symbol }}
-              </div>
-              <div class="ainfra-roadmap-phase-content">
-                <div class="ainfra-roadmap-phase-meta">
+            <article class="step ainfra-roadmap__phase status-{{ $statusClass }}"
+              data-phase="{{ .id }}">
+              <div class="ainfra-roadmap__body">
+                <div class="ainfra-roadmap__meta">
                   <span>Phase {{ .id }}</span>
-                  <span class="ainfra-roadmap-status">{{ $status | humanize }}</span>
+                  <span class="badge ainfra-roadmap__status">
+                    <span aria-hidden="true">{{ $symbol }}</span>
+                    {{ $status | humanize }}
+                  </span>
                 </div>
-                <h3>{{ .title }}</h3>
+                <h3 class="step__title">{{ .title }}</h3>
                 <p>{{ .summary }}</p>
                 {{- with .devNote -}}
-                  <a class="ainfra-roadmap-dev-note"
-                    href="https://github.com/projectious-work/ainfra/blob/v1.x-dev/{{ . }}">
+                  <a href="https://github.com/projectious-work/ainfra/blob/v1.x-dev/{{ . }}">
                     Read phase note →
                   </a>
                 {{- end -}}

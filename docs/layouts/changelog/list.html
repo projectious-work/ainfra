@@ -1,0 +1,42 @@
+{{ define "main" }}
+<div class="shell">
+  <main id="main">
+    <div class="hero">
+      <div class="hero__eyebrow">{{ site.Title }}</div>
+      <h1>{{ .Title }}</h1>
+      {{ with .Description }}<p>{{ . }}</p>{{ end }}
+    </div>
+    {{ with .Content }}<div class="prose">{{ . }}</div>{{ end }}
+    {{ $paginator := .Paginate .Pages.ByDate.Reverse }}
+    {{ $latest := index $paginator.Pages 0 }}
+    <div class="example-changelog">
+      {{ range $paginator.Pages }}
+      <article>
+        <time datetime="{{ .Date.Format "2006-01-02" }}">
+          {{ time.Format ":date_medium" .Date }}
+        </time>
+        <div>
+          <div class="ainfra-changelog__badges">
+            {{ range .Params.badges }}
+              <span class="badge{{ if eq .variant "accent" }} badge--accent{{ end }}">
+                {{ .label }}
+              </span>
+            {{ end }}
+            {{ if eq . $latest }}
+              <span class="badge badge--accent">{{ i18n "latest" }}</span>
+            {{ end }}
+          </div>
+          <h2><a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a></h2>
+          <p>{{ with .Description }}{{ . }}{{ else }}
+            {{ .Summary | plainify | truncate 200 }}{{ end }}</p>
+          <p><a href="{{ .RelPermalink }}">
+            {{ i18n "readReleaseNotes" }} →
+          </a></p>
+        </div>
+      </article>
+      {{ end }}
+    </div>
+    {{ template "_internal/pagination.html" . }}
+  </main>
+</div>
+{{ end }}

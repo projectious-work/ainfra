@@ -73,6 +73,7 @@ cosign verify-blob "$manifest" \
   --certificate-oidc-issuer "$issuer"
 
 assets=(
+  "$release_dir/install.sh"
   "$release_dir/ainfra_${version}_darwin_amd64.spdx.json"
   "$release_dir/ainfra_${version}_darwin_amd64.tar.gz"
   "$release_dir/ainfra_${version}_darwin_arm64.spdx.json"

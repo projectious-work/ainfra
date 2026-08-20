@@ -2,8 +2,9 @@
 title: Documentation
 ---
 
-Learn how to install, configure, and use ainfra to deploy secured,
-containerized environments for AI agents.
+Learn how to install, configure, and use ainfra for reviewable infrastructure
+lifecycle operations.
 
-Start with [Introduction](introduction/) for an overview or go directly to
-[Quick Start](quick-start/) for the shortest path to a working environment.
+Start with [Introduction](introduction/) for an overview, use
+[Installation](installation/) to install a verified release, or go directly
+to [Quick Start](quick-start/) for the first local workflow.

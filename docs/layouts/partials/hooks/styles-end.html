@@ -1,0 +1,7 @@
+{{- with resources.Get "css/site.css" -}}
+  {{- $css := . | minify | fingerprint "sha384" -}}
+  <link rel="stylesheet" href="{{ $css.RelPermalink }}"
+    integrity="{{ $css.Data.Integrity }}" crossorigin="anonymous">
+{{- else -}}
+  {{- errorf "Site styles not found: assets/css/site.css" -}}
+{{- end -}}

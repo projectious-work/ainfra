@@ -1,0 +1,138 @@
+.ainfra-roadmap {
+  margin-block: var(--space-8);
+}
+
+.ainfra-roadmap__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-8);
+}
+
+.ainfra-roadmap__summary div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.ainfra-roadmap__summary dt {
+  font-size: var(--type-caption-size);
+}
+
+.ainfra-roadmap__summary dd {
+  order: -1;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+.ainfra-roadmap__group + .ainfra-roadmap__group {
+  margin-block-start: var(--space-8);
+}
+
+.ainfra-roadmap__group > header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  margin-block-end: var(--space-3);
+  padding-block-end: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ainfra-roadmap__group > header p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ainfra-roadmap__group > header h2 {
+  margin: 0;
+}
+
+.ainfra-roadmap__phases {
+  margin-block: var(--space-3) 0;
+}
+
+.ainfra-roadmap__phase {
+  padding-block-end: var(--space-4);
+}
+
+.ainfra-roadmap__phase::before {
+  content: attr(data-phase);
+}
+
+.ainfra-roadmap__body h3 {
+  margin-block: var(--space-1);
+}
+
+.ainfra-roadmap__body > p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.ainfra-roadmap__body > a {
+  display: inline-block;
+  margin-block-start: var(--space-2);
+}
+
+.ainfra-roadmap__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-family: var(--font-code);
+  font-size: var(--type-caption-size);
+}
+
+.ainfra-roadmap__status {
+  white-space: nowrap;
+}
+
+.status-shipped .ainfra-roadmap__status,
+.status-completed .ainfra-roadmap__status {
+  color: var(--color-success-fg);
+  background: var(--color-success-bg);
+}
+
+.status-in-progress .ainfra-roadmap__status {
+  color: var(--color-info-fg);
+  background: var(--color-info-bg);
+}
+
+.ainfra-changelog__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-end: var(--space-2);
+}
+
+@media (max-width: 48rem) {
+  .ainfra-roadmap__group > header {
+    display: block;
+  }
+}
+
+/*
+ * Theme gap: v0.3.3 keeps the full wordmark alongside three 44px tools and
+ * the docs burger on narrow screens. Collapse to the brand mark until the
+ * upstream header exposes an idiomatic compact-brand mode (upstream #51).
+ */
+@media (max-width: 30rem) {
+  .header {
+    gap: var(--space-3);
+  }
+
+  .header__brand > span {
+    display: none;
+  }
+}

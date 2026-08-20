@@ -46,7 +46,7 @@ if [[ "$dry_run" == true ]]; then
   printf '%s\n' \
     "release-package dry-run: would create $destination" \
     'targets: linux/amd64 linux/arm64 darwin/amd64 darwin/arm64' \
-    'outputs: four archives, four SPDX JSON SBOMs, checksums.sha256'
+    'outputs: installer, four archives, four SPDX JSON SBOMs, checksums.sha256'
   exit 0
 fi
 
@@ -107,6 +107,8 @@ package_target linux amd64
 package_target linux arm64
 package_target darwin amd64
 package_target darwin arm64
+cp scripts/install.sh "$staging/install.sh"
+chmod 0755 "$staging/install.sh"
 rmdir "$staging/package"
 rm -rf -- "$staging/.go-build-cache"
 chmod -R u+w -- "$staging/.go-module-cache"
@@ -116,6 +118,7 @@ rm -rf -- "$staging/.syft-cache"
 (
   cd "$staging"
   sha256sum \
+    "install.sh" \
     "ainfra_${version}_darwin_amd64.tar.gz" \
     "ainfra_${version}_darwin_amd64.spdx.json" \
     "ainfra_${version}_darwin_arm64.tar.gz" \

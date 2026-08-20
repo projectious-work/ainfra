@@ -71,7 +71,7 @@ groups:
           over MCP stdio by default, and expose explicitly allowlisted planning
           and plan-bound lifecycle mutations through the same typed application
           use cases, authorization, locking, evidence, and recovery contracts.
-        status: in_progress
+        status: shipped
         devNote: dev-notes/phase-07-guarded-mcp-server-mode.md
 
   - label: Template authoring
