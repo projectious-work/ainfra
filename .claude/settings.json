@@ -11,6 +11,30 @@
     "processkit-gateway"
   ],
   "hooks": {
+    "Notification": [
+      {
+        "_aibox_attention_managed": true,
+        "hooks": [
+          {
+            "command": "aibox-agent-signal question --harness claude --hook-input",
+            "type": "command"
+          }
+        ],
+        "matcher": "permission_prompt|idle_prompt|elicitation_dialog"
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "_aibox_attention_managed": true,
+        "hooks": [
+          {
+            "command": "aibox-agent-signal question --harness claude --hook-input",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
     "PreToolUse": [
       {
         "_processkit_managed": true,
@@ -33,6 +57,40 @@
           }
         ],
         "matcher": ""
+      },
+      {
+        "_aibox_attention_managed": true,
+        "hooks": [
+          {
+            "command": "aibox-agent-signal idle --harness claude --hook-input",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "Stop": [
+      {
+        "_aibox_attention_managed": true,
+        "hooks": [
+          {
+            "command": "aibox-agent-signal done --harness claude --hook-input",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "StopFailure": [
+      {
+        "_aibox_attention_managed": true,
+        "hooks": [
+          {
+            "command": "aibox-agent-signal error --harness claude --hook-input",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
       }
     ],
     "UserPromptSubmit": [
@@ -41,6 +99,16 @@
         "hooks": [
           {
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/context/skills/processkit/skill-gate/scripts/emit_compliance_contract.py",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "_aibox_attention_managed": true,
+        "hooks": [
+          {
+            "command": "aibox-agent-signal working --harness claude --hook-input",
             "type": "command"
           }
         ],

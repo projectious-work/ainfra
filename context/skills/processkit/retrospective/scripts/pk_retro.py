@@ -550,7 +550,7 @@ def _emit_artifact(
             kind="document",
             format="markdown",
             tags=["retrospective", "release"],
-            description=body,
+            body=body,
         )
         return result
     except Exception as e:
@@ -583,10 +583,9 @@ def _emit_logentry(
     )
 
     try:
-        result = log_fn(
+        log_fn(
             event_type="retro.completed",
             summary=f"Retrospective completed — {release}",
-            actor=artifact_id,
             subject=artifact_id,
             subject_kind="Artifact",
             details={
@@ -595,8 +594,6 @@ def _emit_logentry(
                 "retro_version": RETRO_VERSION,
             },
         )
-        if isinstance(result, dict) and result.get("error"):
-            raise RuntimeError(result["error"])
         return True
     except Exception as e:
         print(
@@ -770,7 +767,6 @@ def main(argv: list[str], mcp_overrides: dict | None = None) -> int:
             "[pk-retro] WARNING: Artifact was created but LogEntry failed.",
             file=sys.stderr,
         )
-        return 1
 
     # ── Auto-workitems (Phase 2) ──────────────────────────────────────────
     if args.auto_workitems and artifact_id:

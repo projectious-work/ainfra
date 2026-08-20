@@ -2582,6 +2582,7 @@ with tempfile.TemporaryDirectory() as tmp:
             [
                 ("BACK-20260409_1449-CleanRapidRiver-one",),
                 ("DEC-20260409_1450-CleanRapidRiver-two",),
+                ("BACK-20260409_1451-OpenDeer-three",),
             ],
         )
         conn.commit()
@@ -2609,6 +2610,18 @@ with tempfile.TemporaryDirectory() as tmp:
         and payload.get("action_kind") is None,
         json.dumps(payload, indent=2),
     )
+    blocked = [
+        item for item in findings if item.id == "id-vocabulary.blocked-word"
+    ]
+    blocked_payload = blocked[0].to_dict() if blocked else {}
+    check(
+        "20: historical blocked word is INFO and non-actionable",
+        len(blocked) == 1
+        and blocked_payload.get("severity") == "INFO"
+        and blocked_payload.get("action_required") is False
+        and blocked_payload.get("action_kind") is None,
+        json.dumps(blocked_payload, indent=2),
+    )
 
 # ---------------------------------------------------------------------------
 # Test 21: supply_chain — offline lockfile/license/security advisories
@@ -2633,6 +2646,19 @@ with tempfile.TemporaryDirectory() as tmp:
     check("21a: missing lockfile emits ERROR", "supply_chain.missing-lockfile" in ids)
     check("21b: missing policy emits WARN", "supply_chain.no-policy" in ids)
     check("21c: inventory summary is emitted", "supply_chain.inventory" in ids)
+
+with tempfile.TemporaryDirectory() as tmp:
+    root = Path(tmp)
+    nested = root / "vendor" / "nested-repo"
+    nested.mkdir(parents=True)
+    (nested / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    (nested / "package.json").write_text('{"name":"nested"}\n', encoding="utf-8")
+    generated = root / "tmp" / "host-gates" / "cargo-home" / "crate"
+    generated.mkdir(parents=True)
+    (generated / "Cargo.toml").write_text("[package]\nname='cached'\n", encoding="utf-8")
+    findings = _supply_chain_run({"repo_root": root, "since_files": None})
+    missing = [item.message for item in findings if item.id == "supply_chain.missing-lockfile"]
+    check("21d: nested repositories and generated tmp trees are skipped", not missing, missing)
 
 with tempfile.TemporaryDirectory() as tmp:
     root = Path(tmp)
@@ -2828,8 +2854,11 @@ with tempfile.TemporaryDirectory() as tmp:
     root = Path(tmp)
     applied = root / "context" / "migrations" / "applied"
     applied.mkdir(parents=True)
-    for name, applied_at in (("MIG-new", "2026-07-19T00:00:00Z"),
-                             ("MIG-old", "2020-01-01T00:00:00Z")):
+    now = datetime.now(timezone.utc)
+    for name, applied_at in (
+        ("MIG-new", (now - timedelta(days=1)).isoformat()),
+        ("MIG-old", (now - timedelta(days=31)).isoformat()),
+    ):
         (applied / f"{name}.md").write_text(
             textwrap.dedent(f"""\
                 ---
