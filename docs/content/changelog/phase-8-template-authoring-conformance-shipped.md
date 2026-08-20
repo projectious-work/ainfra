@@ -1,5 +1,5 @@
 ---
-title: "Phase 8 shipped: Template authoring and conformance"
+title: "Phase 8 release candidate: Template authoring and conformance"
 date: 2026-08-20
 description: >-
   ainfra now publishes a human and AI authoring contract, deterministic local
@@ -15,7 +15,7 @@ toc: true
 Phase 8 makes the v1 template-authoring promise executable without requiring
 authors to inspect ainfra implementation source.
 
-## What shipped
+## What is prepared
 
 - Portable authoring diagnostics with typed failures and accurate
   inventory-free applicability.
@@ -26,5 +26,5 @@ authors to inspect ainfra implementation source.
 
 Read the complete
 [Phase 8 development note](https://github.com/projectious-work/ainfra/blob/v1.x-dev/dev-notes/phase-08-template-authoring-conformance.md)
-or inspect
-[v1.0.0-alpha.8](https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.8).
+or inspect the `v1.0.0-alpha.8` release notes after the privileged host gate
+passes.

@@ -83,7 +83,7 @@ groups:
           Publish schemas, examples, conformance diagnostics, and human and AI
           guidance, then prove through clean-room authoring that a new template
           can be created without reading ainfra implementation source.
-        status: shipped
+        status: in_progress
         devNote: dev-notes/phase-08-template-authoring-conformance.md
 
   - label: Template coverage

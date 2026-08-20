@@ -47,8 +47,8 @@ The v0 line culminated in `v0.1.0`, the original Rust implementation. It is a
 legacy line retained for existing users; only narrowly scoped maintenance is
 expected, and new deployments should evaluate the v1 line.
 
-The Go-based v1 rewrite is under active alpha development. Phases 0 through 8
-are released as `v1.0.0-alpha.8`: contracts, diagnostics, immutable sources,
+The Go-based v1 rewrite is under active alpha development. Phases 0 through 7
+are released as `v1.0.0-alpha.7`: contracts, diagnostics, immutable sources,
 reviewed apply and destroy, output and Ansible workflows, recovery hardening,
 guarded MCP mode, and template-authoring conformance are implemented. The first
 production template remains Phase 9. Review plans, understand provider costs,
@@ -68,7 +68,7 @@ destination with `VERSION` and `INSTALL_DIR`:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/projectious-work/ainfra/v1.x-release/scripts/install.sh \
-  | VERSION=1.0.0-alpha.8 INSTALL_DIR=/usr/local/bin bash
+  | VERSION=1.0.0-alpha.7 INSTALL_DIR=/usr/local/bin bash
 ```
 
 Checksum verification is mandatory. If Cosign is installed, the installer
