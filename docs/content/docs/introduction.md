@@ -11,7 +11,7 @@ Templates combine OpenTofu for infrastructure provisioning with Ansible for
 system configuration. ainfra verifies the boundary between lifecycle steps
 and retains sanitized evidence without hiding either underlying tool.
 
-The Go-based v1 line is in alpha. Phases 0 through 7 are released as
-`v1.0.0-alpha.7`. Phase 8's local template-authoring conformance contract and
-clean-room proof are prepared for `v1.0.0-alpha.8`, pending its privileged
-container-host gate.
+The Go-based v1 line is in alpha. Phases 0 through 8 are released as
+`v1.0.0-alpha.8`, including the local template-authoring conformance contract
+and clean-room proof. The first certified production template remains the next
+planned milestone.
