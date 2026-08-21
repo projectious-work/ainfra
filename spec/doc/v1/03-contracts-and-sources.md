@@ -148,15 +148,17 @@ output. Its target entries MUST be limited to:
 - stable target identity and declared capabilities;
 - sanitized network endpoints and supported connection transports;
 - architecture or platform facts required for compatibility selection;
-- symbolic credential and trust references that contain no secret value; and
+- symbolic secret-provider, credential, and trust references that contain no
+  secret value; and
 - provenance and freshness bindings sufficient to identify the producing
   deployment and run.
 
 The target projection MUST NOT contain credentials, private keys, bearer
 tokens, passwords, arbitrary provider output, arbitrary Ansible variables, or
-opaque executable arguments. A symbolic reference identifies an external
-credential or trust relationship; it neither grants access nor allows ainfra
-to retrieve the referenced secret.
+opaque executable arguments. A symbolic provider reference may identify a
+broker endpoint and authentication method, but not provider credentials. A
+symbolic credential or trust reference identifies an external relationship;
+it neither grants access nor allows ainfra to retrieve the referenced secret.
 
 Discovery by a consumer MAY verify declared capabilities and reachability, but
 MUST NOT replace the result contract. Discovery alone cannot establish target
@@ -236,9 +238,9 @@ connection plugins other than `local` and `ssh`.
 - **AINFRA-CONTRACT-040:** every consumer target entry MUST be closed,
   provider-neutral, non-secret, and bound to the deployment and run that
   produced it.
-- **AINFRA-CONTRACT-041:** credential and trust references MUST be symbolic and
-  MUST NOT resolve to values inside ainfra output, inventory, plans, run
-  records, logs, or diagnostics.
+- **AINFRA-CONTRACT-041:** secret-provider, credential, and trust references
+  MUST be symbolic and MUST NOT resolve to values inside ainfra output,
+  inventory, plans, run records, logs, or diagnostics.
 - **AINFRA-CONTRACT-042:** ainfra MUST preserve result-version compatibility
   explicitly; it MUST NOT reinterpret a result under a newer schema or enrich
   it by reading OpenTofu state.

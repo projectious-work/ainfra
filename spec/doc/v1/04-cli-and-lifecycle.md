@@ -261,8 +261,9 @@ may be performed by this command.
 `output` exposes the validated standardized infrastructure result. It is the
 machine-readable handover surface for authorized consumers as well as the
 source from which ainfra derives inventory. Consumers MUST select and validate
-the declared result version and MUST treat symbolic credential or trust
-references as unresolved requirements, never as secret values.
+the declared result version and MUST treat symbolic secret-provider,
+credential, or trust references as unresolved requirements, never as secret
+values.
 
 `inventory` remains an ainfra-owned deterministic projection of the result's
 host information into native Ansible inventory. Expanding the standard result
