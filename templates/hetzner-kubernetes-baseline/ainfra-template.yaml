@@ -1,0 +1,17 @@
+apiVersion: ainfra.projectious.work/v1
+kind: Template
+metadata:
+  name: hetzner-kubernetes-baseline
+  version: 1.0.0
+  description: Private Hetzner K3s baseline with tunneled ingress and a temporary bastion
+spec:
+  engines:
+    tofu:
+      directory: tofu
+      version: ">=1.10.0 <2.0.0"
+    ansible:
+      directory: ansible
+      playbook: site.yml
+      version: ">=2.18.0 <3.0.0"
+  outputs:
+    inventory: ainfra_inventory

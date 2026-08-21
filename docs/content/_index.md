@@ -44,8 +44,8 @@ supports independently reviewed destruction.
 
 {{< callout type="info" title="Current maturity" >}}
 The current release is an alpha. It is suitable for controlled evaluation and
-disposable environments while the first certified production template is being
-prepared.
+disposable environments. The first production candidate is implemented and
+awaiting a separately cost-approved live certification lifecycle.
 {{< /callout >}}
 
 {{< cards cols="2" >}}

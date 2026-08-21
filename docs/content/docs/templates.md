@@ -5,7 +5,19 @@ weight: 60
 
 Templates are self-contained, reviewable infrastructure environments for
 specific AI-agent workloads. Phase 8 defines the released authoring contract;
-the first production template is a later milestone.
+the first provider-backed production candidate is now available for offline
+evaluation and separately approved live certification.
+
+## Hetzner private K3s production candidate
+
+`templates/hetzner-kubernetes-baseline` provisions private-management Hetzner
+nodes, bootstraps pinned K3s, and runs a connector for an externally managed
+Cloudflare Tunnel. Public SSH exists only through an opt-in temporary bastion
+with a narrow source allowlist.
+
+The candidate has complete native-variable documentation and offline
+conformance coverage. It is not yet certified: certification requires the
+documented cost-approved lifecycle and independent provider teardown evidence.
 
 Start by copying the
 [reference template](https://github.com/projectious-work/ainfra/tree/v1.x-dev/spec/examples/v1/template-example).

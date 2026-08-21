@@ -1,0 +1,14 @@
+{
+  "schema_version": "1",
+  "hosts": {
+    "phase9-control-01": {
+      "groups": ["k3s_cluster", "k3s_servers"],
+      "connection": {
+        "type": "ssh",
+        "address": "10.42.0.2",
+        "user": "ainfra",
+        "port": 22
+      }
+    }
+  }
+}

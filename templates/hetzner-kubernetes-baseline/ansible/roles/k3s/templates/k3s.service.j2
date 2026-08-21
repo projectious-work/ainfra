@@ -1,0 +1,15 @@
+[Unit]
+Description=Pinned K3s initial cluster bootstrap
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+Environment=K3S_TOKEN_FILE=/etc/ainfra-k3s-token
+ExecStart=/usr/local/bin/k3s {{ 'server' if inventory_hostname in groups['k3s_servers'] else 'agent' }}{% if inventory_hostname == groups['k3s_servers'][0] %} --cluster-init --write-kubeconfig-mode=0600{% else %} --server https://{{ hostvars[groups['k3s_servers'][0]].ansible_host }}:6443{% endif %}
+Restart=always
+RestartSec=5s
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

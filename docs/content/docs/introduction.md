@@ -13,5 +13,5 @@ and retains sanitized evidence without hiding either underlying tool.
 
 The Go-based v1 line is in alpha. Phases 0 through 8 are released as
 `v1.0.0-alpha.8`, including the local template-authoring conformance contract
-and clean-room proof. The first certified production template remains the next
-planned milestone.
+and clean-room proof. Phase 9 now provides the first provider-backed production
+candidate; its live certification remains pending a cost-approved lifecycle.

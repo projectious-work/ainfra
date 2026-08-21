@@ -1,0 +1,8 @@
+---
+ainfra_private_cidr: 10.42.0.0/16
+k3s_version: v1.36.1+k3s1
+k3s_binary_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+k3s_cluster_token: test-only-token-with-more-than-32-characters
+cloudflared_version: 2026.7.2
+cloudflared_binary_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+cloudflare_tunnel_token: test-only-tunnel-token-more-than-32-characters

@@ -1,0 +1,15 @@
+apiVersion: ainfra.projectious.work/v1
+kind: Deployment
+metadata:
+  name: hetzner-k3s-minimal
+  description: Private three-server K3s baseline with an external tunnel
+spec:
+  template:
+    source: local:../..
+  inputs:
+    tofu:
+      variableFiles:
+        - terraform.tfvars
+    ansible:
+      variableFiles:
+        - ansible-vars.yaml

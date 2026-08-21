@@ -1,0 +1,12 @@
+---
+all:
+  children:
+    k3s_cluster:
+      children:
+        k3s_servers:
+          hosts:
+            phase9-control-01:
+              ansible_host: 10.42.0.2
+              ansible_user: ainfra
+        k3s_agents:
+          hosts: {}

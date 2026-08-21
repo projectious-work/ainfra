@@ -1,0 +1,12 @@
+---
+- name: Harden and bootstrap the private K3s cluster
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - role: base
+    - role: ssh
+    - role: firewall
+    - role: observability
+    - role: k3s
+    - role: cloudflared

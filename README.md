@@ -51,8 +51,10 @@ The Go-based v1 rewrite is under active alpha development. Phases 0 through 8
 are released as `v1.0.0-alpha.8`: contracts, diagnostics, immutable sources,
 reviewed apply and destroy, output and Ansible workflows, recovery hardening,
 guarded MCP mode, and template-authoring conformance are implemented. The first
-production template remains Phase 9. Review plans, understand provider costs,
-and keep teardown available when evaluating an alpha release.
+Phase 9's Hetzner private K3s production candidate is implemented with
+Cloudflare Tunnel ingress and a temporary bastion. Live certification remains
+pending a separately cost-approved disposable lifecycle. Review plans,
+understand provider costs, and keep teardown available when evaluating it.
 
 ## Installation
 

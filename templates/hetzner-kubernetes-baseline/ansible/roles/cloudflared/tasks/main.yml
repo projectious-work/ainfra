@@ -1,0 +1,70 @@
+---
+- name: Require externally supplied Cloudflare Tunnel inputs
+  ansible.builtin.assert:
+    that:
+      - cloudflared_version == "2026.7.2"
+      - cloudflared_binary_sha256 is match('^[0-9a-f]{64}$')
+      - cloudflare_tunnel_token | length >= 32
+    fail_msg: >-
+      Supply the documented cloudflared SHA-256 and externally managed tunnel
+      token. The token is never generated or returned by this template.
+  no_log: true
+
+- name: Select the cloudflared release architecture
+  ansible.builtin.set_fact:
+    cloudflared_release_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Reject unsupported cloudflared architectures
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in ['x86_64', 'aarch64']
+
+- name: Install the checksum-pinned cloudflared binary
+  ansible.builtin.get_url:
+    url: "https://github.com/cloudflare/cloudflared/releases/download/{{ cloudflared_version }}/cloudflared-linux-{{ cloudflared_release_arch }}"
+    dest: /usr/local/bin/cloudflared
+    checksum: "sha256:{{ cloudflared_binary_sha256 }}"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart cloudflared
+
+- name: Install the external tunnel credential
+  ansible.builtin.copy:
+    dest: /etc/ainfra-cloudflared-token
+    content: "TUNNEL_TOKEN={{ cloudflare_tunnel_token }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart cloudflared
+
+- name: Install the cloudflared service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cloudflared.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=External Cloudflare Tunnel connector
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      EnvironmentFile=/etc/ainfra-cloudflared-token
+      ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+      Restart=always
+      RestartSec=5s
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart cloudflared
+
+- name: Enable the cloudflared connector
+  ansible.builtin.systemd_service:
+    name: cloudflared
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode
