@@ -13,3 +13,5 @@ spec:
     ansible:
       variableFiles:
         - ansible-vars.yaml
+  ssh:
+    knownHosts: known_hosts

@@ -47,6 +47,12 @@ OpenTofu backend are externally owned.
 
 From a deployment copied from `examples/minimal/`:
 
+Replace the placeholder `known_hosts` beside `ainfra.yaml` before locking.
+Populate it only from fingerprints verified through the Hetzner console or
+another independent channel; do not use an unauthenticated `ssh-keyscan`. The
+deployment binds this file into the reviewed run, and ainfra refuses SSH
+inventory without it.
+
 ```sh
 ainfra doctor
 ainfra template lock
@@ -66,6 +72,17 @@ them to `known_hosts`; do not derive trust with `ssh-keyscan`. Then connect:
 
 ```sh
 ssh -J ainfra@<bastion-public-ip> ainfra@<node-private-ip>
+```
+
+For `ainfra configure`, put the equivalent route in the operator's native SSH
+configuration. Ansible uses the route while ainfra independently forces strict
+host-key checking against the bound `known_hosts` file:
+
+```sshconfig
+Host 10.42.*
+  User ainfra
+  ProxyJump ainfra@<bastion-public-ip>
+  IdentityFile /absolute/operator-owned/path/id_ed25519
 ```
 
 Before bastion removal, prove the Cloudflare Access hostname reaches the same

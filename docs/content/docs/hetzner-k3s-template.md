@@ -16,7 +16,11 @@ provide day-two Kubernetes operations.
 - Node firewalls expose no public inbound TCP service.
 - Generated inventory contains private addresses only.
 - The bastion defaults off and requires explicit narrow CIDRs.
-- Host keys must be verified out of band; host-key checking stays enabled.
+- Host keys must be verified out of band and recorded in the deployment's
+  bound `known_hosts` file; host-key checking stays enabled.
+- Initial private-node configuration uses an operator-owned SSH `ProxyJump`
+  route through the temporary bastion. Remove the bastion only after verifying
+  the tunnel and an independent private management path.
 - SSH private keys, K3s tokens, and tunnel tokens remain external.
 - K3s and cloudflared binaries require architecture-specific SHA-256 values.
 

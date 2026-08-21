@@ -18,6 +18,7 @@ variables = (ROOT / "tofu/variables.tf").read_text()
 docs = (ROOT / "docs/variables.md").read_text()
 terraform = "\n".join(path.read_text() for path in (ROOT / "tofu").glob("*.tf"))
 ansible = "\n".join(path.read_text() for path in (ROOT / "ansible").rglob("*.*"))
+deployment = (ROOT / "examples/minimal/ainfra.yaml").read_text()
 
 require("apiVersion: ainfra.projectious.work/v1" in manifest, "v1 manifest missing")
 require('version = "1.64.0"' in terraform, "hcloud provider is not exact-pinned")
@@ -35,6 +36,11 @@ require("cloudflare_tunnel_token" in ansible, "external tunnel token is missing"
 require("no_log: true" in ansible, "secret-bearing tasks must suppress logs")
 require("ainfra_management_ingress_cidrs" not in ansible, "direct node SSH exception exists")
 require("ProxyJump" in (ROOT / "README.md").read_text(), "bastion workflow missing")
+require("knownHosts: known_hosts" in deployment, "known_hosts binding missing")
+require(
+    "Replace this file" in (ROOT / "examples/minimal/known_hosts").read_text(),
+    "known_hosts placeholder warning missing",
+)
 
 headings = [
     docs.index("## OpenTofu variables"),
