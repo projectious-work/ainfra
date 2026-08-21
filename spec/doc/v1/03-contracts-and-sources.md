@@ -127,7 +127,42 @@ This looseness ends at the cross-template boundary. ainfra-owned manifests,
 locks, machine results, and standardized OpenTofu output remain strict,
 versioned schemas so inventory generation and lifecycle safety are portable.
 
-## Standard OpenTofu output
+## Standard infrastructure result
+
+Templates expose one standardized OpenTofu result. That result is the sole
+cross-template description of successfully provisioned infrastructure. It is
+not itself an Ansible inventory: inventory is one deterministic projection of
+the result, while authorized consumers such as workload deployment tools may
+consume a separate target projection from the same validated value.
+
+The result contract is versioned independently of the ainfra API version. A
+new result version may extend the closed cross-template model without changing
+`ainfra.projectious.work/v1`. Ainfra MUST continue to recognize every result
+version promised by its compatibility policy and MUST reject unknown versions.
+
+Result version 1 is the current inventory-only shape described below. A future
+result version that supports workload consumers MUST add a closed `targets`
+section to this same contract family rather than introduce a second template
+output. Its target entries MUST be limited to:
+
+- stable target identity and declared capabilities;
+- sanitized network endpoints and supported connection transports;
+- architecture or platform facts required for compatibility selection;
+- symbolic credential and trust references that contain no secret value; and
+- provenance and freshness bindings sufficient to identify the producing
+  deployment and run.
+
+The target projection MUST NOT contain credentials, private keys, bearer
+tokens, passwords, arbitrary provider output, arbitrary Ansible variables, or
+opaque executable arguments. A symbolic reference identifies an external
+credential or trust relationship; it neither grants access nor allows ainfra
+to retrieve the referenced secret.
+
+Discovery by a consumer MAY verify declared capabilities and reachability, but
+MUST NOT replace the result contract. Discovery alone cannot establish target
+ownership, operator intent, authorized identity, trust policy, or provenance.
+
+### Result version 1: inventory hosts
 
 Every configurable-host template MUST expose a non-sensitive output named by
 the manifest (default `ainfra_inventory`) conforming to
@@ -195,6 +230,18 @@ connection plugins other than `local` and `ssh`.
 - **AINFRA-CONTRACT-038:** changing the permitted connection model requires a
   new standard-output schema version and compatibility documentation; it MUST
   NOT be introduced through an untyped escape hatch.
+- **AINFRA-CONTRACT-039:** one template MUST expose at most one standardized
+  infrastructure result; inventory and consumer target descriptions MUST be
+  deterministic projections of that result rather than independent outputs.
+- **AINFRA-CONTRACT-040:** every consumer target entry MUST be closed,
+  provider-neutral, non-secret, and bound to the deployment and run that
+  produced it.
+- **AINFRA-CONTRACT-041:** credential and trust references MUST be symbolic and
+  MUST NOT resolve to values inside ainfra output, inventory, plans, run
+  records, logs, or diagnostics.
+- **AINFRA-CONTRACT-042:** ainfra MUST preserve result-version compatibility
+  explicitly; it MUST NOT reinterpret a result under a newer schema or enrich
+  it by reading OpenTofu state.
 
 ## Source schemes
 

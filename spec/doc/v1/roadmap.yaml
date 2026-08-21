@@ -96,6 +96,15 @@ groups:
           access, tunneled ingress, and temporary administrative access.
         status: in_progress
         devNote: dev-notes/phase-09-initial-production-template.md
+      - id: "9a"
+        title: Consumer target handover
+        summary: >-
+          Evolve the single standardized infrastructure result with a
+          versioned, non-secret target projection for workload consumers;
+          cover capabilities, endpoints, symbolic credential and trust
+          references, provenance, freshness, compatibility, and one proven
+          ainfra-to-aibox handover without turning discovery into authority.
+        status: idea
       - id: "10"
         title: Complete major-cloud templates
         summary: >-
