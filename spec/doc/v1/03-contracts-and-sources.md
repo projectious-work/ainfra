@@ -127,7 +127,44 @@ This looseness ends at the cross-template boundary. ainfra-owned manifests,
 locks, machine results, and standardized OpenTofu output remain strict,
 versioned schemas so inventory generation and lifecycle safety are portable.
 
-## Standard OpenTofu output
+## Standard infrastructure result
+
+Templates expose one standardized OpenTofu result. That result is the sole
+cross-template description of successfully provisioned infrastructure. It is
+not itself an Ansible inventory: inventory is one deterministic projection of
+the result, while authorized consumers such as workload deployment tools may
+consume a separate target projection from the same validated value.
+
+The result contract is versioned independently of the ainfra API version. A
+new result version may extend the closed cross-template model without changing
+`ainfra.projectious.work/v1`. Ainfra MUST continue to recognize every result
+version promised by its compatibility policy and MUST reject unknown versions.
+
+Result version 1 is the current inventory-only shape described below. A future
+result version that supports workload consumers MUST add a closed `targets`
+section to this same contract family rather than introduce a second template
+output. Its target entries MUST be limited to:
+
+- stable target identity and declared capabilities;
+- sanitized network endpoints and supported connection transports;
+- architecture or platform facts required for compatibility selection;
+- symbolic secret-provider, credential, and trust references that contain no
+  secret value; and
+- provenance and freshness bindings sufficient to identify the producing
+  deployment and run.
+
+The target projection MUST NOT contain credentials, private keys, bearer
+tokens, passwords, arbitrary provider output, arbitrary Ansible variables, or
+opaque executable arguments. A symbolic provider reference may identify a
+broker endpoint and authentication method, but not provider credentials. A
+symbolic credential or trust reference identifies an external relationship;
+it neither grants access nor allows ainfra to retrieve the referenced secret.
+
+Discovery by a consumer MAY verify declared capabilities and reachability, but
+MUST NOT replace the result contract. Discovery alone cannot establish target
+ownership, operator intent, authorized identity, trust policy, or provenance.
+
+### Result version 1: inventory hosts
 
 Every configurable-host template MUST expose a non-sensitive output named by
 the manifest (default `ainfra_inventory`) conforming to
@@ -195,6 +232,70 @@ connection plugins other than `local` and `ssh`.
 - **AINFRA-CONTRACT-038:** changing the permitted connection model requires a
   new standard-output schema version and compatibility documentation; it MUST
   NOT be introduced through an untyped escape hatch.
+- **AINFRA-CONTRACT-039:** one template MUST expose at most one standardized
+  infrastructure result; inventory and consumer target descriptions MUST be
+  deterministic projections of that result rather than independent outputs.
+- **AINFRA-CONTRACT-040:** every consumer target entry MUST be closed,
+  provider-neutral, non-secret, and bound to the deployment and run that
+  produced it.
+- **AINFRA-CONTRACT-041:** secret-provider, credential, and trust references
+  MUST be symbolic and MUST NOT resolve to values inside ainfra output,
+  inventory, plans, run records, logs, or diagnostics.
+- **AINFRA-CONTRACT-042:** ainfra MUST preserve result-version compatibility
+  explicitly; it MUST NOT reinterpret a result under a newer schema or enrich
+  it by reading OpenTofu state.
+
+### Deployment provenance attestation
+
+The standardized result MAY be accompanied by a versioned deployment-
+provenance statement and a signature envelope. These are sibling artifacts;
+the result MUST NOT contain its own signature or digest.
+
+The provenance statement SHOULD use an in-toto Statement whose subject is the
+digest of the exact standardized result bytes and whose predicate type is the
+versioned ainfra deployment-provenance schema. The predicate binds the result
+to the producing deployment and run, including at least:
+
+- deployment and lock digests;
+- resolved template source, revision, and content digest;
+- ordered native-input digests;
+- reviewed plan identity, intent, and digest;
+- ainfra and engine versions and executable digests;
+- run identity, timestamps, operation, and terminal state; and
+- a deterministic manifest of retained lifecycle and engine-evidence digests.
+
+Potentially sensitive plans, state, native inputs, raw streams, and engine
+artifacts MUST NOT be embedded. A deterministic evidence manifest hashes
+eligible artifacts and excludes both itself and its signature envelope so the
+signed subject has no circular dependency.
+
+When signing is enabled, a DSSE envelope SHOULD authenticate the exact
+provenance-statement bytes and their declared payload type. Signing identity,
+trust roots, revocation, transparency, freshness, and signature thresholds are
+consumer policy; the standardized result MUST remain usable for an explicitly
+permitted unsigned local-development profile.
+
+Verification establishes result integrity, provenance-chain integrity, and
+the identity authorized to make the recorded claim. It does not independently
+prove that providers or engines reported truthfully, that infrastructure has
+not drifted since the run, or that currently contacted hardware or workloads
+match the result. Consumers combine provenance verification with permitted
+live checks. Hardware-backed live or remote attestation is reserved for the
+confidential-computing roadmap phase.
+
+- **AINFRA-CONTRACT-043:** the provenance statement subject MUST bind the exact
+  standardized-result bytes by cryptographic digest.
+- **AINFRA-CONTRACT-044:** every provenance dependency MUST be represented by a
+  non-secret stable identifier or digest; raw sensitive evidence MUST remain
+  in its protected owning location.
+- **AINFRA-CONTRACT-045:** a signature MUST authenticate a separate versioned
+  provenance statement and MUST NOT be embedded in the result it authenticates.
+- **AINFRA-CONTRACT-046:** verification policy MUST distinguish unsigned local
+  use, trusted signer identity, freshness, revocation, and any required
+  signature threshold.
+- **AINFRA-CONTRACT-047:** ainfra and consumers MUST describe signed deployment
+  provenance as an attributable execution claim, not as proof of current live
+  infrastructure state or confidential-computing attestation.
 
 ## Source schemes
 
