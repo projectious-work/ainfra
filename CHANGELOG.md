@@ -5,6 +5,44 @@ All notable changes to ainfra are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.9] - 2026-08-22
+
+### Added
+
+- Added the Phase 9 Hetzner Kubernetes baseline with a private network,
+  three-node K3s control plane, optional workers, and a temporary
+  source-restricted administration bastion.
+- Added pinned, checksum-verified K3s and Cloudflare Tunnel installation,
+  deterministic native Ansible inventory, and documented pod and service
+  network inputs.
+- Added disposable live-certification coverage for provisioning, converged
+  re-planning, check-mode configuration, bastion removal, tunnel-only SSH,
+  exact-plan destruction, and independent provider-side leak detection.
+
+### Changed
+
+- OpenTofu now receives the allowlisted Hetzner credential while continuing
+  to exclude unrelated parent-process secrets.
+- The baseline's OpenTofu engine is self-contained and uses protected local
+  state for disposable certification; production deployments must lock a
+  derivative with a capability-tested encrypted remote backend.
+- K3s initializes the first server before joining the remaining nodes and
+  binds every node to its declared private address.
+
+### Fixed
+
+- Accepted both current and legacy `ansible-runner --version` output formats.
+- Prevented K3s pod and service CIDRs from overlapping the Hetzner private
+  network and corrected systemd rendering for initial and joining servers.
+
+### Security
+
+- Retained disabled root and password authentication, operator-verified SSH
+  host keys, private node administration, and Cloudflare Service Auth before
+  removing the temporary bastion.
+- Certified teardown by applying the exact reviewed destroy plan and then
+  independently confirming that no Phase 9 Hetzner resources remained.
+
 ## [1.0.0-alpha.8] - 2026-08-20
 
 ### Added
@@ -257,3 +295,4 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 [1.0.0-alpha.6]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.5...v1.0.0-alpha.6
 [1.0.0-alpha.7]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.6...v1.0.0-alpha.7
 [1.0.0-alpha.8]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.7...v1.0.0-alpha.8
+[1.0.0-alpha.9]: https://github.com/projectious-work/ainfra/compare/v1.0.0-alpha.8...v1.0.0-alpha.9
