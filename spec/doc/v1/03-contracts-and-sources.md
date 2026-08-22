@@ -245,6 +245,58 @@ connection plugins other than `local` and `ssh`.
   explicitly; it MUST NOT reinterpret a result under a newer schema or enrich
   it by reading OpenTofu state.
 
+### Deployment provenance attestation
+
+The standardized result MAY be accompanied by a versioned deployment-
+provenance statement and a signature envelope. These are sibling artifacts;
+the result MUST NOT contain its own signature or digest.
+
+The provenance statement SHOULD use an in-toto Statement whose subject is the
+digest of the exact standardized result bytes and whose predicate type is the
+versioned ainfra deployment-provenance schema. The predicate binds the result
+to the producing deployment and run, including at least:
+
+- deployment and lock digests;
+- resolved template source, revision, and content digest;
+- ordered native-input digests;
+- reviewed plan identity, intent, and digest;
+- ainfra and engine versions and executable digests;
+- run identity, timestamps, operation, and terminal state; and
+- a deterministic manifest of retained lifecycle and engine-evidence digests.
+
+Potentially sensitive plans, state, native inputs, raw streams, and engine
+artifacts MUST NOT be embedded. A deterministic evidence manifest hashes
+eligible artifacts and excludes both itself and its signature envelope so the
+signed subject has no circular dependency.
+
+When signing is enabled, a DSSE envelope SHOULD authenticate the exact
+provenance-statement bytes and their declared payload type. Signing identity,
+trust roots, revocation, transparency, freshness, and signature thresholds are
+consumer policy; the standardized result MUST remain usable for an explicitly
+permitted unsigned local-development profile.
+
+Verification establishes result integrity, provenance-chain integrity, and
+the identity authorized to make the recorded claim. It does not independently
+prove that providers or engines reported truthfully, that infrastructure has
+not drifted since the run, or that currently contacted hardware or workloads
+match the result. Consumers combine provenance verification with permitted
+live checks. Hardware-backed live or remote attestation is reserved for the
+confidential-computing roadmap phase.
+
+- **AINFRA-CONTRACT-043:** the provenance statement subject MUST bind the exact
+  standardized-result bytes by cryptographic digest.
+- **AINFRA-CONTRACT-044:** every provenance dependency MUST be represented by a
+  non-secret stable identifier or digest; raw sensitive evidence MUST remain
+  in its protected owning location.
+- **AINFRA-CONTRACT-045:** a signature MUST authenticate a separate versioned
+  provenance statement and MUST NOT be embedded in the result it authenticates.
+- **AINFRA-CONTRACT-046:** verification policy MUST distinguish unsigned local
+  use, trusted signer identity, freshness, revocation, and any required
+  signature threshold.
+- **AINFRA-CONTRACT-047:** ainfra and consumers MUST describe signed deployment
+  provenance as an attributable execution claim, not as proof of current live
+  infrastructure state or confidential-computing attestation.
+
 ## Source schemes
 
 v1 MUST support:
