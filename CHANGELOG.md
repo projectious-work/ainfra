@@ -18,6 +18,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added disposable live-certification coverage for provisioning, converged
   re-planning, check-mode configuration, bastion removal, tunnel-only SSH,
   exact-plan destruction, and independent provider-side leak detection.
+- Defined the future versioned consumer-target projection and signed
+  deployment-provenance boundary while reserving live hardware attestation for
+  a separate confidential-computing phase.
 
 ### Changed
 

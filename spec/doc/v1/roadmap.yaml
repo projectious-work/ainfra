@@ -94,7 +94,7 @@ groups:
         summary: >-
           Ship and certify the first Kubernetes-ready template with private
           access, tunneled ingress, and temporary administrative access.
-        status: in_progress
+        status: shipped
         devNote: dev-notes/phase-09-initial-production-template.md
       - id: "10"
         title: Verifiable consumer target handover
