@@ -3,8 +3,8 @@ title: Hetzner private K3s template
 weight: 48
 ---
 
-Phase 9 introduces a provider-backed production candidate at
-`templates/hetzner-kubernetes-baseline`.
+Phase 9 ships the live-certified provider-backed production candidate at
+`templates/hetzner-kubernetes-baseline` in `v1.0.0-alpha.9`.
 
 It combines ownership-labelled Hetzner infrastructure, private management
 addresses, initial pinned K3s bootstrap, an externally managed Cloudflare
@@ -25,6 +25,13 @@ provide day-two Kubernetes operations.
 - K3s and cloudflared binaries require architecture-specific SHA-256 values.
 
 ## Evaluation
+
+The Phase 9 certification exercised a disposable three-node control plane,
+verified K3s health and idempotent convergence, confirmed Cloudflare Service
+Auth SSH after temporary-bastion removal, executed the exact reviewed destroy
+plan, and independently verified that no owned Hetzner resources remained.
+That evidence validates the released template candidate; it does not authorize
+or certify a future deployment automatically.
 
 Run `ainfra doctor template templates/hetzner-kubernetes-baseline` and the
 template's `tests/validate.sh` for offline conformance. The test performs
