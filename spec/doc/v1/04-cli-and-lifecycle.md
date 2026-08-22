@@ -17,7 +17,7 @@
 | `ainfra apply [DEPLOYMENT] --plan RUN_ID` | Verify all bindings and apply the exact reviewed OpenTofu apply plan. |
 | `ainfra configure [DEPLOYMENT] --run RUN_ID [--check]` | Run Ansible for an applied run, optionally in check mode, using generated inventory and native variables. |
 | `ainfra deploy [DEPLOYMENT] --plan RUN_ID` | Apply a reviewed plan, collect output, generate inventory, configure hosts, and verify convergence. |
-| `ainfra output [DEPLOYMENT] --run RUN_ID` | Show the sanitized standardized infrastructure output recorded for a run. |
+| `ainfra output [DEPLOYMENT] --run RUN_ID` | Show the sanitized standardized infrastructure result recorded for a run. |
 | `ainfra inventory [DEPLOYMENT] --run RUN_ID` | Show or regenerate deterministic Ansible inventory from a run's validated standardized output. |
 | `ainfra logs [DEPLOYMENT] --run RUN_ID [--source SOURCE] [--errors\|--raw --stream STREAM]` | Browse ainfra and engine evidence for a run, optionally selecting errors or sensitive raw child evidence. |
 | `ainfra status [DEPLOYMENT]` | Summarize deployment and run state, including failures, cancellations, and recovery guidance. |
@@ -258,6 +258,19 @@ may be performed by this command.
 
 ## Output and inventory
 
+`output` exposes the validated standardized infrastructure result. It is the
+machine-readable handover surface for authorized consumers as well as the
+source from which ainfra derives inventory. Consumers MUST select and validate
+the declared result version and MUST treat symbolic secret-provider,
+credential, or trust references as unresolved requirements, never as secret
+values.
+
+`inventory` remains an ainfra-owned deterministic projection of the result's
+host information into native Ansible inventory. Expanding the standard result
+with a versioned consumer-target section does not expand Ansible inventory and
+MUST NOT copy target endpoints, capabilities, or credential references into
+host or group variables.
+
 After successful apply, ainfra runs `tofu output -json`, extracts only the
 manifest-declared output, validates it, scans it for secret-shaped material,
 and persists standardized `output.json`. Inventory is derived from that output
@@ -274,6 +287,11 @@ recorded as not applicable rather than successful engine executions.
 - **AINFRA-INV-003:** generated inventory MUST not contain deployment secrets.
 - **AINFRA-INV-004:** an infrastructure-only template MUST NOT produce an empty
   inventory as a substitute for `inventory: none`.
+- **AINFRA-INV-005:** inventory MUST be generated only from the result fields
+  assigned to the inventory projection for that result version.
+- **AINFRA-INV-006:** consumer target fields MUST NOT be copied into Ansible
+  inventory unless a later inventory contract explicitly assigns a closed
+  field to that projection.
 
 ## Run logs and engine evidence
 
