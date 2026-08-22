@@ -144,14 +144,19 @@ func (adapter Adapter) Version(ctx context.Context, root string) (string, error)
 		return "", err
 	}
 	fields := strings.Fields(output.String())
-	if len(fields) < 2 || fields[0] != "ansible-runner" {
+	version := ""
+	if len(fields) == 1 {
+		version = fields[0]
+	} else if len(fields) >= 2 && fields[0] == "ansible-runner" {
+		version = fields[1]
+	} else {
 		return "", errors.New("invalid Ansible Runner version response")
 	}
-	major, err := strconv.Atoi(strings.SplitN(fields[1], ".", 2)[0])
+	major, err := strconv.Atoi(strings.SplitN(version, ".", 2)[0])
 	if err != nil || major != 2 {
-		return "", fmt.Errorf("unsupported Ansible Runner version %q", fields[1])
+		return "", fmt.Errorf("unsupported Ansible Runner version %q", version)
 	}
-	return fields[1], nil
+	return version, nil
 }
 
 // Configure runs one declared native playbook through Ansible Runner.

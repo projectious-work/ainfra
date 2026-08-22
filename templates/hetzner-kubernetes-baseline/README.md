@@ -16,10 +16,13 @@ tunnel credentials, or provide day-two Kubernetes operations.
 - an existing Cloudflare Tunnel, DNS hostname, and Access policy;
 - its connector token delivered only through a protected Ansible vars file;
 - operator-owned Ed25519 public keys and independently verified host keys; and
-- an operator-configured native remote backend for encrypted state.
+- an operator-configured protected backend; the locked baseline uses local
+  state for disposable certification only.
 
-The template never generates private keys, passwords, K3s tokens, tunnel
-tokens, or backend configuration. Do not commit credentials or state.
+The template never generates private keys, passwords, K3s tokens, or tunnel
+tokens. Do not commit credentials or state. Production operators should lock a
+derivative that replaces the local backend declaration with a capability-tested
+encrypted remote backend.
 
 ## Architecture
 

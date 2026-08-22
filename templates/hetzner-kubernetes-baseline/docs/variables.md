@@ -28,6 +28,8 @@
 | `ainfra_unattended_reboot_time` | `string` | no | `03:30` | 24-hour `HH:MM` | no | Automatic reboot time when enabled. |
 | `k3s_version` | `string` | no | `v1.36.1+k3s1` | Exact documented release | no | Pinned initial K3s version. |
 | `k3s_binary_sha256` | `string` | yes | `""` | 64 lowercase hex characters | no | Architecture-specific upstream checksum. |
+| `k3s_cluster_cidr` | `string` | no | `10.52.0.0/16` | Must not overlap the Hetzner private CIDR | no | K3s pod network. |
+| `k3s_service_cidr` | `string` | no | `10.53.0.0/16` | Must not overlap the Hetzner private CIDR | no | K3s service network. |
 | `k3s_cluster_token` | `string` | yes | `""` | External value, at least 32 characters | yes | Join token supplied in a protected native vars file. |
 | `cloudflared_version` | `string` | no | `2026.7.2` | Exact documented release | no | Pinned connector version. |
 | `cloudflared_binary_sha256` | `string` | yes | `""` | 64 lowercase hex characters | no | Architecture-specific upstream checksum. |

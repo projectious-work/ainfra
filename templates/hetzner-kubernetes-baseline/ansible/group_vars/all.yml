@@ -7,6 +7,8 @@ ainfra_unattended_reboot_time: "03:30"
 k3s_version: v1.36.1+k3s1
 k3s_binary_sha256: ""
 k3s_cluster_token: ""
+k3s_cluster_cidr: 10.52.0.0/16
+k3s_service_cidr: 10.53.0.0/16
 cloudflared_version: 2026.7.2
 cloudflared_binary_sha256: ""
 cloudflare_tunnel_token: ""

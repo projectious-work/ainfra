@@ -7,7 +7,6 @@ test_root=$(mktemp -d)
 trap 'rm -rf -- "$test_root"' EXIT HUP INT TERM
 
 cp -R "$template_root/tofu" "$test_root/tofu"
-cp -R "$template_root/cloud-init" "$test_root/cloud-init"
 rm -rf "$test_root/tofu/.terraform"
 
 python3 "$template_root/tests/policy.py"

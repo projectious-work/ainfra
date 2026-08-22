@@ -44,7 +44,7 @@ func TestPhase9TemplateContractAndSecurityPosture(t *testing.T) {
 	for _, required := range []string{
 		`version = "1.64.0"`, `default     = false`,
 		`temporary = "true"`, `address = hcloud_server_network`,
-		`groups = ["k3s_cluster", "k3s_servers"]`,
+		`groups = ["k3s_cluster", "k3s_servers"]`, `backend "local" {}`,
 	} {
 		if !strings.Contains(terraform, required) {
 			t.Errorf("OpenTofu contract missing %q", required)
@@ -83,5 +83,20 @@ func TestPhase9NativeVariablesAreDocumented(t *testing.T) {
 		if !strings.Contains(string(docs), "`"+match[1]+"`") {
 			t.Errorf("OpenTofu variable %q is undocumented", match[1])
 		}
+	}
+}
+
+func TestPhase9TofuEngineIsSelfContained(t *testing.T) {
+	t.Parallel()
+	root := filepath.Join("..", "templates", "hetzner-kubernetes-baseline")
+	servers, err := os.ReadFile(filepath.Join(root, "tofu", "servers.tf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(servers), "../cloud-init") {
+		t.Fatal("OpenTofu engine references cloud-init outside its snapshot boundary")
+	}
+	if _, err := os.Stat(filepath.Join(root, "tofu", "cloud-config.yaml.tftpl")); err != nil {
+		t.Fatalf("OpenTofu engine cloud-init template is unavailable: %v", err)
 	}
 }

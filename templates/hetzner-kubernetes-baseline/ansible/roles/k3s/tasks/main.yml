@@ -12,12 +12,15 @@
 
 - name: Select the K3s release architecture
   ansible.builtin.set_fact:
-    k3s_release_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+    k3s_release_arch: >-
+      {{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}
 
 - name: Reject unsupported K3s architectures
   ansible.builtin.assert:
     that:
-      - ansible_architecture in ['x86_64', 'aarch64']
+      - ansible_facts['architecture'] in ['x86_64', 'aarch64']
+      - k3s_cluster_cidr != ainfra_private_cidr
+      - k3s_service_cidr != ainfra_private_cidr
     fail_msg: "K3s supports only x86_64 and aarch64 in this template."
 
 - name: Install the checksum-pinned K3s binary
@@ -49,13 +52,25 @@
     mode: "0644"
   notify: Restart k3s
 
-- name: Enable the K3s service
+- name: Enable the first K3s server
   ansible.builtin.systemd_service:
     name: k3s
     enabled: true
     state: started
     daemon_reload: true
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - inventory_hostname == groups['k3s_servers'][0]
+
+- name: Enable the remaining K3s nodes
+  ansible.builtin.systemd_service:
+    name: k3s
+    enabled: true
+    state: started
+    daemon_reload: true
+  when:
+    - not ansible_check_mode
+    - inventory_hostname != groups['k3s_servers'][0]
 
 - name: Verify control-plane membership from the first server
   ansible.builtin.command:

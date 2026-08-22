@@ -21,7 +21,7 @@ resource "hcloud_server" "control_plane" {
   firewall_ids       = [hcloud_firewall.nodes.id]
   placement_group_id = hcloud_placement_group.control_plane.id
   labels             = merge(local.ownership_labels, { role = "control-plane" })
-  user_data = templatefile("${path.module}/../cloud-init/cloud-config.yaml.tftpl", {
+  user_data = templatefile("${path.module}/cloud-config.yaml.tftpl", {
     admin_ssh_public_keys = var.admin_ssh_public_keys
   })
 
@@ -40,7 +40,7 @@ resource "hcloud_server" "worker" {
   ssh_keys     = values(hcloud_ssh_key.operator)[*].id
   firewall_ids = [hcloud_firewall.nodes.id]
   labels       = merge(local.ownership_labels, { role = "worker" })
-  user_data = templatefile("${path.module}/../cloud-init/cloud-config.yaml.tftpl", {
+  user_data = templatefile("${path.module}/cloud-config.yaml.tftpl", {
     admin_ssh_public_keys = var.admin_ssh_public_keys
   })
 
@@ -59,7 +59,7 @@ resource "hcloud_server" "bastion" {
   ssh_keys     = values(hcloud_ssh_key.operator)[*].id
   firewall_ids = [hcloud_firewall.bastion[0].id]
   labels       = merge(local.ownership_labels, { role = "bastion", temporary = "true" })
-  user_data = templatefile("${path.module}/../cloud-init/cloud-config.yaml.tftpl", {
+  user_data = templatefile("${path.module}/cloud-config.yaml.tftpl", {
     admin_ssh_public_keys = var.admin_ssh_public_keys
   })
 

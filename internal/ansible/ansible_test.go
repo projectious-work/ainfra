@@ -23,6 +23,35 @@ func TestVerifyConverged(t *testing.T) {
 	}
 }
 
+func TestVersionAcceptsCurrentAndLegacyRunnerOutput(t *testing.T) {
+	t.Parallel()
+	for _, output := range []string{"2.4.3\n", "ansible-runner 2.4.3\n"} {
+		output := output
+		t.Run(strings.TrimSpace(output), func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			executablePath := filepath.Join(root, "ansible-runner")
+			if err := os.WriteFile(executablePath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			executable, err := security.ResolveExecutable(executablePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			adapter := Adapter{Executable: executable, Run: func(_ context.Context,
+				request childexec.Request,
+			) (childexec.Result, error) {
+				_, _ = request.IO.Stdout.Write([]byte(output))
+				return childexec.Result{Started: true}, nil
+			}}
+			version, err := adapter.Version(context.Background(), root)
+			if err != nil || version != "2.4.3" {
+				t.Fatalf("version=%q err=%v", version, err)
+			}
+		})
+	}
+}
+
 func TestVerifyConvergedRequiresExactHosts(t *testing.T) {
 	stats := Stats{Changed: map[string]int{}, Dark: map[string]int{}, Failures: map[string]int{}, Processed: map[string]int{"a": 1}}
 	if err := VerifyConverged(stats, []string{"a", "b"}); err == nil {

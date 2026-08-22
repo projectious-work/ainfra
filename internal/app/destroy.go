@@ -75,9 +75,7 @@ func destroyForDeploymentWithHook(ctx context.Context, deployment project.Deploy
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("validate OpenTofu executable: %w", err)
 	}
-	environment, err := security.BuildEnvironment(options.ParentEnvironment,
-		[]string{"HOME", "PATH", "SSL_CERT_DIR", "SSL_CERT_FILE"},
-		map[string]string{"TF_IN_AUTOMATION": "1"})
+	environment, err := buildTofuEnvironment(options.ParentEnvironment)
 	if err != nil {
 		return output.Execution{}, fmt.Errorf("build OpenTofu environment: %w", err)
 	}
