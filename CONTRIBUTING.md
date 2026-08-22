@@ -37,6 +37,12 @@ Documentation changes must also pass a clean production build.
 The release deliberately crosses one trust boundary. Run commands in this
 order and in the environment shown:
 
+> **Do not paste the complete release sequence into one terminal.** Commands
+> marked **HOST** run in the normal host checkout. Commands marked
+> **DEVCONTAINER** run in that checkout's ainfra devcontainer. The checkout is
+> shared between them, so no second clone, checkout, worktree, or artifact copy
+> is required. Go is never required on the host.
+
 | Order | Environment | Command | Required tools | Result |
 |---|---|---|---|---|
 | 1 | Host | `release-freeze` | Git, GitHub CLI, Python | Immutable commit, tree, and aligned-lane identity |
@@ -55,7 +61,11 @@ the release archives.
 
 Merge every release change and fast-forward `v1.x-dev`,
 `v1.x-pre-release`, and `v1.x-release` to the same exact commit before any
-artifact is built. Then freeze that identity from a clean worktree:
+artifact is built. Then freeze that identity from a clean worktree.
+
+### 1. HOST — freeze the release identity
+
+Run this in a host terminal from the repository root:
 
 ```bash
 scripts/maintain.sh release-freeze --version=1.0.0-alpha.2
@@ -65,10 +75,15 @@ Every later command verifies the ignored `tmp/release/<version>/` state. No
 merge, rebase, dependency update, generation, or lane promotion is permitted
 after this point.
 
-### 1. Package in the devcontainer
+### 2. DEVCONTAINER — package the release
 
-The restricted devcontainer packages all four supported targets, including
-their SBOMs and checksum manifest:
+Enter or attach to the ainfra devcontainer, open the shared repository root,
+and run the following command there. If the command reports that `go` is
+missing, it is being run in the wrong environment; do not install Go on the
+host.
+
+The devcontainer packages all four supported targets, including their SBOMs
+and checksum manifest:
 
 ```bash
 scripts/maintain.sh release-package --version=1.0.0-alpha.2
@@ -81,10 +96,11 @@ verify `go version`, `gitleaks version`, `osv-scanner --version`,
 `syft version`, `grype version`, and `cosign version` inside the rebuilt
 devcontainer.
 
-### 2. Prepare and run the gate on the host
+### 3. HOST — prepare and run the container gate
 
-After packaging, leave the devcontainer. On the host, preparation verifies the
-archives and copies their binaries into an immutable validation input:
+After packaging succeeds, return to the host terminal in the same repository
+root. Preparation verifies the archives and copies their binaries into an
+immutable validation input:
 
 ```bash
 scripts/maintain.sh release-host-prepare --version=1.0.0-alpha.2
@@ -139,7 +155,8 @@ release artifacts.
 
 ## Release checksum signing
 
-Release packaging runs inside the devcontainer and writes the four
+The following `release-package` example is a **DEVCONTAINER** command. It
+writes the four
 publishable archives, their SPDX JSON SBOMs, and `checksums.sha256` below
 `dist/release/<version>/`:
 

@@ -37,7 +37,7 @@ cd "$repo_root"
 
 for tool in git go tar gzip syft sha256sum; do
   command -v "$tool" >/dev/null 2>&1 || die \
-    "missing required devcontainer tool: $tool; run release-package inside the ainfra devcontainer"
+    "[DEVCONTAINER ONLY] missing tool: $tool; return to the ainfra devcontainer and rerun release-package; do not install Go on the host"
 done
 
 release_root="$repo_root/dist/release"

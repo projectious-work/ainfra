@@ -10,13 +10,13 @@ repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)"
 
 usage() {
   printf '%s\n' \
-    'usage:' \
-    '  host: scripts/maintain.sh release-freeze --version=SEMVER' \
-    '  devcontainer: scripts/maintain.sh release-package --version=SEMVER [--dry-run]' \
-    '  host: scripts/maintain.sh release-host-prepare --version=SEMVER' \
-    '  host: scripts/maintain.sh release-host --version=SEMVER [--dry-run]' \
-    '  host: scripts/maintain.sh release-sign --version=SEMVER [--dry-run]' \
-    '  host: scripts/maintain.sh release-publish --version=SEMVER [--dry-run]'
+    'usage (the checkout is shared; switch terminals, not worktrees):' \
+    '  [HOST] scripts/maintain.sh release-freeze --version=SEMVER' \
+    '  [DEVCONTAINER] scripts/maintain.sh release-package --version=SEMVER [--dry-run]' \
+    '  [HOST] scripts/maintain.sh release-host-prepare --version=SEMVER' \
+    '  [HOST] scripts/maintain.sh release-host --version=SEMVER [--dry-run]' \
+    '  [HOST] scripts/maintain.sh release-sign --version=SEMVER [--dry-run]' \
+    '  [HOST] scripts/maintain.sh release-publish --version=SEMVER [--dry-run]'
 }
 
 require_preparation_tools() {
