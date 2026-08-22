@@ -8,6 +8,7 @@
 **Immutable, auditable infrastructure lifecycle orchestration.**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-1d3352)](SECURITY.md)
+[![Release: v1.0.0-alpha.9](https://img.shields.io/badge/release-v1.0.0--alpha.9-E05232)](https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.9)
 [![License: MIT](https://img.shields.io/badge/license-MIT-1d3352)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-projectious--work.github.io-E05232)](https://projectious-work.github.io/ainfra/)
 
@@ -54,6 +55,9 @@ guarded MCP mode, template-authoring conformance, and the first provider-backed
 Hetzner private K3s baseline are implemented. Phase 9 passed a cost-approved
 disposable lifecycle including convergence, Cloudflare tunnel-only access,
 temporary-bastion removal, exact destruction, and an independent leak check.
+See the
+[alpha 9 release notes](https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.9)
+for the shipped artifacts, SBOMs, checksums, and Sigstore verification bundle.
 
 ## Installation
 

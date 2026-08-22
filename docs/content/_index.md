@@ -44,8 +44,10 @@ supports independently reviewed destruction.
 
 {{< callout type="info" title="Current maturity" >}}
 The current release is an alpha. It is suitable for controlled evaluation and
-disposable environments. The first production candidate is implemented and
-awaiting a separately cost-approved live certification lifecycle.
+disposable environments. `v1.0.0-alpha.9` includes the first provider-backed
+production candidate. Its cost-approved live certification covered a
+three-node private K3s lifecycle, tunnel-only administration, convergence,
+exact destruction, and an independent provider leak check.
 {{< /callout >}}
 
 {{< cards cols="2" >}}
