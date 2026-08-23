@@ -65,6 +65,13 @@ waves, implementation conformance, and gap closure follow the
 - console output, logging, and CLI configuration reference;
 - complete template-authoring guide; and
 - standard `docs/variables.md` authoring and drift-checking guidance.
+- the agent-native product posture and division of labour between probabilistic
+  reasoning and governed execution;
+- an MCP-first agent journey alongside an equivalent CLI journey;
+- actor separation, approval, credential, prompt-injection, tool-integrity,
+  session-loss, and recovery boundaries; and
+- a clear statement that ainfra makes the change process reproducible rather
+  than claiming deterministic cloud outcomes.
 
 No documentation may imply that ainfra publishes a container image or supports
 Windows binaries.
@@ -96,6 +103,12 @@ for AI agents creating templates. It SHOULD contain:
   ambiguous phrases such as “and similar.”
 - **AINFRA-DOC-005:** an agent MUST be told not to claim live support without
   disposable lifecycle evidence.
+- **AINFRA-DOC-006:** agent instructions MUST distinguish proposed
+  interpretation or explanation from authoritative plans, approvals, engine
+  outcomes, and retained evidence.
+- **AINFRA-DOC-007:** the README and documentation landing page MUST lead with
+  the agent-native execution-boundary posture and present MCP before or beside
+  the equivalent CLI path without describing the CLI as secondary or optional.
 
 ## Documentation quality gates
 

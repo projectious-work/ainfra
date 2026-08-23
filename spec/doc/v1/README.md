@@ -52,6 +52,7 @@ backend behavior.
 17. [Spec-driven development cycle](17-spec-driven-development-cycle.md)
 18. [Deployment credential acquisition and
     delivery](18-deployment-credentials.md)
+19. [Agent-native product posture](19-agent-native-posture.md)
 
 Roadmap data:
 
@@ -107,6 +108,9 @@ checked-in specification, its schemas, examples, and fixtures:
 - `DEC-20260823_1611-BrightSail`: harden deployment credential acquisition and
   delivery through bounded SOPS and independently operated OpenBao providers,
   with later provider expansion.
+- `DEC-20260823_1818-RoyalShore`: position ainfra as an agent-native
+  infrastructure execution boundary with an MCP-first experience, CLI parity,
+  and governed deterministic execution.
 
 This repository MUST be sufficient to implement and review v1 without access
 to external decision records. The accepted specification commit is the sole

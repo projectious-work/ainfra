@@ -5,7 +5,7 @@
 
 # ainfra
 
-**Immutable, auditable infrastructure lifecycle orchestration.**
+**The agent-native execution boundary for reviewed infrastructure.**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-1d3352)](SECURITY.md)
 [![Release: v1.0.0-alpha.9](https://img.shields.io/badge/release-v1.0.0--alpha.9-E05232)](https://github.com/projectious-work/ainfra/releases/tag/v1.0.0-alpha.9)
@@ -19,17 +19,19 @@
 
 ---
 
-ainfra turns infrastructure templates into repeatable, reviewable deployments.
-It validates explicit contracts, binds template content immutably, delegates
-provisioning and configuration to established tools, and retains evidence for
-inspection and recovery. It is designed for people and automation that need a
-clear approval boundary without hiding OpenTofu or Ansible.
+ainfra lets AI agents and humans operate infrastructure through standard,
+inspectable OpenTofu and Ansible templates. Agents create and adapt templates;
+ainfra validates, locks, plans, authorizes, executes, and records them through
+MCP or CLI. It provides a clear approval and recovery boundary without hiding
+the native tools.
 
 ainfra is also the infrastructure provisioning component of the
 [projectious.work](https://projectious.work/) stack.
 
 ## Features
 
+- MCP-first agent operations with read-only defaults, explicit capabilities,
+  independently authorized mutations, and equivalent CLI behavior.
 - Immutable local and Git template sources, pinned by revision and content
   digest.
 - Reviewed OpenTofu apply and destroy plans with exact, replay-resistant
@@ -37,8 +39,6 @@ ainfra is also the infrastructure provisioning component of the
 - Strict, versioned inputs and non-secret standardized outputs.
 - Deterministic Ansible inventory, configuration, and convergence checks.
 - Durable, redacted lifecycle logs with interruption and recovery diagnostics.
-- Read-only-by-default MCP inspection, with explicit capabilities and
-  independently authorized mutations.
 - Linux and macOS release archives for AMD64 and ARM64, with SBOMs, checksums,
   and a signed checksum manifest.
 
@@ -84,7 +84,15 @@ for manual and source-install options.
 
 ## Usage
 
-Check the host, initialize a deployment, and bind its configured template:
+For an agent, bind the read-only MCP server to one deployment. Enable planning
+or mutation capabilities only for the session that needs them:
+
+```sh
+ainfra mcp serve --stdio --project example-deployment
+```
+
+For direct CLI operation, check the host, initialize a deployment, and bind its
+configured template:
 
 ```sh
 ainfra doctor environment
@@ -112,6 +120,7 @@ before provisioning real infrastructure.
 The maintained documentation is published at
 [projectious-work.github.io/ainfra](https://projectious-work.github.io/ainfra/).
 It includes the quick start, installation and configuration guides, the
+[product rationale and agent/execution division of labour](https://projectious-work.github.io/ainfra/docs/why-ainfra/),
 [template-authoring guide](https://projectious-work.github.io/ainfra/docs/templates/),
 an [AI authoring checklist](https://projectious-work.github.io/ainfra/docs/template-authoring-ai/),
 reviewed-plan contracts, operational references, change log, and roadmap.
@@ -126,6 +135,11 @@ docs/scripts/serve.sh --port 1314
 ## Architecture at a glance
 
 ```text
+         Agent or human intent
+                 │
+          MCP or CLI adapter
+                 │
+                 ▼
 Template source + native, non-secret inputs
                     │
                     ▼
@@ -142,9 +156,9 @@ Template source + native, non-secret inputs
 ```
 
 OpenTofu owns infrastructure changes and Ansible owns host configuration.
-ainfra coordinates those tools, verifies the boundaries between lifecycle
-steps, and records sanitized evidence; it is not another infrastructure
-language or a general-purpose cluster manager.
+ainfra's shared application core coordinates those tools, verifies the
+boundaries between lifecycle steps, and records sanitized evidence; it is not
+another infrastructure language or a general-purpose cluster manager.
 
 ## Development
 

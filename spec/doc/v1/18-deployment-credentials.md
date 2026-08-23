@@ -31,7 +31,7 @@ to symbolic credential references. Provider configuration and authentication
 remain outside the template and deployment repository.
 
 The exact manifest and deployment schema additions are delivered with roadmap
-Phase 10. Until that phase ships, documented ambient engine variables remain
+Phase 11. Until that phase ships, documented ambient engine variables remain
 the compatibility path and MUST continue to satisfy the existing subprocess,
 redaction, and evidence rules.
 
@@ -71,7 +71,7 @@ OpenBao, a file path, a broker endpoint, or an arbitrary acquisition command.
 
 ## Initial providers
 
-Phase 10 supports these sources:
+Phase 11 supports these sources:
 
 | Provider | Intended use | Preconditions | Security posture |
 |---|---|---|---|
@@ -171,7 +171,7 @@ same rules; it never depends on retained plaintext from apply.
 | Remote execution host | External OpenBao preferred; SOPS only with a deliberately provisioned remote key | Engine-native delivery on the remote executor | ainfra runs remotely through a secure execution channel; plaintext is not staged from a local deployment bundle. |
 | Headless local or CI runner | External OpenBao or user-managed workload identity | Short-lived process environment, agent/socket, file, or native API | Non-interactive authentication and renewal are mandatory. SOPS is acceptable only when its key is supplied by a protected machine identity. |
 | Kubernetes execution job | External OpenBao or platform workload identity | Agent/sidecar socket or file, projected identity, process environment, or native API | Kubernetes Secret objects are optional user-managed compatibility, not a required ainfra secret store. |
-| Confidential-computing executor | Future KBS/attestation-aware provider | Release only after verified attestation, then native delivery | Deferred to the confidential-computing phase; Phase 10 does not claim live attestation. |
+| Confidential-computing executor | Future KBS/attestation-aware provider | Release only after verified attestation, then native delivery | Deferred to the confidential-computing phase; Phase 11 does not claim live attestation. |
 
 External OpenBao is available in every scenario when its prerequisites are
 met; it is not restricted to headless operation. SOPS is also possible in
@@ -180,10 +180,10 @@ does not by itself provide dynamic leases, policy enforcement, or renewal.
 
 ## Future providers
 
-Phase 23 adds providers only through the same bounded capability contract.
+Phase 24 adds providers only through the same bounded capability contract.
 Candidates include other Vault-compatible services, cloud secret managers,
 KMS-backed decryption, and OIDC credential brokers. Attestation-gated KBS
-integration remains part of Phase 24. Compatibility is capability based:
+integration remains part of Phase 25. Compatibility is capability based:
 similar HTTP shapes do not justify claiming one universal secrets API.
 
 Provider additions MUST document authentication, acquisition, identity and

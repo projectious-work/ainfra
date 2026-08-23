@@ -179,6 +179,26 @@ documents, malformed encodings, argument injection, poisoned caches, reordered
 events, split secrets, log rotation races, reconciliation races, and corrupt
 plans or run records. Minimized failures are committed only after secret scans.
 
+Roadmap Phase 10 adds an agent-interface adversarial suite covering prompt
+injection in template documentation and engine output, immutable tool
+descriptions, deceptive tool names, tool shadowing, capability escalation,
+conversational approval claims, plan creator self-approval, result-driven
+credential extraction, unsafe generated remediation, retries, duplicate
+requests, cancellation, and lost-session recovery.
+
+The suite MUST use at least two independent MCP client fixtures or a protocol-
+level client plus one real client compatibility run. It asserts server-side
+authorization and effects; client confirmation UI is not accepted as proof.
+
+- **AINFRA-TEST-014:** every mutating MCP tool MUST have negative tests proving
+  refusal before child invocation for absent capability, absent or mismatched
+  authorization, stale binding, replay, and expanded operation scope.
+- **AINFRA-TEST-015:** CLI/MCP parity tests MUST derive cases from shared use-
+  case fixtures and compare lifecycle state, child invocation, evidence,
+  diagnostics, and recovery rather than presentation bytes.
+- **AINFRA-TEST-016:** session-loss tests MUST prove that retry cannot duplicate
+  a mutation and that durable status can be recovered by operation identity.
+
 - **AINFRA-TEST-014:** fuzz targets MUST cover YAML/JSON documents, source
   references, archive/path handling, redaction chunking, standardized OpenTofu
   output, and Ansible event parsing.

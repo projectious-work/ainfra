@@ -3,7 +3,11 @@ title: Guarded MCP server
 weight: 55
 ---
 
-ainfra can serve its typed application operations to MCP clients over stdio.
+MCP is ainfra's primary agent interaction surface. ainfra serves its typed
+application operations to MCP clients over stdio while the CLI remains a
+complete equivalent interface for humans, CI, and recovery.
+See [Why ainfra exists](../why-ainfra/) for the division between agent
+reasoning and governed execution.
 The server is bound to one deployment at startup, is read-only by default, and
 never treats tool annotations or conversational claims as authorization.
 

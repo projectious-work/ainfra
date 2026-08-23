@@ -1,10 +1,11 @@
 ## Status and objective
 
-MCP server mode is planned for v1 after the core infrastructure lifecycle and
-hardening phases. It makes ainfra directly usable by MCP-capable agents and
-editors without wrapping shell commands or parsing terminal prose. It remains
-an adapter over stable typed application use cases and is not a second
-execution path.
+The initial guarded MCP stdio server shipped in roadmap Phase 7. Roadmap Phase
+10 makes MCP the primary agent experience and hardens its capability,
+authorization, resource, durable-operation, and adversarial-security contracts.
+It remains an adapter over stable typed application use cases and is not a
+second execution path. The CLI remains complete and behaviorally equivalent
+for direct human, CI, recovery, and break-glass operation.
 
 The implementation follows the current [MCP specification][mcp-spec] selected
 at phase start. Protocol dependencies and version support are an
@@ -56,6 +57,27 @@ mutation. Tool handlers call the same typed application use cases as the CLI.
 They MUST NOT execute a shell, reconstruct CLI argument strings, parse console
 output, or implement a second lifecycle. MCP input and output schemas derive
 from the same typed contracts and versioned machine results as normal commands.
+
+## Agent experience
+
+The server presents bounded infrastructure use cases rather than CLI syntax.
+An agent can discover applicable templates and requirements, inspect and
+diagnose a deployment, create and retrieve a reviewed plan, request an
+independently authorized execution, observe durable operation status, and
+retrieve sanitized results, evidence, and recovery advice. It never receives
+an arbitrary shell or natural-language deployment tool.
+
+Every result identifies whether the operation applies, stable findings and
+outcome codes, blocking and advisory conditions, approval requirements,
+durable operation identity, permitted next actions, and recovery state where
+relevant. Human prose MAY accompany the typed result but cannot be its only
+meaning.
+
+The server exposes version-matched resources for published schemas, supported
+contract versions, template-authoring guidance, safe template metadata,
+credential-provider capabilities, sanitized results, reviewed plan summaries,
+and recovery guidance. Untrusted template prose is labeled as template content
+and cannot alter tool or server policy.
 
 ## Mutation authorization
 
@@ -126,5 +148,25 @@ snapshots where a concurrent external ainfra process changes local state.
 - **AINFRA-MCP-010:** for the same authorized use case, CLI and MCP execution
   MUST produce equivalent plan validation, locking, child invocation,
   evidence, diagnostics, cancellation, exit outcome, and recovery state.
+- **AINFRA-MCP-011:** MCP MUST be the leading documented agent interaction
+  surface without becoming the domain or application package boundary.
+- **AINFRA-MCP-012:** mutating tools MUST return or accept a durable operation
+  identity that remains queryable after client retry, cancellation, or session
+  loss and prevents ambiguous duplicate execution.
+- **AINFRA-MCP-013:** tool schemas MUST classify side effects and identify
+  required capabilities and independent authorization without treating
+  descriptive annotations as enforcement.
+- **AINFRA-MCP-014:** resources and tool definitions MUST be embedded,
+  versioned, stable for a released binary, and immune to template-controlled
+  mutation, name shadowing, and instruction injection.
+- **AINFRA-MCP-015:** structured results MUST expose applicable next actions
+  from a closed set and MUST NOT return arbitrary executable remediation from
+  untrusted content.
+- **AINFRA-MCP-016:** a plan explanation MUST identify its source plan and
+  sanitization limits and MUST NOT replace the saved plan or approval review.
+- **AINFRA-MCP-017:** the initial stdio server MUST NOT depend on model vendor,
+  client-specific conversation state, or private chain-of-thought.
+- **AINFRA-MCP-018:** a future network transport MUST have a separate remote
+  threat model and MUST NOT expose local stdio assumptions directly.
 
 [mcp-spec]: https://modelcontextprotocol.io/specification/latest

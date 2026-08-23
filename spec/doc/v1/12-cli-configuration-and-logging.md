@@ -248,7 +248,7 @@ OpenTofu, Ansible, Git, and SSH variables are child-tool inputs governed by the
 subprocess environment policy; they are not ainfra configuration and MUST NOT
 be copied into logs or configuration snapshots.
 
-After roadmap Phase 10, operator configuration MAY define named credential-
+After roadmap Phase 11, operator configuration MAY define named credential-
 provider profiles containing only non-secret provider metadata and symbolic
 references. Secret values and static provider authentication material remain
 external. Ambient engine variables remain a documented user-managed

@@ -1,24 +1,24 @@
 ---
 title: ainfra
-eyebrow: Immutable infrastructure lifecycle
+eyebrow: Agent-native infrastructure execution
 tagline: >-
-  Deploy secured infrastructure for containerized AI through reviewed,
-  reproducible OpenTofu and Ansible workflows.
+  Let agents create and operate standard OpenTofu and Ansible templates while
+  plans, approvals, credentials, execution, and evidence remain governed.
 cta:
   - label: Get started
     href: /docs/quick-start/
-  - label: View the roadmap
-    href: /docs/roadmap/
+  - label: Why ainfra
+    href: /docs/why-ainfra/
     variant: secondary
 ---
 
-## Infrastructure you can inspect and reproduce
+## Agent speed with an explicit execution boundary
 
 {{< cards cols="3" >}}
   {{< card
-    title="Reviewed plans"
-    subtitle="Create an immutable OpenTofu plan, review it, and apply exactly those verified bytes."
-    link="/docs/reviewed-plans/"
+    title="MCP-first"
+    subtitle="Give agents typed inspection and guarded lifecycle operations without arbitrary shell execution."
+    link="/docs/mcp/"
     icon="circle-check"
   >}}
   {{< card
@@ -28,12 +28,17 @@ cta:
     icon="file-code"
   >}}
   {{< card
-    title="Durable evidence"
-    subtitle="Retain sanitized lifecycle evidence, inventory, recovery guidance, and teardown verification."
-    link="/docs/usage/"
+    title="Reviewed execution"
+    subtitle="Bind approval to an exact plan, then retain sanitized evidence and recovery state."
+    link="/docs/reviewed-plans/"
     icon="list"
   >}}
 {{< /cards >}}
+
+ainfra separates probabilistic interpretation and template creation from
+governed validation, authorization, credential delivery, execution, and
+evidence. Read [why ainfra exists](/docs/why-ainfra/) for the reasoning and
+division of labour.
 
 ## A guarded lifecycle from source to teardown
 
