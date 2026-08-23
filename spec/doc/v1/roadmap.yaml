@@ -97,6 +97,16 @@ groups:
         status: shipped
         devNote: dev-notes/phase-09-initial-production-template.md
       - id: "10"
+        title: Deployment credential acquisition and delivery hardening
+        summary: >-
+          Add explicit credential slots and symbolic bindings; support
+          user-managed native sources, SOPS, and independently operated
+          OpenBao; acquire credentials just in time, deliver them through
+          phase-scoped engine-native channels, bind non-secret authority
+          provenance to reviewed plans, and verify renewal, redaction,
+          cleanup, headless operation, and failure behavior.
+        status: planned
+      - id: "11"
         title: Verifiable consumer target handover
         summary: >-
           Evolve the single standardized infrastructure result with a
@@ -107,14 +117,14 @@ groups:
           ainfra-to-aibox handover without treating discovery or signatures as
           proof of current live infrastructure state.
         status: idea
-      - id: "11"
+      - id: "12"
         title: Complete major-cloud templates
         summary: >-
           Add comparable certified templates for AWS, Microsoft Azure, and
           Google Cloud while preserving the same native-file and output
           contracts.
         status: idea
-      - id: "12"
+      - id: "13"
         title: Specialized compute templates
         summary: >-
           Add templates for Vast.ai and similar GPU or on-demand compute
@@ -124,27 +134,27 @@ groups:
   - label: Template ecosystem
     note: authoring, compatibility, and trust
     phases:
-      - id: "13"
+      - id: "14"
         title: Compatibility and migration experience
         summary: >-
           Improve fixtures, compatibility diagnosis, deprecation reporting,
           and safe template-contract migration previews as contracts evolve.
         status: idea
-      - id: "14"
+      - id: "15"
         title: Catalog and trust metadata
         summary: >-
           Define interoperable discovery metadata for certified Git-hosted
           templates, including compatibility, publisher identity, signatures,
           attestations, and revocation.
         status: idea
-      - id: "15"
+      - id: "16"
         title: Operational evidence export
         summary: >-
           Export sanitized and attributable deployment evidence for audits and
           support without exporting plans, state, credentials, or sensitive
           output.
         status: idea
-      - id: "16"
+      - id: "17"
         title: Authoring and editor integration
         summary: >-
           Publish schema bundles, completions, and editor integrations that
@@ -155,7 +165,7 @@ groups:
   - label: Extended provisioning
     note: infrastructure-adjacent bootstrap
     phases:
-      - id: "17"
+      - id: "18"
         title: External cluster bootstrap
         summary: >-
           Invoke a dedicated external tool for initial k3s or comparable
@@ -166,20 +176,20 @@ groups:
   - label: Policy and coordination
     note: potential directions
     phases:
-      - id: "18"
+      - id: "19"
         title: External policy checks
         summary: >-
           Pass sanitized manifests or plan summaries to an external policy
           engine at explicit lifecycle gates and enforce its result without
           owning a policy language.
         status: idea
-      - id: "19"
+      - id: "20"
         title: Deployment-set coordination
         summary: >-
           Coordinate several independent deployments while preserving separate
           state, locks, reviewed plans, approvals, and failure boundaries.
         status: idea
-      - id: "20"
+      - id: "21"
         title: Remote execution protocol
         summary: >-
           Run the same CLI lifecycle in a controlled remote environment while
@@ -190,7 +200,7 @@ groups:
   - label: Engine evolution
     note: deliberately distant architectural options
     phases:
-      - id: "21"
+      - id: "22"
         title: Exchangeable infrastructure engine
         summary: >-
           Evaluate a versioned provisioning-engine contract that could support
@@ -199,10 +209,23 @@ groups:
           change approval, teardown semantics, recovery, or audit evidence.
         status: idea
 
+  - label: Credential ecosystem
+    note: additional independently operated authorities
+    phases:
+      - id: "23"
+        title: Additional deployment credential providers
+        summary: >-
+          Add conformance-tested adapters for selected external vaults, cloud
+          secret managers, KMS-backed decryption, and OIDC credential brokers
+          while preserving the bounded provider capability contract,
+          engine-native delivery, and provider-neutral template and lifecycle
+          core; attestation-gated KBS integration remains in Phase 24.
+        status: idea
+
   - label: Confidential infrastructure
     note: attested platforms and confidential secret release
     phases:
-      - id: "22"
+      - id: "24"
         title: Confidential computing and live attestation
         summary: >-
           Provision and describe confidential-computing targets, supported TEE

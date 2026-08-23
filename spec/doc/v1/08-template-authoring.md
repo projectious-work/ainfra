@@ -126,6 +126,12 @@ ainfra to translate or synchronize the values.
 - **AINFRA-TPL-015:** ainfra doctor MUST check the reference structure and MAY
   delegate drift checking to pinned native documentation tools; it MUST NOT add
   its own provider-variable schema.
+- **AINFRA-TPL-016:** after the credential-slot contract ships, templates MUST
+  declare each deployment credential's lifecycle phases, consuming engine, and
+  engine-native destination without choosing an acquisition provider.
+- **AINFRA-TPL-017:** template credential documentation MUST include the
+  minimum required provider scope, direct-tool equivalent, expiry or renewal
+  expectations, and safe teardown requirements.
 
 ## Provider example: temporary bastion and tunnel
 

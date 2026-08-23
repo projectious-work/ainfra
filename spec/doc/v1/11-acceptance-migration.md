@@ -55,6 +55,20 @@ Negative fixtures MUST prove rejection or redaction for:
 - reconciliation path escape, precondition race, partial failure, and attempts
   to modify native inputs, plans, state, credentials, or remote resources.
 
+Roadmap Phase 10 additionally requires acceptance journeys that:
+
+- acquire a SOPS value with each supported key mechanism without persistent
+  plaintext and clean up on success, failure, signal, and interrupted recovery;
+- acquire and renew a short-lived credential from an independently operated
+  OpenBao test service, then revoke it or demonstrate bounded expiry;
+- prove phase- and child-specific environment, file/FIFO, agent/socket, and
+  native-API delivery where supported;
+- reject missing bindings, provider substitution, widened authority, expired
+  leases, renewal failure, and unsupported headless authentication;
+- preserve direct-tool compatibility and the user-managed native path; and
+- show that no credential value or value-derived digest enters plans, argv,
+  logs, evidence, results, diagnostics, configuration snapshots, or fixtures.
+
 ## Template acceptance
 
 A conforming or certified template requires:
@@ -111,6 +125,8 @@ at the start of the phase that first needs it, after requirements are concrete:
 | JSON, YAML, and JSON Schema implementations | Contracts and doctor | Standards compliance, strict unknown-field behavior, maintained security posture, deterministic output, low dependency weight, and required Go-version support. |
 | Minimum OpenTofu and Ansible Runner versions | First real-tool integration | Required CLI/event features, upstream support and security status, availability in the developer environment, and an affordable compatibility matrix. |
 | Release signing or attestation backend | Release packaging implementation | Public verification, identity and key-rotation model, automation without exported long-lived secrets, platform availability, and recovery documentation. |
+| SOPS version and supported key integrations | Deployment credential hardening | Maintained security posture, headless and interactive operation, machine-readable failure behavior, stdin/stdout support, platform availability, and deterministic testability. |
+| OpenBao API, Agent, authentication, and lease interfaces | Deployment credential hardening | Upstream-supported protocols, workload-identity support, least-privilege policy, renewal and revocation behavior, TLS trust, auditability, and disposable conformance testing. |
 
 The phase note records candidates considered, selected versions, rationale,
 licenses, security review, and validation evidence before the dependency or

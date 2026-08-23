@@ -36,6 +36,9 @@ See [package-dependencies.svg](package-dependencies.svg).
 | `internal/reconcile` | Plan and apply permitted local fixes, then verify their outcomes. |
 | `internal/migration` | Plan and apply explicit template-contract version transformations. |
 | `internal/security` | Enforce containment, file, environment, redaction, and output policies. |
+| `internal/credential` | Resolve symbolic credential bindings and coordinate acquisition, scoped delivery, renewal, cleanup, and non-secret provenance through narrow ports. |
+| `internal/credential/sops` | Acquire SOPS-protected values through a controlled local subprocess adapter. |
+| `internal/credential/openbao` | Acquire and renew short-lived values from an independently operated OpenBao service. |
 | `internal/exec` | Execute child processes without a shell under explicit IO and environment policy. |
 | `internal/logging` | Create redacted structured events and deliver them to configured sinks. |
 | `internal/output` | Render typed results as rich text, plain text, or versioned JSON. |
@@ -86,6 +89,15 @@ child-tool credentials.
 Discovers deployment roots, parses and validates `ainfra.yaml`, resolves native
 input paths, and exposes an immutable deployment model. It does not acquire
 templates or execute tools.
+
+### `credential`
+
+Defines provider and delivery ports consumed by lifecycle use cases. It
+resolves symbolic bindings, coordinates just-in-time acquisition and renewal,
+returns opaque secret handles rather than serializable values, and emits only
+non-secret provenance. Provider adapters contain provider-specific protocols;
+engine adapters own final native delivery. Neither templates nor the
+`credential` package may introduce arbitrary executable hooks.
 
 ### `template`
 

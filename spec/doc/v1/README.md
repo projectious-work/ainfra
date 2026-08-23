@@ -50,6 +50,8 @@ backend behavior.
 15. [MCP server mode](15-mcp-server-mode.md)
 16. [Market positioning](16-market-positioning.md)
 17. [Spec-driven development cycle](17-spec-driven-development-cycle.md)
+18. [Deployment credential acquisition and
+    delivery](18-deployment-credentials.md)
 
 Roadmap data:
 
@@ -102,6 +104,9 @@ checked-in specification, its schemas, examples, and fixtures:
 - `DEC-20260807_1627-AmberFlute`: retain read-only MCP as the default while
   allowing explicitly enabled, independently authorized, plan-bound lifecycle
   mutations in v1 and standardize the `mcp serve --stdio` entry point.
+- `DEC-20260823_1611-BrightSail`: harden deployment credential acquisition and
+  delivery through bounded SOPS and independently operated OpenBao providers,
+  with later provider expansion.
 
 This repository MUST be sufficient to implement and review v1 without access
 to external decision records. The accepted specification commit is the sole

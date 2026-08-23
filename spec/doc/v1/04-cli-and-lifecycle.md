@@ -229,12 +229,15 @@ may be performed by this command.
 2. Materialize the locked template into a new run workspace.
 3. Hash deployment metadata, all declared native input files, template, and
    relevant executable versions.
-4. Run `tofu init`, adding each declared backend configuration file as a
+4. Resolve required credential bindings, acquire them just in time, and bind
+   their non-secret authority provenance to the plan.
+5. Run `tofu init`, adding each declared backend configuration file as a
    repeated `-backend-config=<path>` argument in declaration order.
-5. Run `tofu plan -out=plan.tfplan`, adding each declared variable file as a
+6. Run `tofu plan -out=plan.tfplan`, adding each declared variable file as a
    repeated `-var-file=<path>` argument in declaration order; add `-destroy`
    for a destroy plan.
-6. Create a sanitized structural plan summary and immutable plan record.
+7. Clean up ephemeral delivery objects and create a sanitized structural plan
+   summary and immutable plan record.
 
 - **AINFRA-PLAN-001:** plan IDs MUST be unguessable or content-derived with
   collision resistance and safe as directory names.
@@ -255,6 +258,9 @@ may be performed by this command.
 - **AINFRA-APPLY-004:** ainfra MUST record `started` before process execution
   and a terminal `succeeded`, `failed`, or `cancelled` event afterward.
 - **AINFRA-APPLY-005:** ambiguous interruption MUST route to manual inspection.
+- **AINFRA-APPLY-006:** apply MUST reacquire each required credential through
+  the reviewed symbolic binding and verify its non-secret authority identity
+  before child execution.
 
 ## Output and inventory
 
@@ -381,6 +387,8 @@ Destroy uses the same reviewed-plan boundary as apply.
   <destroy-plan>` without independently reading or interpreting OpenTofu state.
 - **AINFRA-DESTROY-004:** provider-side independent verification MUST be
   documented for every certified template.
+- **AINFRA-DESTROY-005:** destroy MUST reacquire required deployment
+  credentials; it MUST NOT depend on plaintext retained from plan or apply.
 
 ## Exit codes
 

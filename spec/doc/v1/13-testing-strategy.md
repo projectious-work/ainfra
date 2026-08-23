@@ -71,6 +71,11 @@ These tests prove that ainfra:
 - handles partial writes and interruption without false success; and
 - applies only reconcilers whose preconditions still hold.
 
+Credential-provider component tests additionally use fake SOPS and OpenBao
+boundaries to prove acquisition identity, phase scoping, renewal, revocation,
+redaction, cleanup, cancellation, and fail-closed provider substitution. No
+fixture contains a syntactically plausible live credential.
+
 Fake executables are fixtures, not alternate production adapters.
 
 ## Black-box CLI tests

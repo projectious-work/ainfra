@@ -60,6 +60,13 @@ The v1 threat model includes:
 
 ## Secret handling
 
+The complete deployment-credential acquisition, delivery, lifecycle, and
+scenario contract is defined in
+[Deployment credential acquisition and delivery](18-deployment-credentials.md).
+That contract distinguishes credentials authorizing ainfra's engines from
+bootstrap secrets placed by templates and workload secrets consumed after
+handover.
+
 - **AINFRA-SEC-020:** ainfra MUST NOT accept inline secret fields in
   `ainfra.yaml` or the template manifest.
 - **AINFRA-SEC-021:** committed examples MUST use placeholders and `.invalid`
@@ -79,6 +86,11 @@ The v1 threat model includes:
 - **AINFRA-SEC-027:** engine evidence profiles MUST be embedded, reviewed
   ainfra assets in v1; templates and deployments MUST NOT supply or override
   parsing, classification, or redaction rules.
+- **AINFRA-SEC-028:** a template or deployment MUST NOT select a credential
+  provider or contain provider authentication material; it may declare or bind
+  only the symbolic contract defined by the credential specification.
+- **AINFRA-SEC-029:** ainfra MUST acquire deployment credentials only through
+  supported bounded adapters or documented user-managed native mechanisms.
 
 ## Engine state and destructive safety
 

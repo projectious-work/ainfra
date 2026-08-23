@@ -31,6 +31,13 @@ spec:
   [`../../schemas/v1/ainfra.schema.json`](../../schemas/v1/ainfra.schema.json)
   defines the structural contract.
 
+Roadmap Phase 10 extends these documents with credential slots and symbolic
+bindings as specified in
+[Deployment credential acquisition and delivery](18-deployment-credentials.md).
+That phase MUST add schemas, positive examples, negative fixtures, and a
+migration path before the CLI accepts the illustrative fields. It MUST NOT
+reinterpret unknown fields under the current schema.
+
 ## Template manifest
 
 The manifest declares identity, compatibility, engine directories, required
