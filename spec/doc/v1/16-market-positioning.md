@@ -53,11 +53,22 @@ Git, and SSH applicable to their template. The simplification is fewer custom
 scripts, fewer organization-specific conventions, one documented lifecycle,
 and a direct escape path through standard tools.
 
-The strongest initial positioning is:
+The initial golden-path wedge remains valid, but the leading product posture is
+now:
 
-> Golden-path infrastructure environments for developers and small teams,
-> delivered as native, inspectable OpenTofu and Ansible templates without a
-> hosted platform or proprietary execution layer.
+> The agent-native infrastructure execution boundary for reviewed,
+> reproducible OpenTofu and Ansible deployments.
+
+The supporting promise is:
+
+> Agents create and adapt standard templates. ainfra validates, locks, plans,
+> authorizes, executes, and records them through MCP or CLI.
+
+This does not claim deterministic cloud outcomes or infrastructure without
+expert knowledge. It distinguishes ainfra from an agent directly invoking a
+shell: the differentiated product is reusable institutional knowledge plus the
+governed boundary around authority, credentials, reviewed change, execution,
+evidence, and recovery.
 
 Production use can remain possible, but the initial promise should emphasize
 fast, understandable, disposable or reconstructible environments. Certified

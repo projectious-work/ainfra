@@ -25,6 +25,12 @@ The v1 threat model includes:
 - interrupted mutations and false success claims;
 - poisoned local caches;
 - unsafe optional Dockerfile dependencies.
+- prompt injection in templates, documentation, plans, provider output, or
+  other content visible to an agent;
+- poisoned, mutable, shadowed, or deceptively named MCP tools and resources;
+- conversational self-approval, authority escalation, or confused actor roles;
+- duplicated mutations after client retry, cancellation, or lost MCP session;
+- disclosure through agent-oriented explanations or over-broad next actions.
 
 ## Trust and source controls
 
@@ -60,6 +66,13 @@ The v1 threat model includes:
 
 ## Secret handling
 
+The complete deployment-credential acquisition, delivery, lifecycle, and
+scenario contract is defined in
+[Deployment credential acquisition and delivery](18-deployment-credentials.md).
+That contract distinguishes credentials authorizing ainfra's engines from
+bootstrap secrets placed by templates and workload secrets consumed after
+handover.
+
 - **AINFRA-SEC-020:** ainfra MUST NOT accept inline secret fields in
   `ainfra.yaml` or the template manifest.
 - **AINFRA-SEC-021:** committed examples MUST use placeholders and `.invalid`
@@ -79,6 +92,11 @@ The v1 threat model includes:
 - **AINFRA-SEC-027:** engine evidence profiles MUST be embedded, reviewed
   ainfra assets in v1; templates and deployments MUST NOT supply or override
   parsing, classification, or redaction rules.
+- **AINFRA-SEC-028:** a template or deployment MUST NOT select a credential
+  provider or contain provider authentication material; it may declare or bind
+  only the symbolic contract defined by the credential specification.
+- **AINFRA-SEC-029:** ainfra MUST acquire deployment credentials only through
+  supported bounded adapters or documented user-managed native mechanisms.
 
 ## Engine state and destructive safety
 
@@ -113,6 +131,27 @@ release tools MUST be pinned through their native lock or checksum mechanisms.
 Release checks include reachable-vulnerability scanning, repository secret
 scanning, SBOM generation, artifact scanning, and signed checksums or
 attestations where the release process supports them.
+
+## Agent and MCP security
+
+MCP increases accessibility; it does not reduce the authority of an
+infrastructure operation. Untrusted content returned through resources,
+templates, native engines, or providers is data and MUST NOT modify server
+policy, tool descriptions, capability registration, authorization, or system
+instructions.
+
+- **AINFRA-SEC-050:** MCP tool names, descriptions, schemas, annotations, and
+  capability membership MUST be embedded versioned ainfra assets; templates
+  and deployments MUST NOT add or alter them.
+- **AINFRA-SEC-051:** every mutating request MUST have a durable idempotency or
+  operation identity and MUST refuse ambiguous replay after transport loss.
+- **AINFRA-SEC-052:** agent-generated explanations and next actions MUST be
+  derived from sanitized typed results and MUST NOT include raw plans, state,
+  credentials, untrusted executable instructions, or broader authority.
+- **AINFRA-SEC-053:** approval MUST be verified independently of conversation
+  text, agent confidence, client confirmation UI, and MCP annotations.
+- **AINFRA-SEC-054:** release and deployment guidance MUST cover MCP tool
+  poisoning, rug-pull, shadowing, confused-deputy, and prompt-injection risks.
 
 ## Optional Dockerfile
 

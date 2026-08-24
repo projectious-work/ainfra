@@ -86,7 +86,8 @@ menu:
       weight: 40
 
 params:
-  description: Immutable, auditable infrastructure lifecycle orchestration.
+  description: >-
+    Agent-native execution for reviewed OpenTofu and Ansible infrastructure.
   github: https://github.com/projectious-work/ainfra
   version: v1.0.0-alpha.7
   releaseMenuLabel: Releases

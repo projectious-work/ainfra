@@ -1,5 +1,11 @@
 ## Goals
 
+ainfra is an agent-native infrastructure execution boundary. MCP is the
+primary agent experience, the CLI remains complete for direct human, CI,
+recovery, and break-glass operation, and both adapt the same application use
+cases. The rationale and division of labour are defined in
+[Agent-native product posture](19-agent-native-posture.md).
+
 - **AINFRA-PROD-001:** ainfra MUST provide one understandable command surface
   for acquiring a template, planning infrastructure, applying a reviewed plan,
   configuring hosts, inspecting status, and destroying owned infrastructure.
@@ -26,13 +32,19 @@
   different command applicability, and provisioning/teardown semantics not
   present in the current lifecycle contract. It MUST NOT be simulated with an
   empty OpenTofu root module.
+- **AINFRA-PROD-009:** ainfra MUST expose agent-readable discovery, planning,
+  execution, status, evidence, and recovery through bounded typed operations
+  without adding an agent-specific infrastructure language.
+- **AINFRA-PROD-010:** MCP, CLI, and future adapters MUST call one interface-
+  neutral application core and MUST NOT implement divergent lifecycle rules.
 
 ## Target users
 
-Primary users are infrastructure-capable developers, consultants, and small
-platform teams who want reviewed, repeatable deployments without adopting a
-remote infrastructure control plane. Secondary users are AI coding agents
-working under human review.
+Primary users are AI agents operating for infrastructure-capable developers,
+consultants, and platform teams, plus those humans operating ainfra directly.
+They want reviewed, repeatable deployments without adopting a mandatory remote
+infrastructure control plane. CI systems and portals are additional callers of
+the same typed lifecycle.
 
 Users are expected to understand the cost and ownership implications of the
 chosen template. ainfra improves repeatability and safety; it does not replace
@@ -50,6 +62,8 @@ provider knowledge.
 7. Destroy exactly the infrastructure covered by a reviewed destroy plan.
 8. Author and validate a new template for a provider or hosting service.
 9. Reproduce operations inside a user-built container when desired.
+10. Let an authorized agent inspect, plan, explain, execute, monitor, and
+    recover the same bounded lifecycle without shell wrappers or prose parsing.
 
 ## Non-goals
 
@@ -75,7 +89,8 @@ provider knowledge.
 
 | Owner | Responsibilities |
 |---|---|
-| ainfra CLI | Source acquisition, locking, validation, lifecycle sequencing, safe subprocess execution, plan binding, inventory generation, run evidence, diagnostics, redaction, teardown guards |
+| ainfra application core | Source acquisition, locking, validation, lifecycle sequencing, safe subprocess execution, plan binding, inventory generation, run evidence, diagnostics, redaction, teardown guards |
+| MCP and CLI adapters | Typed input conversion, capability presentation, result rendering, transport behavior, and delegation to identical application use cases |
 | Template | Provider resources, OpenTofu variables and outputs, Ansible content, supported topology, provider-specific security, template documentation |
 | Deployment | Template selection, pointers to native engine input files, credential references, approvals |
 | OpenTofu | Infrastructure dependency graph, provider execution, plan, apply, state, locking |

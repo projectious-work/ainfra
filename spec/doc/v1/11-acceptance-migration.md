@@ -35,6 +35,24 @@ these journeys pass from a clean supported environment:
     and unauthorized destructive requests before child invocation; and
 19. build Linux/macOS binaries and validate the optional Dockerfile.
 
+Roadmap Phase 10 additionally requires acceptance journeys that:
+
+- complete the same inspect, diagnose, plan, independently authorize, apply,
+  status, evidence, recovery, destroy-plan, and destroy lifecycle through MCP
+  and CLI with equivalent domain outcomes;
+- discover version-matched schemas, template guidance, capabilities, sanitized
+  plan summaries, results, and recovery resources without repository access;
+- recover durable operation status after MCP client cancellation or session
+  loss without duplicating a mutation;
+- distinguish template author, plan requester, approver, credential authority,
+  and executor in sanitized evidence;
+- reject arbitrary commands, natural-language authority, self-approval,
+  capability escalation, stale or shadowed tools, prompt injection, unsafe
+  generated remediation, and ambiguous replay before child invocation; and
+- publish the agent-native posture, division of labour, MCP-first journey, CLI
+  parity, security boundary, and non-deterministic cloud caveat consistently in
+  the README and maintained documentation.
+
 ## Security acceptance
 
 Negative fixtures MUST prove rejection or redaction for:
@@ -54,6 +72,31 @@ Negative fixtures MUST prove rejection or redaction for:
 - unsafe Dockerfile changes;
 - reconciliation path escape, precondition race, partial failure, and attempts
   to modify native inputs, plans, state, credentials, or remote resources.
+
+Roadmap Phase 11 additionally requires acceptance journeys that:
+
+- acquire a SOPS value with each supported key mechanism without persistent
+  plaintext and clean up on success, failure, signal, and interrupted recovery;
+- acquire and renew a short-lived credential from an independently operated
+  OpenBao test service, then revoke it or demonstrate bounded expiry;
+- prove phase- and child-specific environment, file/FIFO, agent/socket, and
+  native-API delivery where supported;
+- reject missing bindings, provider substitution, widened authority, expired
+  leases, renewal failure, and unsupported headless authentication;
+- preserve direct-tool compatibility and the user-managed native path; and
+- show that no credential value or value-derived digest enters plans, argv,
+  logs, evidence, results, diagnostics, configuration snapshots, or fixtures.
+
+Roadmap Phase 12 additionally requires acceptance journeys that:
+
+- produce one closed, non-secret, versioned target projection from the same
+  standardized infrastructure result used for inventory;
+- verify its provenance, compatibility, declared capabilities, symbolic trust
+  references, and freshness policy in Aibox without transferring authority;
+- preserve the exact ainfra result as immutable producer-owned evidence while
+  Aibox emits its own separate environment result; and
+- prove that Aibox remains usable locally and against an independently
+  configured existing target when no ainfra result is supplied.
 
 ## Template acceptance
 
@@ -111,6 +154,9 @@ at the start of the phase that first needs it, after requirements are concrete:
 | JSON, YAML, and JSON Schema implementations | Contracts and doctor | Standards compliance, strict unknown-field behavior, maintained security posture, deterministic output, low dependency weight, and required Go-version support. |
 | Minimum OpenTofu and Ansible Runner versions | First real-tool integration | Required CLI/event features, upstream support and security status, availability in the developer environment, and an affordable compatibility matrix. |
 | Release signing or attestation backend | Release packaging implementation | Public verification, identity and key-rotation model, automation without exported long-lived secrets, platform availability, and recovery documentation. |
+| MCP SDK and supported protocol version | Agent-native interface hardening | Official or well-maintained implementation, strict schema support, cancellation, resources, tool annotations without reliance on them for security, stdio interoperability, and low domain coupling. |
+| SOPS version and supported key integrations | Deployment credential hardening | Maintained security posture, headless and interactive operation, machine-readable failure behavior, stdin/stdout support, platform availability, and deterministic testability. |
+| OpenBao API, Agent, authentication, and lease interfaces | Deployment credential hardening | Upstream-supported protocols, workload-identity support, least-privilege policy, renewal and revocation behavior, TLS trust, auditability, and disposable conformance testing. |
 
 The phase note records candidates considered, selected versions, rationale,
 licenses, security review, and validation evidence before the dependency or

@@ -31,6 +31,13 @@ spec:
   [`../../schemas/v1/ainfra.schema.json`](../../schemas/v1/ainfra.schema.json)
   defines the structural contract.
 
+Roadmap Phase 11 extends these documents with credential slots and symbolic
+bindings as specified in
+[Deployment credential acquisition and delivery](18-deployment-credentials.md).
+That phase MUST add schemas, positive examples, negative fixtures, and a
+migration path before the CLI accepts the illustrative fields. It MUST NOT
+reinterpret unknown fields under the current schema.
+
 ## Template manifest
 
 The manifest declares identity, compatibility, engine directories, required
@@ -140,10 +147,10 @@ new result version may extend the closed cross-template model without changing
 `ainfra.projectious.work/v1`. Ainfra MUST continue to recognize every result
 version promised by its compatibility policy and MUST reject unknown versions.
 
-Result version 1 is the current inventory-only shape described below. A future
-result version that supports workload consumers MUST add a closed `targets`
-section to this same contract family rather than introduce a second template
-output. Its target entries MUST be limited to:
+Result version 1 is the current inventory-only shape described below. The
+committed consumer-handover phase evolves this contract family with a closed
+`targets` section rather than introducing a second template output. Its target
+entries MUST be limited to:
 
 - stable target identity and declared capabilities;
 - sanitized network endpoints and supported connection transports;
@@ -163,6 +170,13 @@ it neither grants access nor allows ainfra to retrieve the referenced secret.
 Discovery by a consumer MAY verify declared capabilities and reachability, but
 MUST NOT replace the result contract. Discovery alone cannot establish target
 ownership, operator intent, authorized identity, trust policy, or provenance.
+
+The result is a product-owned proof artifact, not a command for a consumer.
+Ainfra owns its schema and records only infrastructure operations and facts it
+can substantiate. A workload deployer such as Aibox MAY import it, MAY use an
+independently configured existing target, or MAY operate locally without
+ainfra. A consumer that performs another operation owns a separate result for
+that operation and references the ainfra result without modifying it.
 
 ### Result version 1: inventory hosts
 
@@ -244,6 +258,13 @@ connection plugins other than `local` and `ssh`.
 - **AINFRA-CONTRACT-042:** ainfra MUST preserve result-version compatibility
   explicitly; it MUST NOT reinterpret a result under a newer schema or enrich
   it by reading OpenTofu state.
+- **AINFRA-CONTRACT-048:** the infrastructure result and its provenance are
+  owned and versioned by ainfra. Consumers MUST treat them as immutable input
+  evidence and MUST NOT append workload state or consumer-specific lifecycle
+  fields to the ainfra artifact.
+- **AINFRA-CONTRACT-049:** consuming an ainfra result MUST remain optional.
+  The contract MUST NOT imply that a workload tool requires ainfra for local
+  execution or for an existing target supplied through another authority.
 
 ### Deployment provenance attestation
 
