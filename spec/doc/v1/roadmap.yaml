@@ -144,10 +144,15 @@ groups:
           contracts.
         status: idea
       - id: "14"
-        title: Specialized compute templates
+        title: Specialized compute infrastructure templates
         summary: >-
-          Add templates for Vast.ai and similar GPU or on-demand compute
-          providers, with explicit lifecycle and teardown limitations.
+          Add qualified templates for GPU and on-demand providers only where
+          they yield independently usable hosts or clusters for downstream
+          workload deployment, with explicit capability, cost, lifecycle, and
+          teardown limitations. Exclude atomic managed-container creation even
+          when an OpenTofu provider models it; platforms such as Vast.ai remain
+          workload-deployer adapter candidates unless they expose a separable
+          infrastructure product.
         status: idea
 
   - label: Template ecosystem

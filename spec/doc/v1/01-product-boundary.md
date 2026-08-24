@@ -84,6 +84,13 @@ provider knowledge.
   records, CLI flags, or implementation structure is not required.
 - **AINFRA-NONGOAL-009:** ainfra does not embed OpenTofu or Ansible as
   libraries.
+- **AINFRA-NONGOAL-010:** ainfra does not claim a managed-container operation
+  merely because an OpenTofu provider models it. When a platform exposes no
+  independently usable host or cluster and its atomic operation allocates
+  capacity while creating the declared OCI workload, that lifecycle belongs to
+  the workload deployer. Ainfra may still provision independent networking,
+  storage, gateways, observability, registries, and secret services consumed by
+  that workload.
 
 ## Ownership boundary
 
@@ -96,6 +103,12 @@ provider knowledge.
 | OpenTofu | Infrastructure dependency graph, provider execution, plan, apply, state, locking |
 | Ansible Runner/Core | Host inspection and configuration, task semantics, facts and fact caching, check mode, collection behavior, and engine-reported outcomes |
 | Operator | Credentials, plan review, cost approval, SSH trust, destructive approval, independent provider verification |
+
+The boundary follows the resulting resource capability rather than the
+automation technology. A specialized-compute template is conforming only when
+its result is independently usable infrastructure onto which a downstream
+system can deploy workloads. A Terraform/OpenTofu provider is not by itself
+evidence of that separation.
 
 ## Supported delivery
 
