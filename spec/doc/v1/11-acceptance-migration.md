@@ -87,6 +87,17 @@ Roadmap Phase 11 additionally requires acceptance journeys that:
 - show that no credential value or value-derived digest enters plans, argv,
   logs, evidence, results, diagnostics, configuration snapshots, or fixtures.
 
+Roadmap Phase 12 additionally requires acceptance journeys that:
+
+- produce one closed, non-secret, versioned target projection from the same
+  standardized infrastructure result used for inventory;
+- verify its provenance, compatibility, declared capabilities, symbolic trust
+  references, and freshness policy in Aibox without transferring authority;
+- preserve the exact ainfra result as immutable producer-owned evidence while
+  Aibox emits its own separate environment result; and
+- prove that Aibox remains usable locally and against an independently
+  configured existing target when no ainfra result is supplied.
+
 ## Template acceptance
 
 A conforming or certified template requires:

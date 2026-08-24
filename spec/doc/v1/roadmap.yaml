@@ -135,7 +135,7 @@ groups:
           provenance, DSSE signing, signer and freshness policy, and one proven
           ainfra-to-aibox handover without treating discovery or signatures as
           proof of current live infrastructure state.
-        status: idea
+        status: planned
       - id: "13"
         title: Complete major-cloud templates
         summary: >-

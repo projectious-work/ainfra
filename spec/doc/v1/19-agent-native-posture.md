@@ -142,6 +142,17 @@ for server-side verification.
   plan, approval, credential authority, execution, and evidence without
   recording secret values or private chain-of-thought.
 
+Cross-product orchestration does not create a global ainfra identity model. An
+orchestrator such as Kaits authenticates to ainfra as an ordinary authorized
+client and MAY provide an opaque correlation identifier and idempotency key.
+Ainfra records those values for evidence and retry safety but does not infer
+human, TeamMember, Airunner, or portfolio authority from them.
+
+- **AINFRA-AGENT-032:** external correlation identifiers MUST be treated as
+  opaque evidence metadata and MUST NOT grant authority or select credentials.
+- **AINFRA-AGENT-033:** mutating agent operations MUST support an idempotency
+  key or equivalent durable replay guard independent of MCP session identity.
+
 ## Remote and protocol evolution
 
 Local stdio remains the initial MCP transport. A future remote MCP service is
