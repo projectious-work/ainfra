@@ -404,3 +404,43 @@ Destroy uses the same reviewed-plan boundary as apply.
 
 Specific diagnostics use stable `AINFRA-E####` codes inside the machine
 envelope; callers MUST rely on the code, not English text.
+
+## Whole-stack consumer workflow
+
+Ainfra leads infrastructure provisioning and produces the standardized,
+sanitized target result. A consuming environment tool such as aibox plans and
+applies its own deployment against that immutable result without receiving
+OpenTofu state, Ansible internals, or plaintext deployment credentials.
+
+```sh
+# Provision target infrastructure.
+ainfra doctor deployment development
+ainfra plan development
+ainfra apply development --plan INFRA_RUN
+ainfra output development --run INFRA_RUN
+
+# Bind and deploy a standard environment onto the result.
+aibox doctor agent-runner
+aibox plan agent-runner --target ainfra://development/runs/INFRA_RUN
+aibox apply agent-runner --plan AIBOX_RUN
+aibox output agent-runner --run AIBOX_RUN
+
+# Use the environment when interactive.
+aibox attach agent-runner
+```
+
+The equivalent MCP journey preserves the same ordering and saved-plan
+boundaries: ainfra plans and applies infrastructure, returns a target result,
+then aibox independently plans and applies the environment. A consumer result
+may subsequently be handed to kaits or another authorized system.
+
+- **AINFRA-STACK-001:** the target URI MUST resolve to an exact recorded ainfra
+  result and MUST NOT mean "latest" at mutation time.
+- **AINFRA-STACK-002:** downstream planning MUST NOT extend ainfra apply
+  authority or mutate ainfra state.
+- **AINFRA-STACK-003:** ainfra output MUST contain sufficient target identity,
+  capability, access-path, trust, provenance, and symbolic provider references
+  for bounded consumption without infrastructure autodiscovery.
+- **AINFRA-STACK-004:** CLI and MCP documentation MUST show the same producer
+  to consumer order and distinguish the infrastructure run from every
+  downstream deployment run.
