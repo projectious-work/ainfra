@@ -1,6 +1,6 @@
 # Phase 9: Initial production template
 
-Status: implementation complete; live certification and release pending
+Status: shipped in v1.0.0-alpha.9; live certification complete
 
 Phase 9 adds `templates/hetzner-kubernetes-baseline`, the first provider-backed
 ainfra v1 production candidate. It provisions ownership-labelled Hetzner
@@ -20,7 +20,7 @@ explicit temporary bastion.
 | Kubernetes bootstrap boundary | Initial K3s services and membership verification; no workloads or day-two operations |
 | Documentation and variable drift | Complete README, four-section native reference, doctor checks, and permanent Go/Python tests |
 | Offline engine validation | OpenTofu fmt/init/validate and Ansible syntax in `tests/validate.sh` |
-| Live certification | Pending explicit cost approval and disposable provider lifecycle |
+| Live certification | Cost-approved disposable lifecycle passed: zero-change convergence, tunnel-only administration after bastion removal, exact destruction, and independent provider-side leak check |
 
 ## Implementation-time selections
 
@@ -39,7 +39,9 @@ and unsupported provider-variable layer. It added the current v1 manifest,
 standard inventory output, tunnel/bastion semantics, initial K3s bootstrap,
 complete variable documentation, and offline conformance tests.
 
-No certification claim is made from offline evidence. Phase 9 remains
-`in_progress` until a cost-approved lifecycle records reviewed apply,
-configure, zero-change check, bastion removal, destroy, and independent
-ownership-scoped Hetzner teardown evidence.
+Offline evidence alone did not establish certification. The subsequent
+cost-approved disposable lifecycle recorded reviewed apply, configure,
+zero-change check, bastion removal, exact destroy, and independent
+ownership-scoped Hetzner teardown evidence. Phase 9 shipped in
+`v1.0.0-alpha.9`; see the Phase 9 changelog and release notes for the
+certification outcome and published artifacts.
