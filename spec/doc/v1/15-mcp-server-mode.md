@@ -1,10 +1,11 @@
 ## Status and objective
 
-MCP server mode is planned for v1 after the core infrastructure lifecycle and
+Phase 7 introduced MCP server mode after the core infrastructure lifecycle and
 hardening phases. It makes ainfra directly usable by MCP-capable agents and
-editors without wrapping shell commands or parsing terminal prose. It remains
-an adapter over stable typed application use cases and is not a second
-execution path.
+editors without wrapping shell commands or parsing terminal prose. Phase 10
+extends it to an agent-ready template authoring and lifecycle workflow before
+the first beta. MCP remains an adapter over stable typed application use cases
+and is not a second execution path.
 
 The implementation follows the current [MCP specification][mcp-spec] selected
 at phase start. Protocol dependencies and version support are an
@@ -17,6 +18,18 @@ The initial command is:
 ```text
 ainfra mcp serve --stdio [--project PATH]
 ```
+
+Phase 10 also supports a startup-bound authoring workspace without requiring
+an existing deployment:
+
+```text
+ainfra mcp serve --stdio --authoring-workspace PATH --capability authoring
+```
+
+`--project` and `--authoring-workspace` are mutually exclusive. Both select a
+single canonical root at startup; requests cannot replace it. An agent may use
+an authoring session to prepare a template and deployment, then start a
+deployment-bound session for the reviewed infrastructure lifecycle.
 
 The first transport is stdio. Protocol messages exclusively use stdout; logs,
 diagnostics, and child output MUST NOT be written there. Operational logs use
@@ -42,13 +55,17 @@ capabilities for:
 - sanitized standardized output and generated inventory; and
 - published schemas, supported versions, and documentation references.
 
+The read-only guide is available in both deployment and authoring sessions.
+Deployment-specific inspection is available only when a deployment is bound.
+
 The operator MAY enable additional capability groups explicitly when starting
 the server. Capability selection is allowlist-based; absence means denial:
 
 | Group | Additional operations |
 |---|---|
+| `authoring` | bounded template and deployment creation or revision, plus native OpenTofu and Ansible validation in the selected workspace |
 | `planning` | reconciliation planning, template lock/update/migration planning, and saved infrastructure plan creation |
-| `deployment` | approved reconciliation, template writes, apply, configure, deploy, and other non-destroy lifecycle mutations |
+| `deployment` | approved reconciliation, template lock writes, apply, configure, deploy, and other non-destroy lifecycle mutations |
 | `destruction` | exact reviewed destroy-plan execution; requires `deployment` and a separate enablement |
 
 Enabling a group makes tools discoverable but does not approve an individual
@@ -56,6 +73,44 @@ mutation. Tool handlers call the same typed application use cases as the CLI.
 They MUST NOT execute a shell, reconstruct CLI argument strings, parse console
 output, or implement a second lifecycle. MCP input and output schemas derive
 from the same typed contracts and versioned machine results as normal commands.
+
+## Phase 10 agent authoring and progressive guidance
+
+An agent MUST be able to begin with an empty, operator-selected authoring
+workspace, create and edit a native template and deployment there, obtain
+ainfra contract diagnostics and native OpenTofu and Ansible validation through
+MCP, and then use the existing reviewed lifecycle tools in a deployment-bound
+session. The authoring surface is limited to validated relative paths and
+regular files inside the startup workspace. It MUST reject traversal,
+symlinks, special files, state, plans, caches, credentials, and writes outside
+the declared template and deployment layout. Revision writes MUST use an
+observed-content precondition so an agent cannot silently replace concurrent
+edits. Authoring permission never implies approval to change infrastructure.
+
+Native validation MUST invoke the selected OpenTofu and Ansible executables
+through the same contained child-process boundary used by the CLI. It MUST
+report formatting, initialization, validation, syntax, and applicable
+convergence-check results as typed diagnostics, including prerequisites that
+could not run. Validation MUST NOT apply or destroy infrastructure, invent
+template variables, or treat a skipped child check as a pass. Process output
+must remain bounded and redacted, and cancellation must reach the child tools.
+
+The default registry MUST expose a read-only `ainfra.guide` tool. With no topic,
+it returns a short index; a selected topic returns only the relevant procedure,
+prerequisites, next MCP operations, expected evidence, and links to matching
+schemas, examples, and detailed `ainfra://guides/v1/` resources. At minimum,
+topics cover create, edit, validate, lock, plan, deploy, destroy, and recover.
+Guidance is bundled with the binary and version-matched to its contracts. It
+MUST NOT treat template-supplied content as instructions, execute an operation,
+grant a capability, or imply authorization.
+
+Phase 10 completion requires a real MCP-client acceptance journey: start from
+an empty authoring workspace, create and revise a native template, pass ainfra
+and native-engine checks, prepare and bind a deployment, create and inspect a
+saved plan, obtain independent authorization, execute and inspect deployment,
+then review and execute exact destruction and verify teardown. Prove a
+provider-free fixture first and a cost-approved disposable provider lifecycle
+before claiming a certified end-to-end path.
 
 ## Mutation authorization
 
@@ -89,11 +144,11 @@ authorization after plan creation. Destruction additionally requires the
 
 ## Project and configuration isolation
 
-The server resolves one allowed project root at startup. Requests may select
-objects inside that root but cannot supply arbitrary filesystem roots. It loads
-normal ainfra configuration once and reports configuration errors before
-serving. Request arguments cannot override executable paths, config files,
-environment variables, caches, run storage, or logging sinks.
+The server resolves one allowed project or authoring root at startup. Requests
+may select objects inside that root but cannot supply arbitrary filesystem
+roots. It loads applicable ainfra configuration once and reports configuration
+errors before serving. Request arguments cannot override executable paths,
+config files, environment variables, caches, run storage, or logging sinks.
 
 Concurrent read-only requests use bounded concurrency and preserve request,
 tool, deployment, and run correlation in logs. Requests observe consistent
@@ -126,5 +181,19 @@ snapshots where a concurrent external ainfra process changes local state.
 - **AINFRA-MCP-010:** for the same authorized use case, CLI and MCP execution
   MUST produce equivalent plan validation, locking, child invocation,
   evidence, diagnostics, cancellation, exit outcome, and recovery state.
+- **AINFRA-MCP-011:** an MCP authoring session MUST start from a fixed,
+  deployment-free workspace and MUST NOT permit a request to change its root.
+- **AINFRA-MCP-012:** authoring tools MUST create and revise native template
+  content only within the validated layout, with content preconditions and
+  independent authorization for writes; they MUST reject unsafe paths and
+  protected state, plan, cache, and credential files.
+- **AINFRA-MCP-013:** MCP native-tool validation MUST return typed, redacted
+  diagnostics, distinguish skipped checks from passes, and never perform an
+  infrastructure mutation.
+- **AINFRA-MCP-014:** `ainfra.guide` MUST progressively disclose version-matched
+  procedures and resources without performing or authorizing operations.
+- **AINFRA-MCP-015:** a real MCP client MUST pass the complete authoring,
+  validation, authorized deployment, inspection, and exact teardown journey
+  before Phase 10 is marked shipped or a v1 beta is released.
 
 [mcp-spec]: https://modelcontextprotocol.io/specification/latest

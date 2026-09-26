@@ -4,9 +4,10 @@ kind: DecisionRecord
 metadata:
   id: DEC-20260817_1602-HopefulGarnet-begin-beta-releases-after-phase-9
   created: '2026-08-17T16:02:07+00:00'
+  updated: '2026-09-25T15:18:13+00:00'
 spec:
   title: Begin beta releases after Phase 9 end-to-end acceptance
-  state: accepted
+  state: superseded
   decision: Use completion of Phase 9 as the v1.0.0-beta.1 boundary. Phase 9 completion
     includes successful create, configure, convergence, and destroy execution against
     a real disposable environment with the certified template, plus closure of release-blocking
@@ -38,4 +39,5 @@ spec:
     until their content and ordering are reviewed. The roadmap or release specification
     should document the beta boundary.
   decided_at: '2026-08-17T16:02:07+00:00'
+  superseded_by: DEC-20260924_1509-RapidDove
 ---

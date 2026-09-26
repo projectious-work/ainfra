@@ -1,5 +1,6 @@
 [sensitive_data.email_allowlist]
 addresses = [
+  "ainfra@projectious.work",
   "deploy@example.local",
   "info@projectious.work",
   "sk-ssh-ed25519@openssh.com",

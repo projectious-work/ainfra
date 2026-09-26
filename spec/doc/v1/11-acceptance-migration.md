@@ -34,6 +34,14 @@ these journeys pass from a clean supported environment:
     authorization, and refuse stale, mismatched, self-approved, unallowlisted,
     and unauthorized destructive requests before child invocation; and
 19. build Linux/macOS binaries and validate the optional Dockerfile.
+20. from an empty operator-selected workspace, discover focused MCP how-to
+    guidance, create and revise a native template and deployment through the
+    bounded authoring capability, run ainfra and native OpenTofu/Ansible checks
+    through MCP with honest pass/skip/fail results, bind the template, create
+    and review an exact plan, obtain independent approval, deploy and inspect
+    the result, then review and execute exact destroy and verify teardown;
+    repeat the lifecycle with a cost-approved disposable certified template
+    before the first beta release.
 
 ## Security acceptance
 

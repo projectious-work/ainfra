@@ -273,7 +273,7 @@ enabled = [
 # or use `aibox set addon <name>` (which also pulls in transitive `requires`).
 #
 # Addon catalog — uncomment/comment one block header to enable or remove an addon.
-# Addon catalog fingerprint: b65e85f791516b12d24140fb169a91717cd522366f8c6a09c3837e6f2a9232c5
+# Addon catalog fingerprint: fdf99ef147c6cc1b7e9885e458b3e4bb70c972a7fd0b34a670c882c2736a3b06
 # Inside an enabled addon, omitted default-enabled tools stay enabled. Uncomment
 # a tool line to pin a version, enable an off-by-default tool, or disable a default-on tool.
 #
@@ -302,13 +302,13 @@ hugo = { enabled = true } # Fast Go-based static site generator; default off; op
 
 # Documentation/docs-zensical — Zensical – Python docs site; requires python
 # [addons.docs-zensical.tools]
-# zensical = {} # Python documentation site generator; default on; options: {}, { enabled = true|false }, { version = "0.0.43" | "0.0.44" | "0.0.47" | "0.0.51" | "0.0.52" | "0.0.53" | "0.0.55" (default) or "latest" }
+# zensical = {} # Python documentation site generator; default on; options: {}, { enabled = true|false }, { version = "0.0.43" | "0.0.44" | "0.0.47" | "0.0.51" | "0.0.52" | "0.0.53" | "0.0.55" | "0.0.56" | "0.0.57" (default) or "latest" }
 
 # ---- Languages ------------------------------------------------------------
 
 # Languages/go — Go programming language toolchain
 [addons.go.tools]
-go = {} # Go compiler, tooling, and module workflow; default on; options: {}, { enabled = true|false }, { version = "1.25.12" | "1.26.3" | "1.26.4" | "1.26.5" | "1.26.6" (default) or "latest" }
+go = {} # Go compiler, tooling, and module workflow; default on; options: {}, { enabled = true|false }, { version = "1.25.12" | "1.26.3" | "1.26.4" | "1.26.5" | "1.26.6" | "1.27.0" (default) or "latest" }
 
 # Languages/go-quality — Production Go formatting, linting, vulnerability, and security tools; requires go
 [addons.go-quality.tools]
@@ -337,7 +337,7 @@ gosec = {} # Go source security analyzer; default on; options: {}, { enabled = t
 node = { version = "26" } # Node.js JavaScript and TypeScript runtime; default on; options: {}, { enabled = true|false }, { version = "20" | "22" | "24" | "26" (default) or "latest" }
 pnpm = { version = "11.10.0" } # Fast disk-efficient Node package manager; default on; options: {}, { enabled = true|false }, { version = "9" | "10" | "11.1.3" | "11.5.2" | "11.10.0" | "11.18.0" | "11.20.0" | "11.21.0" | "11.22.0" (default) or "latest" }
 # yarn = { enabled = true } # Yarn Node package manager; default off; options: {}, { enabled = true|false }, { version = "4" | "4.16.0" | "4.17.0" (default) or "latest" }
-# bun = { enabled = true } # Bun JavaScript runtime, package manager, and test runner; default off; options: {}, { enabled = true|false }, { version = "1.2" | "1.3.14" (default) or "latest" }
+# bun = { enabled = true } # Bun JavaScript runtime, package manager, and test runner; default off; options: {}, { enabled = true|false }, { version = "1.2" | "1.3.14" | "1.4.0" (default) or "latest" }
 
 # Languages/python — Python runtime with uv, poetry, or pdm
 [addons.python.tools]
@@ -345,11 +345,11 @@ python = { version = "3.14" } # Python interpreter runtime for applications and 
 uv = { version = "0.11.26" } # Fast Python package manager and virtual environment tool; default on; options: {}, { enabled = true|false }, { version = "0.7" | "0.11.10" | "0.11.11" | "0.11.15" | "0.11.19" | "0.11.26" | "0.12.0" | "0.12.5" (default) or "latest" }
 # pip = { enabled = true } # Python package installer for pip-based projects; default off; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 # poetry = { enabled = true } # Python dependency and packaging workflow manager; default off; options: {}, { enabled = true|false }, { version = "1.8" | "2.0" | "2.4.1" (default) or "latest" }
-# pdm = { enabled = true } # Python project and dependency manager using PEP standards; default off; options: {}, { enabled = true|false }, { version = "2.22" | "2.26.9" | "2.27.0" | "2.28.0" | "2.28.1" (default) or "latest" }
+# pdm = { enabled = true } # Python project and dependency manager using PEP standards; default off; options: {}, { enabled = true|false }, { version = "2.22" | "2.26.9" | "2.27.0" | "2.28.0" | "2.28.1" | "2.28.2" (default) or "latest" }
 
 # Languages/rust — Rust toolchain via rustup
 [addons.rust.tools]
-rustc = { version = "1.96.1" } # Rust compiler toolchain installed via rustup; default on; options: {}, { enabled = true|false }, { version = "1.90" | "1.91" | "1.92" | "1.93" | "1.94" | "1.94.1" | "1.96.0" | "1.96.1" | "1.97.1" (default) or "latest" }
+rustc = { version = "1.96.1" } # Rust compiler toolchain installed via rustup; default on; options: {}, { enabled = true|false }, { version = "1.90" | "1.91" | "1.92" | "1.93" | "1.94" | "1.94.1" | "1.96.0" | "1.96.1" | "1.97.1" | "1.98.0" (default) or "latest" }
 clippy = {} # Rust linter for catching common mistakes and style issues; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 rustfmt = {} # Rust code formatter; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 cargo-audit = {} # Rust dependency vulnerability scanner; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
@@ -397,6 +397,16 @@ cloudflared = {} # Cloudflare Tunnel connector and command-line client; default 
 # sqlite3 = {} # SQLite shell used to preview database schemas and tables; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 # csvkit = {} # CSV and TSV inspection utilities for tabular previews; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
+# Tools/data-visualization — Build-time Vega and Vega-Lite visualization rendering; requires node
+# [addons.data-visualization.tools]
+# vega-cli = {} # Vega SVG, PNG, and PDF command-line renderers; default on; options: {}, { enabled = true|false }, { version = "6.4.0" (default) or "latest" }
+# vega-lite = {} # Vega-Lite compiler and SVG, PNG, and PDF command-line renderers; default on; options: {}, { enabled = true|false }, { version = "6.4.3" (default) or "latest" }
+
+# Tools/diagramming — Build-time diagram rendering with D2 and Graphviz
+# [addons.diagramming.tools]
+# d2 = {} # D2 declarative diagram renderer; default on; options: {}, { enabled = true|false }, { version = "0.7.1" (default) or "latest" }
+# graphviz = {} # Graphviz graph layout and rendering commands; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
+
 # Tools/git-ui — GitHub CLI and lazygit interactive Git UI
 [addons.git-ui.tools]
 gh = {} # GitHub CLI for issues, PRs, releases, and auth; default on; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
@@ -408,17 +418,22 @@ lazygit = {} # Interactive terminal UI for Git status, commits, and branches; de
 
 # Tools/infrastructure — OpenTofu, Ansible, Packer, and optional rootless Podman
 [addons.infrastructure.tools]
-opentofu = {} # Open-source Terraform-compatible infrastructure as code CLI; default on; options: {}, { enabled = true|false }, { version = "1.9.0" | "1.12.0" | "1.12.1" | "1.12.3" | "1.12.5" (default) or "latest" }
+opentofu = {} # Open-source Terraform-compatible infrastructure as code CLI; default on; options: {}, { enabled = true|false }, { version = "1.9.0" | "1.12.0" | "1.12.1" | "1.12.3" | "1.12.5" | "1.12.6" (default) or "latest" }
 ansible = {} # Configuration management and automation engine; default on; options: {}, { enabled = true|false }, { version = "13.7.0" | "14.0.0" | "14.1.0" | "14.2.0" | "14.3.1" (default) or "latest" }
 packer = {} # Machine image build automation tool; default on; options: {}, { enabled = true|false }, { version = "1.11.2" | "1.15.3" | "1.15.4" | "1.16.0" (default) or "latest" }
 podman = { enabled = true } # Rootless container engine with Compose support; default off; options: {}, { enabled = true|false }, { version = "x.y.z" or "latest" }
 
 # Tools/kubernetes — kubectl, Helm, Kustomize, k9s
 [addons.kubernetes.tools]
-kubectl = {} # Kubernetes command-line client; default on; options: {}, { enabled = true|false }, { version = "1.36.1" | "1.36.2" | "1.36.3" (default) or "latest" }
+kubectl = {} # Kubernetes command-line client; default on; options: {}, { enabled = true|false }, { version = "1.36.1" | "1.36.2" | "1.36.3" | "1.36.4" (default) or "latest" }
 helm = {} # Kubernetes package manager for charts; default on; options: {}, { enabled = true|false }, { version = "3.17.2" | "4.2.0" | "4.2.2" | "4.2.3" | "4.2.4" (default) or "latest" }
 kustomize = {} # Kubernetes manifest overlay and patching tool; default on; options: {}, { enabled = true|false }, { version = "5.6.0" | "5.8.1" (default) or "latest" }
 # k9s = { enabled = true } # Interactive terminal UI for Kubernetes clusters; default off; options: {}, { enabled = true|false }, { version = "0.50.18" | "0.51.0" (default) or "latest" }
+
+# Tools/mermaid — Build-time Mermaid rendering with a pinned headless browser; requires node
+# [addons.mermaid.tools]
+# mermaid-cli = {} # Mermaid CLI (mmdc) for static SVG, PNG, and PDF rendering; default on; options: {}, { enabled = true|false }, { version = "11.16.0" (default) or "latest" }
+# puppeteer = {} # Pinned Puppeteer and compatible Chrome headless shell runtime; default on; options: {}, { enabled = true|false }, { version = "25.9.0" (default) or "latest" }
 
 # Tools/preview-archive — Yazi image/PDF/SVG preview helpers plus archive preview/extraction tools
 [addons.preview-archive.tools]
@@ -623,16 +638,16 @@ schema_version = "1.0.0"      # Context schema version — updated automatically
 # [customization] — color theme, shell prompt, and tmux layout
 # =============================================================================
 # Theme is applied consistently across tmux, Vim, Yazi, lazygit, and bat.
-# Theme families (34 total):
-#   Multi-variant: ayu, catppuccin, dracula, everforest, github, gruvbox,
+# Theme families (37 total):
+#   Multi-variant: ayu, borland, catppuccin, dracula, everforest, github, gruvbox,
 #     kanagawa, material, min, mono, night-owl, one-dark, projectious,
 #     rose-pine, slack, solarized, tokyo-night, vitesse, vscode, contrast,
-#     contrast-mono
+#     contrast-mono, norton, phosphor
 #   Single-mode: andromeeda, aurora-x, houston, laserwave,
 #     monokai, moonlight, nord, plastic, poimandres, red,
 #     snazzy, synthwave-84, vesper
 [customization]
-theme  = "vesper"
+theme  = "borland"
 # Light/dark variant. `auto` follows host OS appearance when detectable.
 # Single-mode families reject an incompatible explicit mode.
 # Options: auto | light | dark
@@ -645,7 +660,8 @@ mode   = "dark"
 #   tokyo-night: "storm"    vitesse: "black"
 #   projectious: "deep" | "high-contrast-dark" | "high-contrast-light"
 #   contrast, contrast-mono: "max"
-# variant = "<name>"
+#   borland, norton, phosphor: "classic" | "optimized"
+variant = "optimized"
 # Font-decoration channel: auto | full | standard | minimal | none.
 # Mono/high-contrast themes require standard or stronger; max requires full.
 emphasis = "auto"

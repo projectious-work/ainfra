@@ -138,6 +138,23 @@ Dockerfile is source and is validated, not published as an image artifact.
 17. Download published artifacts and independently verify checksums,
     signatures, `ainfra version`, and `ainfra help`.
 
+## First beta entry gate
+
+The first `v1.0.0-beta.1` release requires Phase 10, Agent-ready MCP
+workflows, to pass implementation and conformance review. Mark the phase
+`shipped` when the validated beta is published. In addition to the
+pre-release gate, retain a real MCP-client acceptance record
+showing progressive guide discovery, native template creation and revision,
+ainfra and OpenTofu/Ansible validation, template binding, reviewed planning,
+independently authorized deployment, status and evidence inspection, reviewed
+destruction, and teardown verification. The journey must include a
+provider-free fixture and a cost-approved disposable run of the certified
+template. Tool-list presence or CLI-only success is not sufficient evidence.
+
+Later roadmap phases are not beta prerequisites merely because they follow
+Phase 10. A concrete defect in the beta journey or an unmet mandatory v1
+contract still blocks the release regardless of its roadmap phase.
+
 ## Host container-validation phase
 
 Container build and runtime evidence MUST be produced by a human operator on a

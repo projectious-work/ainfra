@@ -1,0 +1,177 @@
+{
+  "archive_id": "ARCHIVE-20260924_144048-migration-applied",
+  "archive_path": "context/archives/2026/09/ARCHIVE-20260924_144048-migration-applied.tar.gz",
+  "created_at": "2026-09-24T14:40:48+00:00",
+  "entities": [
+    {
+      "apiVersion": "processkit.projectious.work/v1",
+      "body_index": "# Migration MIG-20260819_0422-RuntimeSync-aibox-runtime\n\nManaged `.aibox-home/` runtime changes from `0.32.6` to `0.33.2`.\n\n0 changed upstream, 0 conflicts, 1 new, 0 removed (1 groups affected)\n\n## Counts\n\n- unchanged: 43\n- changed-locally-only: 0\n- changed-upstream-only: 0\n- conflict: 0\n- new-upstream: 1\n- removed-upstream: 0\n\n- removed-upstream-stale: 0\n\n## Changes by group\n\n### runtime-misc\n\n**new-upstream**\n\n- `.aibox-home/.local/bin/aibox-agent-signal` -> `.aibox-home/.local/bin/aibox-agent-signal`\n",
+      "id": "MIG-20260819_0422-RuntimeSync-aibox-runtime",
+      "kind": "Migration",
+      "labels": {},
+      "member_path": "context/migrations/applied/MIG-20260819_0422-RuntimeSync-aibox-runtime.md",
+      "metadata": {
+        "created": "2026-08-19T04:22:27+00:00",
+        "id": "MIG-20260819_0422-RuntimeSync-aibox-runtime",
+        "updated": "2026-08-20T07:45:34+00:00"
+      },
+      "original_path": "context/migrations/applied/MIG-20260819_0422-RuntimeSync-aibox-runtime.md",
+      "sha256": "d71bbca3e9ce382e3ca093669eaea0808eef0cb81e66763bf8a308bc7fad4f99",
+      "spec": {
+        "affected_files": [
+          {
+            "classification": "new-upstream",
+            "path": ".local/bin/aibox-agent-signal"
+          }
+        ],
+        "affected_groups": [
+          "runtime-misc"
+        ],
+        "applied_at": "2026-08-20T07:45:34+00:00",
+        "from_version": "0.32.6",
+        "generated_at": "2026-08-19T04:22:27+00:00",
+        "generated_by": "aibox apply",
+        "progress_notes": [
+          {
+            "actor": "mcp",
+            "note": "Applied after explicit user approval during project reconciliation.",
+            "timestamp": "2026-08-20T07:45:34+00:00"
+          }
+        ],
+        "source": "aibox-runtime-home",
+        "source_url": "aibox://runtime-home",
+        "started_at": "2026-08-20T07:45:34+00:00",
+        "state": "applied",
+        "summary": "0 changed upstream, 0 conflicts, 1 new, 0 removed (1 groups affected)",
+        "to_version": "0.33.2"
+      },
+      "storage_location": "context/archives/2026/09/ARCHIVE-20260924_144048-migration-applied.tar.gz::context/migrations/applied/MIG-20260819_0422-RuntimeSync-aibox-runtime.md"
+    },
+    {
+      "apiVersion": "processkit.projectious.work/v1",
+      "body_index": "# Migration MIG-20260807_1821-ContentSync-processkit-content-sync\n\nFrom `v0.28.4` to `v0.28.5` (source: `https://github.com/projectious-work/processkit.git`).\n\n0 changed upstream, 1 conflicts, 0 new, 0 removed, 0 stale-removed (1 groups affected)\n\n## Counts\n\n- unchanged: 721\n- changed-locally-only: 0\n- changed-upstream-only: 0\n- conflict: 1\n- new-upstream: 0\n- removed-upstream: 0\n- removed-upstream-stale: 0\n\n## Changes by group\n\n### AGENTS\n\n**conflict**\n\n- `AGENTS.md` \u2192 `AGENTS.md`\n",
+      "id": "MIG-20260807_1821-ContentSync-processkit-content-sync",
+      "kind": "Migration",
+      "labels": {},
+      "member_path": "context/migrations/applied/MIG-20260807_1821-ContentSync-processkit-content-sync.md",
+      "metadata": {
+        "created": "2026-08-07T18:21:07+00:00",
+        "id": "MIG-20260807_1821-ContentSync-processkit-content-sync",
+        "updated": "2026-08-07T18:53:22+00:00"
+      },
+      "original_path": "context/migrations/applied/MIG-20260807_1821-ContentSync-processkit-content-sync.md",
+      "sha256": "3f60c97ca5c0ae4e9bb9a809d0bb1c1dc0a5d41063f64ae8f3d12593006d8dbb",
+      "spec": {
+        "affected_files": [
+          {
+            "classification": "conflict",
+            "path": "AGENTS.md"
+          }
+        ],
+        "affected_groups": [
+          "AGENTS"
+        ],
+        "applied_at": "2026-08-07T18:53:22+00:00",
+        "from_version": "v0.28.4",
+        "generated_at": "2026-08-07T18:21:07+00:00",
+        "generated_by": "aibox apply",
+        "progress_notes": [
+          {
+            "actor": "mcp",
+            "note": "Resolved AGENTS.md conflict by retaining ainfra project-specific setup/build/test commands; upstream generic docs-site command does not apply to this repository.",
+            "timestamp": "2026-08-07T18:53:22+00:00"
+          }
+        ],
+        "source": "processkit",
+        "source_url": "https://github.com/projectious-work/processkit.git",
+        "started_at": "2026-08-07T18:53:22+00:00",
+        "state": "applied",
+        "summary": "0 changed upstream, 1 conflicts, 0 new, 0 removed, 0 stale-removed (1 groups affected)",
+        "to_version": "v0.28.5"
+      },
+      "storage_location": "context/archives/2026/09/ARCHIVE-20260924_144048-migration-applied.tar.gz::context/migrations/applied/MIG-20260807_1821-ContentSync-processkit-content-sync.md"
+    },
+    {
+      "apiVersion": "processkit.projectious.work/v1",
+      "body_index": "# Migration MIG-20260807_1821-RuntimeSync-aibox-runtime\n\nManaged `.aibox-home/` runtime changes from `0.28.13` to `0.31.0`.\n\n0 changed upstream, 0 conflicts, 1 new, 0 removed (1 groups affected)\n\n## Counts\n\n- unchanged: 42\n- changed-locally-only: 0\n- changed-upstream-only: 0\n- conflict: 0\n- new-upstream: 1\n- removed-upstream: 0\n\n- removed-upstream-stale: 0\n\n## Changes by group\n\n### runtime-claude\n\n**new-upstream**\n\n- `.aibox-home/.claude/keybindings.json` -> `.aibox-home/.claude/keybindings.json`\n",
+      "id": "MIG-20260807_1821-RuntimeSync-aibox-runtime",
+      "kind": "Migration",
+      "labels": {},
+      "member_path": "context/migrations/applied/MIG-20260807_1821-RuntimeSync-aibox-runtime.md",
+      "metadata": {
+        "created": "2026-08-07T18:21:07+00:00",
+        "id": "MIG-20260807_1821-RuntimeSync-aibox-runtime",
+        "updated": "2026-08-07T18:53:22+00:00"
+      },
+      "original_path": "context/migrations/applied/MIG-20260807_1821-RuntimeSync-aibox-runtime.md",
+      "sha256": "26e9b1884557c8c1366fdf5d26441cba6754e859a1056016e328368ea9600340",
+      "spec": {
+        "affected_files": [
+          {
+            "classification": "new-upstream",
+            "path": ".claude/keybindings.json"
+          }
+        ],
+        "affected_groups": [
+          "runtime-claude"
+        ],
+        "applied_at": "2026-08-07T18:53:22+00:00",
+        "from_version": "0.28.13",
+        "generated_at": "2026-08-07T18:21:07+00:00",
+        "generated_by": "aibox apply",
+        "progress_notes": [
+          {
+            "actor": "mcp",
+            "note": "Accepted new upstream runtime keybinding at .aibox-home/.claude/keybindings.json; file is present and requires no local conflict resolution.",
+            "timestamp": "2026-08-07T18:53:22+00:00"
+          }
+        ],
+        "source": "aibox-runtime-home",
+        "source_url": "aibox://runtime-home",
+        "started_at": "2026-08-07T18:53:22+00:00",
+        "state": "applied",
+        "summary": "0 changed upstream, 0 conflicts, 1 new, 0 removed (1 groups affected)",
+        "to_version": "0.31.0"
+      },
+      "storage_location": "context/archives/2026/09/ARCHIVE-20260924_144048-migration-applied.tar.gz::context/migrations/applied/MIG-20260807_1821-RuntimeSync-aibox-runtime.md"
+    },
+    {
+      "apiVersion": "processkit.projectious.work/v1",
+      "body_index": "# Migration MIG-20260724_1655-LockBaseline\n\n`aibox.lock` schema extended in v0.25.6 to record the previously\napplied addon-tool and harness selection (DEC-20260508_1515-SilentAsh,\nBR-CLEANUP-ARCH item 1). This backfill captures the current selection\nas the baseline so the next `aibox apply` can compute a removal diff\nwhen a tool or harness is disabled.\n\nBackfilled previous_selection: 9 addon(s), 28 tool(s), 1 harness(es)\n\n## Backfilled addon selection\n\n- `audio-voice`: alsa-pulse, pulseaudio-utils, sox, sox-pulse\n- `cloudflare`: cloudflared\n- `git-ui`: gh, lazygit\n- `infrastructure`: ansible, opentofu, packer\n- `kubernetes`: helm, kubectl, kustomize\n- `node`: node, pnpm\n- `preview-archive`: chafa, entr, librsvg, mupdf, p7zip, poppler, resvg, timg\n- `preview-enhanced`: ffmpeg, ghostscript, rich\n- `python`: python, uv\n\n## Backfilled harness selection\n\n- codex\n\n## Next action\n\nAcknowledge with the migration-management skill (`/pk-resume` will\nsurface it). No code change is required \u2014 the next `aibox apply`\nwill use this baseline automatically.\n",
+      "id": "MIG-20260724_1655-LockBaseline",
+      "kind": "Migration",
+      "labels": {},
+      "member_path": "context/migrations/applied/MIG-20260724_1655-LockBaseline.md",
+      "metadata": {
+        "created": "2026-07-24T16:55:42+00:00",
+        "id": "MIG-20260724_1655-LockBaseline",
+        "updated": "2026-07-26T16:08:29+00:00"
+      },
+      "original_path": "context/migrations/applied/MIG-20260724_1655-LockBaseline.md",
+      "sha256": "4d4b570500f1cec20e571c6afeadc529467e46be15594d8f49d0d27682f0b83d",
+      "spec": {
+        "applied_at": "2026-07-26T16:08:29+00:00",
+        "generated_at": "2026-07-24T16:55:42+00:00",
+        "generated_by": "aibox apply",
+        "kind": "schema-extension",
+        "progress_notes": [
+          {
+            "actor": "mcp",
+            "note": "Acknowledged aibox.lock previous_selection baseline; no code change required.",
+            "timestamp": "2026-07-26T16:08:29+00:00"
+          }
+        ],
+        "source": "aibox-lock",
+        "source_url": "aibox://lock",
+        "started_at": "2026-07-26T16:08:29+00:00",
+        "state": "applied",
+        "summary": "Backfilled previous_selection: 9 addon(s), 28 tool(s), 1 harness(es)"
+      },
+      "storage_location": "context/archives/2026/09/ARCHIVE-20260924_144048-migration-applied.tar.gz::context/migrations/applied/MIG-20260724_1655-LockBaseline.md"
+    }
+  ],
+  "kind": "Migration",
+  "older_than_days": 30,
+  "sha256": "b7d7d435d521a1632fec3ef4dfccf28fc28dc4730f05cb9b53aed49a68a0ed82",
+  "state": "applied"
+}
