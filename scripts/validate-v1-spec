@@ -62,4 +62,11 @@ do
     "$invalid_fixture"
 done
 
+check_schema spec/schemas/v1/roadmap.schema.json \
+  spec/tests/v1/roadmap/valid-*.json
+for invalid_fixture in spec/tests/v1/roadmap/invalid-*.json
+do
+  expect_invalid spec/schemas/v1/roadmap.schema.json "$invalid_fixture"
+done
+
 echo "ainfra v1 schemas, examples, and negative format fixtures are valid"

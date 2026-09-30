@@ -28,8 +28,10 @@
                 "title": {"type": "string", "minLength": 1},
                 "summary": {"type": "string", "minLength": 1},
                 "status": {
-                  "enum": ["idea", "planned", "in_progress", "shipped"]
+                  "enum": ["idea", "planned", "in_progress", "done", "shipped", "cancelled"]
                 },
+                "release": {"type": "string", "minLength": 1},
+                "rationale": {"type": "string", "minLength": 1},
                 "devNote": {
                   "type": "string",
                   "pattern": "^dev-notes/[a-z0-9][a-z0-9./-]*\\.md$"
@@ -38,10 +40,18 @@
               "allOf": [
                 {
                   "if": {
-                    "properties": {"status": {"const": "shipped"}},
+                    "properties": {"status": {"enum": ["done", "shipped"]}},
                     "required": ["status"]
                   },
                   "then": {"required": ["devNote"]}
+                },
+                {
+                  "if": {"properties": {"status": {"const": "shipped"}}},
+                  "then": {"required": ["release"]}
+                },
+                {
+                  "if": {"properties": {"status": {"const": "cancelled"}}},
+                  "then": {"required": ["rationale"]}
                 }
               ]
             }

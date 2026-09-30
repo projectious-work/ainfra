@@ -96,8 +96,9 @@ The phased delivery sequence and potential future directions are maintained in
 the [implementation roadmap data](roadmap.yaml). Each phase ends in a usable
 vertical slice and MUST not reintroduce a meta-language. Each phase follows the
 [spec-driven development cycle](17-spec-driven-development-cycle.md) and may be
-marked shipped only after its requirement-complete conformance review and gap
-closure.
+marked `done` only after integration, requirement-complete conformance review,
+gap closure, and required documentation. `shipped` additionally requires the
+applicable release gates and availability in a named published release.
 
 ## Implementation-time selections
 

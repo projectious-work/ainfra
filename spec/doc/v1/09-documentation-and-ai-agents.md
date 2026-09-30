@@ -28,9 +28,12 @@ Every phase note identifies:
 - user and template-author documentation added or changed; and
 - unresolved follow-up work linked to issues rather than anonymous TODOs.
 
-A phase is `shipped` only when its implementation, tests, phase note, affected
-specification, and user documentation agree. The roadmap entry then links its
-`devNote`. User-facing pages MUST describe observed released behavior rather
+A phase is `done` only when its agreed scope is integrated into `v1.x-dev`
+and its implementation, acceptance tests, phase note, affected specification,
+and user documentation agree. Its `devNote` records the accepted conformance
+matrix and validation evidence. Release-wide gates may remain pending.
+`shipped` additionally requires a named published `release` and evidence that
+its applicable release gates passed. A merge alone establishes neither state. User-facing pages MUST describe observed released behavior rather
 than planned behavior. If implementation exposes a flawed specification, the
 specification is amended explicitly; documentation MUST NOT silently redefine
 the contract to match an accidental implementation.
@@ -43,10 +46,15 @@ waves, implementation conformance, and gap closure follow the
   active phase note or state why it has no phase-note impact in its review.
 - **AINFRA-DOC-011:** phase notes MUST explain decisions and observable results,
   not narrate commits or restate self-evident code.
-- **AINFRA-DOC-012:** a roadmap phase with status `shipped` MUST reference an
+- **AINFRA-DOC-012:** a roadmap phase with status `done` or `shipped` MUST reference an
   existing checked-in `dev-notes/` file.
 - **AINFRA-DOC-013:** release review MUST verify code, tests, phase notes,
   specification, user documentation, examples, and schemas for consistency.
+
+- **AINFRA-DOC-014:** public roadmaps MUST label unreleased completed phases
+  **Done — awaiting release**, distinguish them from `shipped`, and name the
+  published release for every shipped phase. An explicitly internal foundation
+  MAY remain **Done — internal foundation** without a separate release claim.
 
 ## Required user documentation
 

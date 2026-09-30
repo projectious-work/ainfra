@@ -16,10 +16,10 @@
 <div class="ainfra-roadmap">
   <dl class="ainfra-roadmap__summary" aria-label="Roadmap summary">
     <div><dt>Total</dt><dd>{{ $counts.Get "total" }}</dd></div>
-    {{- range slice "shipped" "in_progress" "planned" "idea" -}}
+    {{- range slice "shipped" "done" "in_progress" "planned" "idea" "cancelled" -}}
       {{- $count := $counts.Get . -}}
       {{- if $count -}}
-        <div><dt>{{ . | humanize }}</dt><dd>{{ $count }}</dd></div>
+        <div><dt>{{ if eq . "done" }}Done — awaiting release{{ else }}{{ . | humanize }}{{ end }}</dt><dd>{{ $count }}</dd></div>
       {{- end -}}
     {{- end -}}
   </dl>
@@ -39,7 +39,7 @@
             {{- $symbol := "○" -}}
             {{- if eq $status "in_progress" -}}
               {{- $symbol = "●" -}}
-            {{- else if or (eq $status "shipped") (eq $status "completed") -}}
+            {{- else if or (eq $status "shipped") (eq $status "done") -}}
               {{- $symbol = "✓" -}}
             {{- else if eq $status "idea" -}}
               {{- $symbol = "◇" -}}
@@ -51,11 +51,14 @@
                   <span>Phase {{ .id }}</span>
                   <span class="badge ainfra-roadmap__status">
                     <span aria-hidden="true">{{ $symbol }}</span>
-                    {{ $status | humanize }}
+                    {{ if eq $status "done" }}Done — awaiting release{{ else }}{{ $status | humanize }}{{ end }}
                   </span>
                 </div>
                 <h3 class="step__title">{{ .title }}</h3>
                 <p>{{ .summary }}</p>
+                {{- with .release -}}
+                  <p>Available in <a href="https://github.com/projectious-work/ainfra/releases/tag/{{ . }}">{{ . }}</a></p>
+                {{- end -}}
                 {{- with .devNote -}}
                   <a href="https://github.com/projectious-work/ainfra/blob/v1.x-dev/{{ . }}">
                     Read phase note →

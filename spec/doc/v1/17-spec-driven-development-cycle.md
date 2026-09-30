@@ -165,7 +165,7 @@ implementation correction, added evidence, documentation correction,
 controlled specification change, authorized roadmap deferral, or blocked phase.
 Repeat affected verification after correction.
 
-A phase becomes `shipped` only when:
+A phase becomes `done` only when:
 
 - implementation is integrated and required checks pass;
 - no unexplained skips remain;
@@ -173,14 +173,29 @@ A phase becomes `shipped` only when:
 - specification, schemas, and examples reflect implemented behavior;
 - user documentation describes observed behavior;
 - the phase note records decisions, deviations, and validation;
-- roadmap, changelog, and release material are updated; and
+- roadmap and applicable changelog entries are updated; and
 - follow-up work has explicit ownership and location.
+
+A phase becomes `shipped` only after those completion conditions, the
+applicable release gates, and publication are complete. The roadmap names the
+published `release`; its phase note links release and conformance evidence.
+A pending release alone does not keep a completed phase `in_progress`.
+Multiple phases may become `done` before a shared release gate and ship together.
+Implementation prerequisites may use `done` or `shipped` outcomes; prerequisites
+requiring released availability MUST explicitly require `shipped` in the
+consuming phase's acceptance criteria. Internal foundations may remain `done`
+when no separate release claim applies.
 
 - **AINFRA-DEV-010:** a gap report without correction, authorized deferral, or
   an explicit blocked state MUST NOT be treated as phase completion.
 - **AINFRA-DEV-011:** roadmap status MUST NOT change to `shipped` until code,
   tests, specification, documentation, phase evidence, and release identity
   agree.
+
+- **AINFRA-DEV-013:** roadmap status MUST NOT change to `done` until the
+  item-level completion conditions above are evidenced. Neither a merge nor
+  a passing subset of tests substitutes for accepted conformance. A phase
+  whose completion evidence no longer holds returns to `in_progress`.
 
 ## Retrospective and cycle record
 

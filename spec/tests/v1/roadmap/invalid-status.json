@@ -1,0 +1,17 @@
+{
+  "groups": [
+    {
+      "label": "Fixture",
+      "note": "Validation only",
+      "phases": [
+        {
+          "id": "99",
+          "title": "Fixture",
+          "summary": "Roadmap status validation fixture",
+          "status": "completed",
+          "devNote": "dev-notes/phase-00-product-specification.md"
+        }
+      ]
+    }
+  ]
+}

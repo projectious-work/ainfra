@@ -57,8 +57,11 @@ Roadmap data:
 
 Roadmap status has commitment semantics: `planned` means intended work with an
 accepted place in the delivery sequence; `idea` is deliberately non-committal
-and may be promoted, reshaped, or removed after validation. `in_progress` and
-`shipped` describe implementation evidence rather than aspiration.
+and may be promoted, reshaped, or removed after validation. `in_progress` means
+active implementation; `done` means integrated, validated, documented completion;
+`shipped` additionally means availability in a named published release with
+release evidence. `cancelled` requires a rationale. Implementation completion
+can precede a shared release gate spanning multiple phases.
 
 Reference diagrams:
 
