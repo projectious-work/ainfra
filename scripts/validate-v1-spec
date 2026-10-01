@@ -69,11 +69,15 @@ for invalid_fixture in spec/tests/v1/roadmap/invalid-*.json
 do
   expect_invalid spec/schemas/v1/roadmap.schema.json "$invalid_fixture"
 done
-if uv run --frozen --offline python scripts/validate-roadmap.py \
-  spec/tests/v1/roadmap/reference-absent-note.json >/dev/null 2>&1
-then
-  echo "expected absent development note reference to fail" >&2
-  exit 1
-fi
+for invalid_reference in spec/tests/v1/roadmap/reference-*.json
+do
+  check_schema spec/schemas/v1/roadmap.schema.json "$invalid_reference"
+  if uv run --frozen --offline python scripts/validate-roadmap.py \
+    "$invalid_reference" >/dev/null 2>&1
+  then
+    echo "expected roadmap reference validation to fail: $invalid_reference" >&2
+    exit 1
+  fi
+done
 
 echo "ainfra v1 schemas, examples, and negative format fixtures are valid"

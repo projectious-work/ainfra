@@ -1,0 +1,8 @@
+{
+  "groups": [{
+    "label": "Fixture", "note": "Validation only", "phases": [
+      {"id": "99", "title": "First", "summary": "First phase", "status": "planned"},
+      {"id": "99", "title": "Second", "summary": "Second phase", "status": "planned"}
+    ]
+  }]
+}
