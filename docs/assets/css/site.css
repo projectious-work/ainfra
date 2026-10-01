@@ -99,7 +99,7 @@
 }
 
 .status-shipped .ainfra-roadmap__status,
-.status-completed .ainfra-roadmap__status {
+.status-done .ainfra-roadmap__status {
   color: var(--color-success-fg);
   background: var(--color-success-bg);
 }

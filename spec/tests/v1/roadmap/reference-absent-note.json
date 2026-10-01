@@ -1,0 +1,8 @@
+{
+  "groups": [{
+    "label": "Fixture", "note": "Validation only", "phases": [{
+      "id": "99", "title": "Fixture", "summary": "Absent note fixture",
+      "status": "done", "devNote": "dev-notes/absent-phase-note.md"
+    }]
+  }]
+}

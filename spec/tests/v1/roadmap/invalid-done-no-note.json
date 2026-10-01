@@ -1,0 +1,16 @@
+{
+  "groups": [
+    {
+      "label": "Fixture",
+      "note": "Validation only",
+      "phases": [
+        {
+          "id": "99",
+          "title": "Fixture",
+          "summary": "Roadmap status validation fixture",
+          "status": "done"
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,7 @@ groups:
           Finalize the v1 boundary, native-file contracts, security model, Go
           architecture, schemas, examples, and acceptance journeys.
         status: shipped
+        release: v1.0.0-alpha.1
         devNote: dev-notes/phase-00-product-specification.md
       - id: "1"
         title: Go project foundation
@@ -16,6 +17,7 @@ groups:
           filesystem boundaries, test fixtures, developer tools, and
           Linux/macOS builds.
         status: shipped
+        release: v1.0.0-alpha.1
         devNote: dev-notes/phase-01-go-project-foundation.md
       - id: "2"
         title: Contracts and doctor
@@ -24,6 +26,7 @@ groups:
           ainfra-owned contracts, and report stable text and JSON diagnostics
           plus safe local reconciliation through one doctor surface.
         status: shipped
+        release: v1.0.0-alpha.2
         devNote: dev-notes/phase-02-contracts-and-doctor.md
       - id: "3"
         title: Immutable template sources
@@ -32,6 +35,7 @@ groups:
           digests, materialize contained workspaces, and detect source or cache
           drift.
         status: shipped
+        release: v1.0.0-alpha.3
         devNote: dev-notes/phase-03-immutable-template-sources.md
 
   - label: Infrastructure lifecycle
@@ -43,6 +47,7 @@ groups:
           Initialize native OpenTofu configuration, create bound saved plans,
           apply only the reviewed plan, and record durable run evidence.
         status: shipped
+        release: v1.0.0-alpha.4
         devNote: dev-notes/phase-04-reviewed-opentofu-plans.md
       - id: "5"
         title: Output, inventory, and Ansible
@@ -51,6 +56,7 @@ groups:
           inventory, run Ansible with native variables, and verify zero-change
           convergence.
         status: shipped
+        release: v1.0.0-alpha.5
         devNote: dev-notes/phase-05-output-inventory-and-ansible.md
       - id: "6"
         title: Destruction, recovery, and hardening
@@ -59,6 +65,7 @@ groups:
           recovery, redaction, binding checks, cache defenses, and negative
           security fixtures.
         status: shipped
+        release: v1.0.0-alpha.6
         devNote: dev-notes/phase-06-destruction-recovery-hardening.md
 
   - label: Automation interface
@@ -72,6 +79,7 @@ groups:
           and plan-bound lifecycle mutations through the same typed application
           use cases, authorization, locking, evidence, and recovery contracts.
         status: shipped
+        release: v1.0.0-alpha.7
         devNote: dev-notes/phase-07-guarded-mcp-server-mode.md
 
   - label: Template authoring
@@ -84,6 +92,7 @@ groups:
           guidance, then prove through clean-room authoring that a new template
           can be created without reading ainfra implementation source.
         status: shipped
+        release: v1.0.0-alpha.8
         devNote: dev-notes/phase-08-template-authoring-conformance.md
 
   - label: Template coverage
@@ -95,6 +104,7 @@ groups:
           Ship and certify the first Kubernetes-ready template with private
           access, tunneled ingress, and temporary administrative access.
         status: shipped
+        release: v1.0.0-alpha.9
         devNote: dev-notes/phase-09-initial-production-template.md
       - id: "10"
         title: Verifiable consumer target handover

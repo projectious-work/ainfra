@@ -46,6 +46,7 @@ check_schema spec/schemas/v1/plan-record.schema.json \
   spec/examples/v1/plan-record.json
 check_schema spec/schemas/v1/roadmap.schema.json \
   spec/doc/v1/roadmap.yaml
+uv run --frozen --offline python scripts/validate-roadmap.py
 check_schema spec/schemas/v1/run-record.schema.json \
   spec/examples/v1/run-record.json
 check_schema spec/schemas/v1/standard-output.schema.json \
@@ -60,6 +61,23 @@ do
   expect_invalid \
     spec/schemas/v1/machine-output.schema.json \
     "$invalid_fixture"
+done
+
+check_schema spec/schemas/v1/roadmap.schema.json \
+  spec/tests/v1/roadmap/valid-*.json
+for invalid_fixture in spec/tests/v1/roadmap/invalid-*.json
+do
+  expect_invalid spec/schemas/v1/roadmap.schema.json "$invalid_fixture"
+done
+for invalid_reference in spec/tests/v1/roadmap/reference-*.json
+do
+  check_schema spec/schemas/v1/roadmap.schema.json "$invalid_reference"
+  if uv run --frozen --offline python scripts/validate-roadmap.py \
+    "$invalid_reference" >/dev/null 2>&1
+  then
+    echo "expected roadmap reference validation to fail: $invalid_reference" >&2
+    exit 1
+  fi
 done
 
 echo "ainfra v1 schemas, examples, and negative format fixtures are valid"
