@@ -97,6 +97,16 @@ for AI agents creating templates. It SHOULD contain:
 - **AINFRA-DOC-005:** an agent MUST be told not to claim live support without
   disposable lifecycle evidence.
 
+## Writing style
+
+User documentation follows the *Diátaxis Framework*: tutorials, how-to
+guides, reference, and explanation stay visibly distinct. Prose follows
+*Plain English according to Strunk & White*.
+
+- **AINFRA-DOC-014:** documentation, CLI and MCP messages, release notes, and
+  commit messages MUST use the specification's terms (Ubiquitous Language)
+  and MUST NOT introduce synonyms for specified concepts.
+
 ## Documentation quality gates
 
 - Markdown formatting/style check;

@@ -11,6 +11,14 @@
 - package tests alongside code and black-box behavior tests at boundaries;
 - no generic `util`, `common`, `manager`, or `helpers` dumping grounds.
 
+The structure realizes *Hexagonal Architecture* at the system boundary
+(consumer-defined ports in `app` and domain packages; adapters such as
+`tofu`, `ansible`, `source`, and `exec`; wiring in `cmd/ainfra`)
+and *Clean Architecture* inside: lifecycle rules live in domain types and
+use cases, while CLI, MCP, child tools, and files are details behind
+consumer-defined interfaces. Terms in *italics* are
+[Semantic Anchors](https://llm-coding.github.io/Semantic-Anchors/).
+
 See [package-dependencies.svg](package-dependencies.svg).
 
 ## Proposed source layout
@@ -234,3 +242,15 @@ covered. Simplicity wins over throughput.
 A package whose purpose cannot be explained in one sentence, a file that mixes
 multiple use cases, or an interface with unrelated methods triggers design
 review. These are review signals, not arbitrary line-count failures.
+
+## Architecture documentation
+
+Architecture documentation follows *arc42*: at minimum context and scope,
+building blocks, crosscutting concepts, architecture decisions, and risks and
+technical debt. Diagrams follow *C4-Diagrams* (context and container views;
+component views where package structure is not obvious), like
+[architecture-overview.svg](architecture-overview.svg). Architecture decisions
+use *ADR according to Nygard* structure — context, decision, consequences —
+in the project decision store; superseded decisions are marked, never deleted.
+Before removing a boundary, check, or rule whose purpose is unclear, find the
+decision that introduced it.

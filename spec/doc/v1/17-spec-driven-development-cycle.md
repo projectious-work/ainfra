@@ -34,7 +34,9 @@ compatibility, or ownership ambiguity remains unresolved.
 ## Requirement, dependency, and risk inventory
 
 Create a traceability matrix mapping each applicable normative requirement to
-planned work and expected evidence. Classify requirements by package or
+planned work, expected evidence, and verification method (black-box journey,
+unit or component test, or manual check); end-to-end journeys cover main paths
+and security-critical cases. Classify requirements by package or
 component, public interface, security, compatibility, persistence, recovery,
 concurrency, external process, documentation, test layer, and ordering.
 
@@ -64,10 +66,10 @@ The plan covers conformance and evidence work, not only production code.
 
 ## Agent and model assignment
 
-Use the maximum useful parallelism justified by the task graph and integration
-cost. Shared interfaces and ownership boundaries are established before
-parallel work starts. Each work package has exclusive or explicitly coordinated
-file ownership and a defined output contract.
+Use the parallelism justified by the task graph and integration cost, within
+the limits of AINFRA-DEV-013. Shared interfaces and ownership boundaries are
+established before parallel work starts. Each work package has exclusive or
+explicitly coordinated file ownership and a defined output contract.
 
 Use cost-efficient models for bounded inventories, mechanical implementation,
 fixtures, and routine checks. Use deeper reasoning for architecture, security,
@@ -80,6 +82,15 @@ is responsible for integration across all packages.
   owner.
 - **AINFRA-DEV-005:** model selection MUST consider task complexity, risk, and
   cost rather than applying one model class to every work package.
+- **AINFRA-DEV-013:** at most 3 sub-agents MAY run at once; larger work runs in
+  waves. The primary agent keeps concept, core implementation, integration,
+  and review of delegated results.
+- **AINFRA-DEV-014:** a red check gets at most 1 rerun; an infrastructure-only
+  failure is reported once with evidence; fixes are pushed in batches; agents
+  MUST NOT spend turns polling.
+- **AINFRA-DEV-015:** agent replies lead with the result or next action, number
+  multi-step work, and end with one next action; personal output styles are
+  opt-in through the person's user-level agent instructions.
 
 ## Independent plan-conformance review
 
@@ -106,6 +117,12 @@ unjustified exclusions. Findings amend the plan before approval.
 
 - **AINFRA-DEV-006:** implementation MUST NOT start until the revised plan has
   complete requirement disposition and an accepted conformance review.
+- **AINFRA-DEV-016:** the reviewer MUST be a different agent, model, or person
+  than the author and MUST NOT receive the author's reasoning. A review gate
+  runs at most 2 rounds; afterwards the integration owner decides open points
+  against the baseline and records each decision. An unavailable reviewer
+  blocks the gate; the gate is never skipped, and the reviewer, model, or
+  provider is never switched without explicit authorization.
 
 ## Controlled implementation waves
 
@@ -117,6 +134,16 @@ after each wave and resolve interface drift before dependent work continues.
 Each work package reports requirements addressed, files changed, tests run,
 deviations, remaining risks, documentation impact, and proposed baseline
 changes. Implementers do not expand scope silently.
+
+- **AINFRA-DEV-017:** acceptance journeys for user-visible behavior MUST be
+  derived from the baseline by an author who does not read the
+  implementation; the implementer MUST NOT see them before integration. When a
+  journey contradicts the baseline, the baseline wins and the journey is
+  corrected with recorded rationale.
+- **AINFRA-DEV-018:** a direct, narrowly scoped change request from the owner
+  MAY skip the planning round: it is implemented with the baseline and affected
+  tests updated in the same change and a one-line baseline note. Changes to
+  scope, public interfaces, security, or persistence follow the full cycle.
 
 ## Specification discoveries and changes
 

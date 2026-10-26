@@ -102,6 +102,9 @@ checked-in specification, its schemas, examples, and fixtures:
 - `DEC-20260807_1627-AmberFlute`: retain read-only MCP as the default while
   allowing explicitly enabled, independently authorized, plan-bound lifecycle
   mutations in v1 and standardize the `mcp serve --stdio` entry point.
+- Company engineering standards, revision 2026-10-26 (agent execution,
+  architecture and code design, refactoring, testing style, commit messages,
+  writing): adapted in chapters 6, 9, 10, 13, 14, and 17.
 
 This repository MUST be sufficient to implement and review v1 without access
 to external decision records. The accepted specification commit is the sole
