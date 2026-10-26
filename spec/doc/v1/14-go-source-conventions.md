@@ -183,3 +183,16 @@ logging rather than scattered domain conditionals.
 
 These are design signals, not incentives for mechanical micro-functions or
 excessive interfaces. Readability and correct boundaries are the objective.
+
+Functions keep a *Single Level of Abstraction Principle*: a use case reads as
+calls to ports and domain operations; details move into named functions.
+
+- **AINFRA-CODE-012:** a refactoring MUST name the *Code Smells* it removes and
+  the *Refactoring Catalog according to Fowler* steps it applies, secure
+  behavior with characterization tests at the public boundary first, keep
+  tests green at every commit, and use the *Mikado Method* for changes that do
+  not complete in one step. `refactor:` commits MUST NOT change behavior; a
+  diff in golden output, schemas, or examples stops the refactoring.
+- **AINFRA-CODE-013:** product code MUST NOT contain placeholder
+  implementations or dummy data; an unfinished capability returns an explicit,
+  documented unsupported diagnostic.

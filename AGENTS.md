@@ -214,6 +214,11 @@ frontmatter, code fences). Conventional Commits; never `--no-verify`.
 live in per-skill `context/skills/<name>/config/settings.toml`. PRs:
 link WorkItem ID, squash-merge, green tests before merge.
 
+v1 engineering practice is normative in `spec/doc/v1/`: development cycle,
+agent limits, and review gates (chapter 17), *Hexagonal Architecture* with a
+*Clean Architecture* core (chapter 6), *TDD, Chicago School* tests (chapter
+13), refactoring rules (chapter 14), and commit messages (chapter 10).
+
 ## Team
 
 51-role catalog under `context/roles/`, with **pure-ordinal seniority**

@@ -68,6 +68,15 @@ the fix is separately forward-ported to affected newer majors. A
 `vX.x-maintenance` branch is created from the latest stable vX tag only when a
 newer major is stable and major X remains explicitly supported.
 
+- **AINFRA-REL-012:** commit messages and squash-merge titles MUST follow
+  *Conventional Commits*; types map to changelog sections and to the
+  Semantic Versioning bump, and `!` or a `BREAKING CHANGE:` footer marks a
+  breaking change.
+- **AINFRA-REL-013:** after every merge into `v1.x-dev`, the author MUST check
+  the verification of the merge commit; a red `v1.x-dev` MUST be fixed forward
+  before new work builds on it. Intentionally failing suites of open changes
+  MUST NOT turn `v1.x-dev` red.
+
 ## Changelog
 
 `CHANGELOG.md` follows Keep a Changelog structure:

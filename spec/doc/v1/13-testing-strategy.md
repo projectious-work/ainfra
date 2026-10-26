@@ -23,9 +23,15 @@ mirror implementation structure.
 | Real-tool integration | CLI adapters | Pinned local OpenTofu and Ansible Runner | Prove supported child-tool contracts without cloud infrastructure. |
 | Disposable end to end | Complete certified template | Explicit credentials and cost approval | Prove the complete create, configure, verify, and destroy lifecycle. |
 
-Each higher layer is smaller than the layer below it. End-to-end tests do not
-replace focused tests: they are slower, harder to diagnose, and cannot cover
-all negative paths economically.
+Each higher layer is smaller than the layer below it (*Testing Pyramid*).
+End-to-end tests do not replace focused tests: they are slower, harder to
+diagnose, and cannot cover all negative paths economically.
+
+- **AINFRA-TEST-019:** unit and component tests MUST follow *TDD, Chicago
+  School*: they assert results and state, use real collaborators inside the
+  core, and replace only replaceable boundaries — filesystem, clock, ID
+  generation, environment, and subprocesses — with fakes named per *Test
+  Doubles (Meszaros)*. Tests MUST NOT assert internal call sequences.
 
 ## Unit tests
 
